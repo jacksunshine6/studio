@@ -47,7 +47,10 @@ import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -158,8 +161,13 @@ public class IdeMenuBar extends JMenuBar implements IdeEventQueue.EventDispatche
 
   @Override
   public void menuSelectionChanged(boolean isIncluded) {
-    if (!getSelectionModel().isSelected()) return;
-    if (myState == State.COLLAPSED) {
+    if (!isIncluded && myState == State.TEMPORARY_EXPANDED) {
+      myActivated = false;
+      setState(State.COLLAPSING);
+      restartAnimator();
+      return;
+    }
+    if (isIncluded && myState == State.COLLAPSED) {
       myActivated = true;
       setState(State.TEMPORARY_EXPANDED);
       revalidate();
@@ -371,7 +379,7 @@ public class IdeMenuBar extends JMenuBar implements IdeEventQueue.EventDispatche
   @Override
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);
-    if (UIUtil.isUnderDarcula()) {
+    if (UIUtil.isUnderDarcula() || UIUtil.isUnderIntelliJLaF()) {
       g.setColor(UIManager.getColor("MenuItem.background"));
       g.fillRect(0, 0, getWidth(), getHeight());
     }

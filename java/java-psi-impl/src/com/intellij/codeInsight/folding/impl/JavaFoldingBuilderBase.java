@@ -79,16 +79,22 @@ public abstract class JavaFoldingBuilderBase extends CustomFoldingBuilder implem
       if (statement instanceof PsiReturnStatement) {
         return ((PsiReturnStatement)statement).getReturnValue() instanceof PsiReferenceExpression;
       }
+      return false;
     }
-    else if (PropertyUtil.isSimplePropertySetter(method)) {
-      if (statements.length > 1 && !(statements[1] instanceof PsiReturnStatement)) return false;
-      if (statement instanceof PsiExpressionStatement) {
-        PsiExpression expr = ((PsiExpressionStatement)statement).getExpression();
-        if (expr instanceof PsiAssignmentExpression) {
-          PsiExpression lhs = ((PsiAssignmentExpression)expr).getLExpression();
-          PsiExpression rhs = ((PsiAssignmentExpression)expr).getRExpression();
-          return lhs instanceof PsiReferenceExpression && rhs instanceof PsiReferenceExpression && !((PsiReferenceExpression)rhs).isQualified();
-        }
+
+    // builder-style setter?
+    if (statements.length > 1 && !(statements[1] instanceof PsiReturnStatement)) return false;
+    
+    // any setter? 
+    if (statement instanceof PsiExpressionStatement) {
+      PsiExpression expr = ((PsiExpressionStatement)statement).getExpression();
+      if (expr instanceof PsiAssignmentExpression) {
+        PsiExpression lhs = ((PsiAssignmentExpression)expr).getLExpression();
+        PsiExpression rhs = ((PsiAssignmentExpression)expr).getRExpression();
+        return lhs instanceof PsiReferenceExpression && 
+               rhs instanceof PsiReferenceExpression && 
+               !((PsiReferenceExpression)rhs).isQualified() && 
+               PropertyUtil.isSimplePropertySetter(method); // last check because it can perform long return type resolve
       }
     }
     return false;
@@ -144,7 +150,7 @@ public abstract class JavaFoldingBuilderBase extends CustomFoldingBuilder implem
   }
 
   public static boolean hasErrorElementsNearby(final PsiFile file, int startOffset, int endOffset) {
-    endOffset = CharArrayUtil.shiftForward(file.getText(), endOffset, " \t\n");
+    endOffset = CharArrayUtil.shiftForward(file.getViewProvider().getContents(), endOffset, " \t\n");
     for (PsiElement element : CollectHighlightsUtil.getElementsInRange(file, startOffset, endOffset)) {
       if (element instanceof PsiErrorElement) {
         return true;
