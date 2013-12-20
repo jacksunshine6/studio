@@ -15,8 +15,7 @@
  */
 package org.jetbrains.plugins.gradle.service.project;
 
-import com.google.common.collect.Maps;
-import com.intellij.util.containers.ContainerUtil;
+import com.intellij.openapi.externalSystem.model.ExternalSystemException;
 import org.gradle.tooling.BuildAction;
 import org.gradle.tooling.BuildController;
 import org.gradle.tooling.model.build.BuildEnvironment;
@@ -27,6 +26,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,7 +37,7 @@ import java.util.Set;
  */
 public class ProjectImportAction implements BuildAction<ProjectImportAction.AllModels>, Serializable {
 
-  private final Set<Class> myExtraProjectModelClasses = ContainerUtil.newHashSet();
+  private final Set<Class> myExtraProjectModelClasses = new HashSet<Class>();
   private final boolean myIsPreviewMode;
 
   public ProjectImportAction(boolean isPreviewMode) {
@@ -62,16 +63,25 @@ public class ProjectImportAction implements BuildAction<ProjectImportAction.AllM
 
     for (IdeaModule module : ideaProject.getModules()) {
       for (Class aClass : myExtraProjectModelClasses) {
-        Object extraProject = controller.findModel(module, aClass);
-        if (extraProject == null) continue;
-        allModels.addExtraProject(extraProject, aClass, module);
+        try {
+          Object extraProject = controller.findModel(module, aClass);
+          if (extraProject == null) continue;
+          allModels.addExtraProject(extraProject, aClass, module);
+        }
+        catch (Exception e) {
+          // do not fail project import in a preview mode
+          if (!myIsPreviewMode) {
+            throw new ExternalSystemException(e);
+          }
+        }
       }
     }
+
     return allModels;
   }
 
   public static class AllModels implements Serializable {
-    @NotNull private final Map<String, Object> projectsByPath = Maps.newHashMap();
+    @NotNull private final Map<String, Object> projectsByPath = new HashMap<String, Object>();
     @NotNull private final IdeaProject myIdeaProject;
     @Nullable private BuildEnvironment myBuildEnvironment;
 

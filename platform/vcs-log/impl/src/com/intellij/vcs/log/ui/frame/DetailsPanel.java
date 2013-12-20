@@ -1,13 +1,18 @@
 package com.intellij.vcs.log.ui.frame;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.util.ProgressWindow;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vcs.changes.issueLinks.IssueLinkHtmlRenderer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.BrowserHyperlinkListener;
 import com.intellij.ui.ScrollPaneFactory;
+import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBLoadingPanel;
+import com.intellij.ui.components.JBTextField;
 import com.intellij.util.text.DateFormatUtil;
+import com.intellij.util.ui.AsyncProcessIcon;
 import com.intellij.util.ui.UIUtil;
 import com.intellij.vcs.log.Hash;
 import com.intellij.vcs.log.VcsFullCommitDetails;
@@ -44,6 +49,7 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
 
   @NotNull private final RefsPanel myRefsPanel;
   @NotNull private final DataPanel myDataPanel;
+  @NotNull private final ContainingBranchesPanel myContainingBranchesPanel;
   @NotNull private final MessagePanel myMessagePanel;
   @NotNull private final JBLoadingPanel myLoadingPanel;
 
@@ -54,14 +60,16 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
 
     myRefsPanel = new RefsPanel(colorManager);
     myDataPanel = new DataPanel(logDataHolder.getProject());
+    myContainingBranchesPanel = new ContainingBranchesPanel();
     myMessagePanel = new MessagePanel();
 
     Box content = Box.createVerticalBox();
     content.add(myRefsPanel);
     content.add(myDataPanel);
+    content.add(myContainingBranchesPanel);
     content.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
 
-    myLoadingPanel = new JBLoadingPanel(new BorderLayout(), logDataHolder);
+    myLoadingPanel = new JBLoadingPanel(new BorderLayout(), logDataHolder, ProgressWindow.DEFAULT_PROGRESS_DIALOG_POSTPONE_TIME_MILLIS);
     myLoadingPanel.add(ScrollPaneFactory.createScrollPane(content));
 
     add(myLoadingPanel, STANDARD_LAYER);
@@ -82,7 +90,8 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
     }
     else {
       ((CardLayout)getLayout()).show(this, STANDARD_LAYER);
-      Hash hash = ((AbstractVcsLogTableModel)myGraphTable.getModel()).getHashAtRow(rows[0]);
+      int row = rows[0];
+      Hash hash = ((AbstractVcsLogTableModel)myGraphTable.getModel()).getHashAtRow(row);
       if (hash == null) {
         showMessage("No commits selected");
         return;
@@ -99,6 +108,12 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
         myDataPanel.setData(commitData);
         myRefsPanel.setRefs(sortRefs(hash, commitData.getRoot()));
       }
+
+      List<String> branches = null;
+      if (!(commitData instanceof LoadingDetails)) {
+        branches = myLogDataHolder.getContainingBranchesGetter().requestContainingBranches(commitData.getRoot(), hash);
+      }
+      myContainingBranchesPanel.setBranches(branches);
     }
   }
 
@@ -123,6 +138,7 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
       setEditable(false);
       myProject = project;
       addHyperlinkListener(new BrowserHyperlinkListener());
+      setOpaque(false);
     }
 
     void setData(@Nullable VcsFullCommitDetails commit) {
@@ -151,19 +167,59 @@ class DetailsPanel extends JPanel implements ListSelectionListener {
       String authorText = commit.getAuthor().getName() + " at " + DateFormatUtil.formatDateTime(commit.getAuthorTime());
       if (!commit.getAuthor().equals(commit.getCommitter())) {
         String commitTime;
-        if (commit.getCommitTime() != commit.getAuthorTime()) {
-          commitTime = " at " + DateFormatUtil.formatDateTime(commit.getCommitTime());
+        if (commit.getAuthorTime() != commit.getTime()) {
+          commitTime = " at " + DateFormatUtil.formatDateTime(commit.getTime());
         }
         else {
           commitTime = "";
         }
         authorText += " (committed by " + commit.getCommitter().getName() + commitTime + ")";
       }
-      else if (commit.getCommitTime() != commit.getAuthorTime()) {
-        authorText += " (committed at " + DateFormatUtil.formatDateTime(commit.getCommitTime()) + ")";
+      else if (commit.getAuthorTime() != commit.getTime()) {
+        authorText += " (committed at " + DateFormatUtil.formatDateTime(commit.getTime()) + ")";
       }
       return authorText;
     }
+  }
+
+  private static class ContainingBranchesPanel extends JPanel {
+
+    private final JComponent myLoadingIcon;
+    private final JTextField myBranchesList;
+
+    ContainingBranchesPanel() {
+      JLabel label = new JBLabel("Contained in branches: ");
+      label.setFont(label.getFont().deriveFont(Font.ITALIC));
+      myLoadingIcon = new AsyncProcessIcon("Loading...");
+      myBranchesList = new JBTextField("");
+      myBranchesList.setEditable(false);
+      myBranchesList.setBorder(null);
+
+      setOpaque(false);
+      setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+      add(label);
+      add(myLoadingIcon);
+      add(myBranchesList);
+      add(Box.createHorizontalGlue());
+    }
+
+    void setBranches(@Nullable List<String> branches) {
+      if (branches == null) {
+        myLoadingIcon.setVisible(true);
+        myBranchesList.setVisible(false);
+      }
+      else {
+        myLoadingIcon.setVisible(false);
+        myBranchesList.setVisible(true);
+        myBranchesList.setText(getContainedBranchesText(branches));
+      }
+    }
+
+    @NotNull
+    private static String getContainedBranchesText(@NotNull List<String> branches) {
+      return StringUtil.join(branches, ", ");
+    }
+
   }
 
   private static class RefsPanel extends JPanel {

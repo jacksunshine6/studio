@@ -1176,20 +1176,11 @@ public class FileUtil extends FileUtilRt {
     return null;
   }
 
-  /**
-   * @deprecated use {@linkplain #isAbsolute(String)} (to remove in IDEA 13)
-   */
-  @SuppressWarnings("UnusedDeclaration")
-  public static boolean isAbsoluteFilePath(String path) {
-    return isAbsolute(path);
-  }
-
-  public static boolean isAbsolutePlatformIndependent(String path) {
+  public static boolean isAbsolutePlatformIndependent(@NotNull String path) {
     return isUnixAbsolutePath(path) || isWindowsAbsolutePath(path);
   }
 
-
-  public static boolean isUnixAbsolutePath(String path) {
+  public static boolean isUnixAbsolutePath(@NotNull String path) {
     return path.startsWith("/");
   }
 
@@ -1410,5 +1401,41 @@ public class FileUtil extends FileUtilRt {
     }
     final String name = file.getName();
     return StringUtil.endsWithIgnoreCase(name, ".jar") || StringUtil.endsWithIgnoreCase(name, ".zip");
+  }
+
+  public static boolean visitFiles(@NotNull File root, @NotNull Processor<File> processor) {
+    if (!processor.process(root)) {
+      return false;
+    }
+
+    File[] children = root.listFiles();
+    if (children != null) {
+      for (File child : children) {
+        if (!visitFiles(child, processor)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Like {@link Properties#load(java.io.Reader)}, but preserves the order of key/value pairs.
+   */
+  @NotNull
+  public static Map<String, String> loadProperties(@NotNull Reader reader) throws IOException {
+    final Map<String, String> map = ContainerUtil.newLinkedHashMap();
+
+    new Properties() {
+      @Override
+      public synchronized Object put(Object key, Object value) {
+        map.put(String.valueOf(key), String.valueOf(value));
+        //noinspection UseOfPropertiesAsHashtable
+        return super.put(key, value);
+      }
+    }.load(reader);
+
+    return map;
   }
 }

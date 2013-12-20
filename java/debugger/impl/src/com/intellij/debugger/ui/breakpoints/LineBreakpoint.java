@@ -72,7 +72,7 @@ public class LineBreakpoint extends BreakpointWithHighlighter {
   private static final Logger LOG = Logger.getInstance("#com.intellij.debugger.ui.breakpoints.LineBreakpoint");
 
   @Nullable
-  private OwnerMethod myOwnerMethod;
+  private String myOwnerMethodName;
   public static final @NonNls Key<LineBreakpoint> CATEGORY = BreakpointCategory.lookup("line_breakpoints");
 
   protected LineBreakpoint(Project project) {
@@ -137,7 +137,7 @@ public class LineBreakpoint extends BreakpointWithHighlighter {
       final RangeHighlighter highlighter = getHighlighter();
       offset = highlighter != null? highlighter.getStartOffset() : -1;
     }
-    myOwnerMethod = findOwnerMethod(file, offset);
+    myOwnerMethodName = findOwnerMethod(file, offset);
   }
 
   @Override
@@ -210,18 +210,6 @@ public class LineBreakpoint extends BreakpointWithHighlighter {
   }
 
   protected boolean acceptLocation(DebugProcessImpl debugProcess, ReferenceType classType, Location loc) {
-    final OwnerMethod owner = myOwnerMethod;
-    if (owner != null && owner.isJavaFile) {
-      // Additional filtering applicable to java files only.
-      // Consider:
-      //  proc(()->{System.out.println("Task 1");}, ()->{System.out.println("Task 2");});  <breakpoint at this line>
-      //
-      // there will be 3 locations for this line: one corresponding to calling method, and two locations from
-      // the lambda expression implementation methods.
-      // Without additional filtering, breakpoint request will be set on each location,
-      // while we do not need to stop in lambda expressions here
-      return owner.matches(loc);
-    }
     return true;
   }
 
@@ -437,16 +425,16 @@ public class LineBreakpoint extends BreakpointWithHighlighter {
   }
 
   @Nullable
-  private static OwnerMethod findOwnerMethod(final PsiFile file, final int offset) {
+  private static String findOwnerMethod(final PsiFile file, final int offset) {
     if (offset < 0 || file instanceof JspFile) {
       return null;
     }
     if (file instanceof PsiClassOwner) {
-      return ApplicationManager.getApplication().runReadAction(new Computable<OwnerMethod>() {
+      return ApplicationManager.getApplication().runReadAction(new Computable<String>() {
         @Override
-        public OwnerMethod compute() {
+        public String compute() {
           final PsiMethod method = DebuggerUtilsEx.findPsiMethod(file, offset);
-          return method != null? new OwnerMethod(method, file instanceof PsiJavaFile) : null;
+          return method != null? method.getName() : null;
         }
       });
     }
@@ -576,28 +564,7 @@ public class LineBreakpoint extends BreakpointWithHighlighter {
 
   @Nullable
   public String getMethodName() {
-    final OwnerMethod owner = myOwnerMethod;
-    return owner != null? owner.name : null;
+    return myOwnerMethodName;
   }
 
-  private static final class OwnerMethod {
-    @NotNull
-    final String name;
-    final boolean isConstructor;
-    final boolean isJavaFile;
-
-    OwnerMethod(@NotNull PsiMethod method, boolean isJavaFile) {
-      this(method.getName(), method.isConstructor(), isJavaFile);
-    }
-
-    OwnerMethod(@NotNull String name, boolean isConstructor, boolean isJavaFile) {
-      this.name = name;
-      this.isConstructor = isConstructor;
-      this.isJavaFile = isJavaFile;
-    }
-
-    boolean matches(Location loc) {
-      return isConstructor? loc.method().isConstructor() : name.equals(loc.method().name());
-    }
-  }
 }

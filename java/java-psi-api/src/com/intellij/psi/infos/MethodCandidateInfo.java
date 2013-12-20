@@ -22,7 +22,6 @@ import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.RecursionGuard;
 import com.intellij.openapi.util.RecursionManager;
-import com.intellij.openapi.util.registry.Registry;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.resolve.DefaultParameterTypeInferencePolicy;
@@ -100,16 +99,36 @@ public class MethodCandidateInfo extends CandidateInfo{
 
   @ApplicabilityLevelConstant
   public int getPertinentApplicabilityLevel() {
-    final PsiMethod method = getElement();
-    if (method != null && method.hasTypeParameters() || myArgumentList == null || !PsiUtil.isLanguageLevel8OrHigher(myArgumentList)) {
+    if (myTypeArguments != null) {
       return getApplicabilityLevel();
     }
-    return ourOverloadGuard.doPreventingRecursion(myArgumentList, false, new Computable<Integer>() {
+
+    final PsiMethod method = getElement();
+    if (method != null && method.hasTypeParameters() || myArgumentList == null || !PsiUtil.isLanguageLevel8OrHigher(myArgumentList)) {
+      @ApplicabilityLevelConstant int level;
+      if (myArgumentTypes == null) {
+        return ApplicabilityLevel.NOT_APPLICABLE;
+      }
+      else {
+        final PsiSubstitutor substitutor = getSubstitutor();
+        Integer boxedLevel = ourOverloadGuard.doPreventingRecursion(myArgumentList, false, new Computable<Integer>() {
+          @Override
+          public Integer compute() {
+            return PsiUtil.getApplicabilityLevel(getElement(), substitutor, myArgumentTypes, myLanguageLevel);
+          }
+        });
+        level = boxedLevel != null ? boxedLevel : getApplicabilityLevel();
+      }
+      if (level > ApplicabilityLevel.NOT_APPLICABLE && !isTypeArgumentsApplicable()) level = ApplicabilityLevel.NOT_APPLICABLE;
+      return level;
+    }
+    Integer boxedLevel = ourOverloadGuard.doPreventingRecursion(myArgumentList, false, new Computable<Integer>() {
       @Override
       public Integer compute() {
         return getApplicabilityLevelInner();
       }
     });
+    return boxedLevel != null ? boxedLevel : getApplicabilityLevel();
   }
 
   public PsiSubstitutor getSiteSubstitutor() {
@@ -244,6 +263,16 @@ public class MethodCandidateInfo extends CandidateInfo{
   public static Pair<PsiMethod, PsiSubstitutor> getCurrentMethod(PsiElement context) {
     final Map<PsiElement,Pair<PsiMethod,PsiSubstitutor>> currentMethodCandidates = CURRENT_CANDIDATE.get();
     return currentMethodCandidates != null ? currentMethodCandidates.get(context) : null;
+  }
+
+  public static void updateSubstitutor(PsiElement context, PsiSubstitutor newSubstitutor) {
+    final Map<PsiElement,Pair<PsiMethod,PsiSubstitutor>> currentMethodCandidates = CURRENT_CANDIDATE.get();
+    if (currentMethodCandidates != null) {
+      final Pair<PsiMethod, PsiSubstitutor> pair = currentMethodCandidates.get(context);
+      if (pair != null) {
+        currentMethodCandidates.put(context, Pair.create(pair.first, newSubstitutor));
+      }
+    }
   }
 
   public static class ApplicabilityLevel {
