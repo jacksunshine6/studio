@@ -10,6 +10,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
@@ -41,12 +42,14 @@ public class SwingUpdaterUI implements UpdaterUI {
   private final JTextArea myConsole;
   private final JPanel myConsolePane;
 
+  private final JButton myRetryButton;
   private final JButton myCancelButton;
 
   private final ConcurrentLinkedQueue<UpdateRequest> myQueue = new ConcurrentLinkedQueue<UpdateRequest>();
   private final AtomicBoolean isCancelled = new AtomicBoolean(false);
   private final AtomicBoolean isRunning = new AtomicBoolean(false);
   private final AtomicBoolean hasError = new AtomicBoolean(false);
+  private final AtomicBoolean hasRetry = new AtomicBoolean(false);
   private final JFrame myFrame;
   private boolean myApplied;
 
@@ -71,6 +74,10 @@ public class SwingUpdaterUI implements UpdaterUI {
 
     myCancelButton = new JButton(CANCEL_BUTTON_TITLE);
 
+    myRetryButton = new JButton("Retry");
+    myRetryButton.setEnabled(false);
+    myRetryButton.setVisible(false);
+
     myConsole = new JTextArea();
     myConsole.setLineWrap(true);
     myConsole.setWrapStyleWord(true);
@@ -86,6 +93,13 @@ public class SwingUpdaterUI implements UpdaterUI {
       @Override
       public void actionPerformed(ActionEvent e) {
         doCancel();
+      }
+    });
+
+    myRetryButton.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        doRetry();
       }
     });
 
@@ -118,6 +132,7 @@ public class SwingUpdaterUI implements UpdaterUI {
     buttonsPanel.setBorder(BUTTONS_BORDER);
     buttonsPanel.setLayout(new BoxLayout(buttonsPanel, BoxLayout.X_AXIS));
     buttonsPanel.add(Box.createHorizontalGlue());
+    buttonsPanel.add(myRetryButton);
     buttonsPanel.add(myCancelButton);
 
     myProcessTitle.setText("<html>Updating " + oldBuildDesc + " to " + newBuildDesc + "...");
@@ -187,6 +202,23 @@ public class SwingUpdaterUI implements UpdaterUI {
     }
   }
 
+  private void doRetry() {
+    hasError.set(false);
+    hasRetry.set(false);
+    isCancelled.set(false);
+    myQueue.add(new UpdateRequest() {
+      @Override
+      public void perform() {
+        myConsole.setText("");
+        myConsolePane.setVisible(false);
+        myConsolePane.setPreferredSize(new Dimension(10, 200));
+        myRetryButton.setEnabled(false);
+        myCancelButton.setEnabled(true);
+      }
+    });
+    doPerform();
+  }
+
   private void doPerform() {
     isRunning.set(true);
 
@@ -204,6 +236,10 @@ public class SwingUpdaterUI implements UpdaterUI {
         finally {
           isRunning.set(false);
 
+          if (hasRetry.get()) {
+            myRetryButton.setVisible(true);
+            myRetryButton.setEnabled(true);
+          }
           if (hasError.get()) {
             startProcess("Failed to apply patch");
             setProgress(100);
@@ -345,6 +381,23 @@ public class SwingUpdaterUI implements UpdaterUI {
   @Override
   public void showError(final Throwable e) {
     hasError.set(true);
+    StringWriter w = new StringWriter();
+
+    if (e instanceof RetryException) {
+      hasRetry.set(true);
+
+      w.write("+----------------\n");
+      w.write("| A file operation failed.\n");
+      w.write("| This might be due to a file being locked by another\n");
+      w.write("| application. Please try closing any application\n");
+      w.write("| that uses the files being updated then press 'Retry'.\n");
+      w.write("+----------------\n");
+      w.write("\n\n");
+    }
+
+    e.printStackTrace(new PrintWriter(w));
+
+    final String content = w.getBuffer().toString();
 
     myQueue.add(new UpdateRequest() {
       @Override
@@ -355,9 +408,8 @@ public class SwingUpdaterUI implements UpdaterUI {
           w.write(System.getProperty("java.io.tmpdir"));
           w.write("\n\n");
         }
-        e.printStackTrace(new PrintWriter(w));
-        w.append("\n");
         myConsole.append(w.getBuffer().toString());
+        myConsole.append(content);
         if (!myConsolePane.isVisible()) {
           myConsole.setCaretPosition(0);
           myConsolePane.setVisible(true);

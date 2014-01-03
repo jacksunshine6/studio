@@ -43,7 +43,15 @@ public class DeleteAction extends PatchAction {
 
   @Override
   protected void doApply(ZipFile patchFile, File toFile) throws IOException {
-    Utils.delete(toFile);
+    try {
+      Utils.delete(toFile);
+    } catch (IOException e) {
+      if (Utils.isWindows() && toFile.exists()) {
+        throw new RetryException(e);
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
