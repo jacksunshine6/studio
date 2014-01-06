@@ -51,8 +51,11 @@ test {
 
 //---
 
-task testUI(dependsOn: jar) << {
-  println "## Running UI test"
+// Task : Tests updater create + install in the default normal case.
+// Scope: large test.
+// Running this will display the install patcher UI.
+task testUI1(dependsOn: jar) << {
+  println "## Running UI test 1"
   println "## Jar file: " + jar.archivePath.getAbsolutePath()
 
   // Create a temp dir inside the gradle build/tmp dir
@@ -77,7 +80,7 @@ task testUI(dependsOn: jar) << {
     assert !patch.exists()
 
     // call updater jar to create a diff, resulting in a patch jar.
-    println "## Invoke updater <create>"
+    println "## Invoking updater <create>"
     javaexec {
       classpath jar.archivePath
       main = "com.intellij.updater.Runner"
@@ -91,7 +94,7 @@ task testUI(dependsOn: jar) << {
     assert patch.exists()
 
     // that patch jar is self-executable. use it to update dir1 into dir2 in-place.
-    println "## Invoke updater <install>"
+    println "## Invoking updater <install>"
     javaexec {
       classpath patch
       main = "com.intellij.updater.Runner"
@@ -111,6 +114,104 @@ task testUI(dependsOn: jar) << {
     tmpDir.deleteDir()
   }
 }
+
+// Task : Tests updater create + install with 2 open files.
+// Scope: large *interactive* test.
+// On Windows, the opened files are locked and can't be deleted/overwritten.
+// On Linux/Mac, they should be writable & deletable.
+//
+// Running this will display the install patcher UI, which will fail at
+// first on Windows. After 5 seconds the open files will be closed.
+// Hitting 'retry' in the UI after this point should perform the whole
+// install operation again.
+task testUI2(dependsOn: jar) << {
+  println "## Running UI test 2"
+  println "## Jar file: " + jar.archivePath.getAbsolutePath()
+
+  // Create a temp dir inside the gradle build/tmp dir
+  //noinspection GroovyAssignabilityCheck
+  def buildTmpDir = new File(project.buildDir, "tmp");
+  def tmpDir = _createTempDir(buildTmpDir)
+  def closeableFiles = []
+
+  try {
+    // create a "from version 1" and "to version 2" directories
+    def dataDir1 = _createTestData(tmpDir, "1")
+    assert  _mkFile(dataDir1, "plugins", "v1", "myplugin.jar").exists()
+    assert !_mkFile(dataDir1, "plugins", "v2", "myplugin.jar").exists()
+    assert _getFileContent(_mkFile(dataDir1, "build.txt")).equals("AI-123.45678-1")
+
+    def dataDir2 = _createTestData(tmpDir, "2")
+    assert !_mkFile(dataDir2, "plugins", "v1", "myplugin.jar").exists()
+    assert  _mkFile(dataDir2, "plugins", "v2", "myplugin.jar").exists()
+    assert _getFileContent(_mkFile(dataDir2, "build.txt")).equals("AI-123.45678-2")
+
+    def patch    = _createFileContent(tmpDir, "patch.jar", "patch jar placeholder");
+    patch.delete()
+    assert !patch.exists()
+
+    // keep a couple files open, preventing from being deleted or replaced
+    closeableFiles << _openFile(_mkFile(dataDir1, "build.txt"))
+    closeableFiles << _openFile(_mkFile(dataDir1, "plugins", "v1", "myplugin.jar"))
+
+    // call updater jar to create a diff, resulting in a patch jar.
+    println "## Invoking updater <create>"
+    javaexec {
+      classpath jar.archivePath
+      main = "com.intellij.updater.Runner"
+      args "create"
+      args "AI-123.45678-1"
+      args "AI-123.45678-2"
+      args dataDir1.getAbsolutePath()
+      args dataDir2.getAbsolutePath()
+      args patch.getAbsolutePath()
+    }
+    assert patch.exists()
+
+    Thread.start {
+      sleep(5 * 1000) // 5 seconds
+      synchronized(closeableFiles) {
+        println "## Closing pending open files --> now click 'Retry' in Updater UI."
+        closeableFiles.each { it.close() }
+        closeableFiles.clear()
+      }
+    }
+
+    // that patch jar is self-executable. use it to update dir1 into dir2 in-place.
+    println "## Invoking updater <install>"
+    javaexec {
+      classpath patch
+      main = "com.intellij.updater.Runner"
+      args "install"
+      args "--exit0"
+      args dataDir1.getAbsolutePath()
+    }
+    // build.txt should have changed to v2
+    assert _getFileContent(_mkFile(dataDir1, "build.txt")).equals("AI-123.45678-2")
+    // plugin v1 should have been replaced by pluging v2 in the dataDir1 directory.
+    assert !_mkFile(dataDir1, "plugins", "v1", "myplugin.jar").exists()
+    assert  _mkFile(dataDir1, "plugins", "v2", "myplugin.jar").exists()
+
+
+  } finally {
+    // Cleanup on exit
+    synchronized(closeableFiles) {
+      closeableFiles.each { it.close() }
+      closeableFiles.clear()
+    }
+    tmpDir.deleteDir()
+  }
+}
+
+// Task: Test suite to run both tests above.
+task testSuite(dependsOn: [testUI1, testUI2]) << {
+}
+
+// ---- Helper methods
+
+// Convention: all local helper methods start with an underscore to clearly
+// differentiate them from groovy/gradle methods.
+
 
 // Creates a temp dir with a random name in the build/tmp directory.
 File _createTempDir(File parent) {
@@ -139,14 +240,28 @@ File _createFileContent(File parentDir, String fileName, String fileContent) thr
   return f
 }
 
+// Opens a file for writing (thus locking it on Windows) but does not close it.
+// Caller should call Closeable.close() on the returned Closeable object.
+Closeable _openFile(File file) throws IOException {
+  if (!file.exists()) throw new IOException("File not found, expected file: " + file.getName())
+  // We need to actually write to the file but not change its content so just read it
+  // then write the same thing back to it, without closing it.
+  String content = _getFileContent(file)
+  FileWriter fw = new FileWriter(file, false /*append*/)
+  fw.append(content)
+  fw.flush()
+  println("## Open file " + file.getName());
+  return fw   // file is not closed
+}
+
 // Returns the first line of the file. Thorws IOException if file does not exist.
 String _getFileContent(File file) throws IOException {
-  if (!file.exists()) throw new IOException("File not found, expected file: " + file.getName());
-  BufferedReader br = new BufferedReader(new FileReader(file));
+  if (!file.exists()) throw new IOException("File not found, expected file: " + file.getName())
+  BufferedReader br = new BufferedReader(new FileReader(file))
   try {
-    return br.readLine();
+    return br.readLine()
   } finally {
-    br.close();
+    br.close()
   }
 }
 

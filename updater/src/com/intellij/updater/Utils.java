@@ -10,6 +10,10 @@ public class Utils {
   private static final byte[] BUFFER = new byte[64 * 1024];
   private static File myTempDir;
 
+  public static boolean isWindows() {
+    return System.getProperty("os.name").startsWith("Windows");
+  }
+
   public static boolean isZipFile(String fileName) {
     return fileName.endsWith(".zip") || fileName.endsWith(".jar");
   }

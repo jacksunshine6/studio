@@ -28,7 +28,7 @@ public class UtilsTest extends TestCase {
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    mIsWindows = System.getProperty("os.name").startsWith("Windows");
+    mIsWindows = Utils.isWindows();
   }
 
   public void testDelete() throws Exception {
