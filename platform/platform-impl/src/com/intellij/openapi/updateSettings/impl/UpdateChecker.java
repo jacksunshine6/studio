@@ -745,12 +745,12 @@ public final class UpdateChecker {
 
     OutputStream out = new BufferedOutputStream(new FileOutputStream(tempFile));
     try {
-      URL requestUrl = new URL(new URL(getPatchesUrl()), fileName);
+      String requestUrl = new URL(new URL(getPatchesUrl()), fileName).toString();
       URLConnection connection;
 
       int followCount = 2;
       while(true) {
-        connection = requestUrl.openConnection();
+        connection = HttpConfigurable.getInstance().openConnection(requestUrl);
 
         if (connection instanceof HttpURLConnection) {
           HttpURLConnection hcnx = (HttpURLConnection)connection;
@@ -758,7 +758,7 @@ public final class UpdateChecker {
           if (code >= 301 && code <= 307 && --followCount >= 0) {
             String loc = hcnx.getHeaderField(HttpHeaders.LOCATION);
             if (loc != null) {
-              requestUrl = new URL(loc);
+              requestUrl = loc;
               continue;
             }
           }
