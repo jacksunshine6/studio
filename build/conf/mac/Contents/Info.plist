@@ -39,11 +39,11 @@
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleGetInfoString</key>
-    <string>@@bundle_name@@ @@version@@, build @@build@@. Copyright @@company_name@@, (c) @@min_year@@-@@max_year@@</string>
+    <string>@@bundle_name@@ EAP, build EAP. Copyright @@company_name@@, (c) @@min_year@@-@@max_year@@</string>
     <key>CFBundleShortVersionString</key>
-    <string>@@version@@</string>
+    <string>EAP</string>
     <key>CFBundleVersion</key>
-    <string>@@build@@</string>
+    <string>EAP</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <key>CFBundleHelpBookName</key>
