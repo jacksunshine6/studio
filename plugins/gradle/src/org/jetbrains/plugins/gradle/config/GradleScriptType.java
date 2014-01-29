@@ -321,6 +321,10 @@ public class GradleScriptType extends GroovyScriptType {
         }
       }
 
+      if (result == GlobalSearchScope.EMPTY_SCOPE) {
+        result = baseScope;
+      }
+
       String modulePath = module.getOptionValue(ExternalSystemConstants.LINKED_PROJECT_PATH_KEY);
       if(modulePath == null) return result;
 
