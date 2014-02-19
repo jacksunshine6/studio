@@ -165,6 +165,7 @@ public class SwingUpdaterUI implements UpdaterUI {
             Thread.sleep(100);
           }
           catch (InterruptedException e) {
+            Runner.printStackTrace(e);
             return;
           }
 
@@ -229,8 +230,10 @@ public class SwingUpdaterUI implements UpdaterUI {
           myApplied = myOperation.execute(SwingUpdaterUI.this);
         }
         catch (OperationCancelledException ignore) {
+          Runner.printStackTrace(ignore);
         }
         catch(Throwable e) {
+          Runner.printStackTrace(e);
           showError(e);
         }
         finally {

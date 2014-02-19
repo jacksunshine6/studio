@@ -36,7 +36,8 @@
         <jvmarg line="-Xmx1424m -XX:MaxPermSize=352m"/>
         <jvmarg value="-Dout=${out.dir}" />
         <jvmarg value="-DbuildNumber=${buildId}" />
-
+        <jvmarg line="-Xmx612m -XX:MaxPermSize=152m"/>
+        <sysproperty key="java.awt.headless" value="true"/>
         <arg line="&quot;-Dgant.script=@{script}&quot;"/>
         <arg line="&quot;-Dteamcity.build.tempDir=${tmp.dir}&quot;"/>
         <arg line="&quot;-Didea.test.patterns=@{test.patterns}&quot;"/>
