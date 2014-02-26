@@ -30,11 +30,11 @@ public class LibNotifyWrapper {
   private final static String message = "Looks like you have run 32-bit Java on a 64-bit version of OS " +
                                 "or just have not installed appropriate libnotify.so library";
 
-  private static boolean available = true;
+  private static boolean available = false;
 
-  static{
-    UrlClassLoader.loadPlatformLibrary("notifywrapper");
-  }
+  //static{
+  //  UrlClassLoader.loadPlatformLibrary("notifywrapper");
+  //}
 
   native private static void showNotification(final String title, final String description, final String iconPath);
 
