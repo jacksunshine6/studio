@@ -53,7 +53,7 @@
   </target>
 
   <target name="test" depends="init">
-    <call_gant script="${project.home}/build/scripts/tests.gant" test.patterns="org.jetbrains.android.*;com.android.tools.idea.*"/>
+    <call_gant script="${project.home}/build/scripts/tests.gant" test.patterns="org.jetbrains.android.*;com.android.tools.idea.*;com.google.gct.*"/>
   </target>
 
   <target name="all" depends="cleanup,build"/>
