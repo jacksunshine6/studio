@@ -19,14 +19,15 @@ apply plugin: "application"
 
 project.mainClassName = "com.intellij.updater.Runner"
 
-defaultTasks 'testUI'
+defaultTasks "testSuite"
 
 repositories {
   mavenCentral()
 }
 
 dependencies {
-  testCompile group: 'junit', name: 'junit', version: '3.+'
+  compile files("../../lib/log4j.jar")
+  testCompile group: "junit", name: "junit", version: "3.+"
 }
 
 sourceSets {
@@ -62,6 +63,7 @@ task testUI1(dependsOn: jar) << {
   //noinspection GroovyAssignabilityCheck
   def buildTmpDir = new File(project.buildDir, "tmp");
   def tmpDir = _createTempDir(buildTmpDir)
+  def logDir = _createTempDir(buildTmpDir)
 
   try {
     // create a "from version 1" and "to version 2" directories
@@ -79,10 +81,16 @@ task testUI1(dependsOn: jar) << {
     patch.delete()
     assert !patch.exists()
 
+    def logFullFile  = _mkFile(logDir, "idea_updater.log")
+    def logErrorFile = _mkFile(logDir, "idea_updater_error.log")
+    assert !logFullFile .exists()
+    assert !logErrorFile.exists()
+
     // call updater jar to create a diff, resulting in a patch jar.
     println "## Invoking updater <create>"
     javaexec {
       classpath jar.archivePath
+      classpath "../../lib/log4j.jar"
       main = "com.intellij.updater.Runner"
       args "create"
       args "AI-123.45678-1"
@@ -90,17 +98,25 @@ task testUI1(dependsOn: jar) << {
       args dataDir1.getAbsolutePath()
       args dataDir2.getAbsolutePath()
       args patch.getAbsolutePath()
+      args logDir.getAbsolutePath()
     }
     assert patch.exists()
+
+    assert logFullFile .exists()
+    assert logErrorFile.exists()    // should exist and be empty
+    assert _getFileContent(logErrorFile).equals(null)
+
 
     // that patch jar is self-executable. use it to update dir1 into dir2 in-place.
     println "## Invoking updater <install>"
     javaexec {
       classpath patch
+      classpath "../../lib/log4j.jar"
       main = "com.intellij.updater.Runner"
       args "install"
       args "--exit0"
       args dataDir1.getAbsolutePath()
+      args logDir.getAbsolutePath()
     }
     // build.txt should have changed to v2
     assert _getFileContent(_mkFile(dataDir1, "build.txt")).equals("AI-123.45678-2")
@@ -108,10 +124,14 @@ task testUI1(dependsOn: jar) << {
     assert !_mkFile(dataDir1, "plugins", "v1", "myplugin.jar").exists()
     assert  _mkFile(dataDir1, "plugins", "v2", "myplugin.jar").exists()
 
+    assert logFullFile .exists()
+    assert logErrorFile.exists()    // should exist and be empty
+    assert _getFileContent(logErrorFile).equals(null)
 
   } finally {
     // Cleanup on exit
     tmpDir.deleteDir()
+    logDir.deleteDir()
   }
 }
 
@@ -122,7 +142,7 @@ task testUI1(dependsOn: jar) << {
 //
 // Running this will display the install patcher UI, which will fail at
 // first on Windows. After 5 seconds the open files will be closed.
-// Hitting 'retry' in the UI after this point should perform the whole
+// Hitting "retry" in the UI after this point should perform the whole
 // install operation again.
 task testUI2(dependsOn: jar) << {
   println "## Running UI test 2"
@@ -132,6 +152,7 @@ task testUI2(dependsOn: jar) << {
   //noinspection GroovyAssignabilityCheck
   def buildTmpDir = new File(project.buildDir, "tmp");
   def tmpDir = _createTempDir(buildTmpDir)
+  def logDir = _createTempDir(buildTmpDir)
   def closeableFiles = []
 
   try {
@@ -150,7 +171,12 @@ task testUI2(dependsOn: jar) << {
     patch.delete()
     assert !patch.exists()
 
-    // keep a couple files open, preventing from being deleted or replaced
+    def logFullFile  = _mkFile(logDir, "idea_updater.log")
+    def logErrorFile = _mkFile(logDir, "idea_updater_error.log")
+    assert !logFullFile .exists()
+    assert !logErrorFile.exists()
+
+    // keep a couple files open, preventing them from being deleted or replaced on Windows
     closeableFiles << _openFile(_mkFile(dataDir1, "build.txt"))
     closeableFiles << _openFile(_mkFile(dataDir1, "plugins", "v1", "myplugin.jar"))
 
@@ -158,6 +184,7 @@ task testUI2(dependsOn: jar) << {
     println "## Invoking updater <create>"
     javaexec {
       classpath jar.archivePath
+      classpath "../../lib/log4j.jar"
       main = "com.intellij.updater.Runner"
       args "create"
       args "AI-123.45678-1"
@@ -165,13 +192,20 @@ task testUI2(dependsOn: jar) << {
       args dataDir1.getAbsolutePath()
       args dataDir2.getAbsolutePath()
       args patch.getAbsolutePath()
+      args logDir.getAbsolutePath()
     }
     assert patch.exists()
+
+    assert logFullFile .exists()
+    assert logErrorFile.exists()    // should exist and be empty
+    assert _getFileContent(logErrorFile).equals(null)
 
     Thread.start {
       sleep(5 * 1000) // 5 seconds
       synchronized(closeableFiles) {
+        println "##"
         println "## Closing pending open files --> now click 'Retry' in Updater UI."
+        println "##"
         closeableFiles.each { it.close() }
         closeableFiles.clear()
       }
@@ -179,12 +213,21 @@ task testUI2(dependsOn: jar) << {
 
     // that patch jar is self-executable. use it to update dir1 into dir2 in-place.
     println "## Invoking updater <install>"
+    println "##"
+    println "## Note: on Windows some files will be locked for 5 seconds and the installer"
+    println "##       window should display a 'Retry' button. This code will wait 5 seconds"
+    println "##       then unlock the files, at which point you would click that 'Retry'"
+    println "##       button and the install should continue correctly."
+    println "##"
+
     javaexec {
       classpath patch
+      classpath "../../lib/log4j.jar"
       main = "com.intellij.updater.Runner"
       args "install"
       args "--exit0"
       args dataDir1.getAbsolutePath()
+      args logDir.getAbsolutePath()
     }
     // build.txt should have changed to v2
     assert _getFileContent(_mkFile(dataDir1, "build.txt")).equals("AI-123.45678-2")
@@ -192,6 +235,14 @@ task testUI2(dependsOn: jar) << {
     assert !_mkFile(dataDir1, "plugins", "v1", "myplugin.jar").exists()
     assert  _mkFile(dataDir1, "plugins", "v2", "myplugin.jar").exists()
 
+    assert logFullFile .exists()
+    // the log error file should exist and should not be empty on Windows.
+    assert logErrorFile.exists()
+    if (System.getProperty("os.name").startsWith("Windows")) {
+      assert _getFileContent(logErrorFile) != null
+    } else {
+      assert _getFileContent(logErrorFile).equals(null)
+    }
 
   } finally {
     // Cleanup on exit
@@ -200,6 +251,7 @@ task testUI2(dependsOn: jar) << {
       closeableFiles.clear()
     }
     tmpDir.deleteDir()
+    logDir.deleteDir()
   }
 }
 
@@ -215,7 +267,7 @@ task testSuite(dependsOn: [testUI1, testUI2]) << {
 
 // Creates a temp dir with a random name in the build/tmp directory.
 File _createTempDir(File parent) {
-  def d = File.createTempFile("test", "", new File(project.buildDir, "tmp"))
+  def d = File.createTempFile("test", "", parent)
   d.delete()
   d.mkdirs()
   return d
@@ -254,7 +306,9 @@ Closeable _openFile(File file) throws IOException {
   return fw   // file is not closed
 }
 
-// Returns the first line of the file. Thorws IOException if file does not exist.
+// Returns the first line of the file.
+// Returns null if the file exists and is empty.
+// Throws IOException if file does not exist.
 String _getFileContent(File file) throws IOException {
   if (!file.exists()) throw new IOException("File not found, expected file: " + file.getName())
   BufferedReader br = new BufferedReader(new FileReader(file))
