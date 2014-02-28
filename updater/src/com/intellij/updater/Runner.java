@@ -110,6 +110,10 @@ public class Runner {
     }
   }
 
+  public static void infoStackTrace(String msg, Throwable e){
+    logger.info(msg, e);
+  }
+
   public static void printStackTrace(Throwable e){
     logger.error(e.getMessage(), e);
   }
@@ -132,7 +136,7 @@ public class Runner {
   private static void printUsage() {
     System.err.println("Usage:\n" +
                        "create <old_version_description> <new_version_description> <old_version_folder> <new_version_folder>" +
-                       " <patch_file_name> [ignored=file1;file2;...] [critical=file1;file2;...] [optional=file1;file2;...]\n" +
+                       " <patch_file_name> <log_directory> [ignored=file1;file2;...] [critical=file1;file2;...] [optional=file1;file2;...]\n" +
                        "install [--exit0] <destination_folder> [log_directory]\n");
   }
 
