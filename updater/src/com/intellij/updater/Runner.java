@@ -17,28 +17,20 @@ import java.util.zip.ZipInputStream;
 
 public class Runner {
   public static Logger logger = null;
+
   private static final String PATCH_FILE_NAME = "patch-file.zip";
   private static final String PATCH_PROPERTIES_ENTRY = "patch.properties";
   private static final String OLD_BUILD_DESCRIPTION = "old.build.description";
   private static final String NEW_BUILD_DESCRIPTION = "new.build.description";
 
   public static void main(String[] args) throws Exception {
-    if (args.length < 1) {
-      printUsage();
-      return;
-    }
-
-    String command = args[0];
-    if ("create".equals(command)) {
-      if (args.length < 7) {
-        printUsage();
-        return;
-      }
+    if (args.length >= 7 && "create".equals(args[0])) {
       String oldVersionDesc = args[1];
       String newVersionDesc = args[2];
       String oldFolder = args[3];
       String newFolder = args[4];
       String patchFile = args[5];
+
       String logFolder = args[6];
       initLogger(logFolder);
 
@@ -47,51 +39,46 @@ public class Runner {
       List<String> optionalFiles = extractFiles(args, "optional");
       create(oldVersionDesc, newVersionDesc, oldFolder, newFolder, patchFile, ignoredFiles, criticalFiles, optionalFiles);
     }
-    else if ("install".equals(command)) {
-      int n = 3;
+    else if (args.length >= 2 && "install".equals(args[0])) {
+      // install [--exit0] <destination_folder> [log_directory]
+      int max = 3;
+      int nextArg = 1;
 
       // Default install exit code is SwingUpdaterUI.RESULT_REQUIRES_RESTART (42) unless overridden to be 0.
       // This is used by testUI/build.gradle as gradle expects a javaexec to exit with code 0.
       boolean useExitCode0 = false;
-      if (args.length == 4 && args[1].equals("--exit0")) {
-        n++;
+      if (args[nextArg].equals("--exit0")) {
         useExitCode0 = true;
-      }
-      if (args.length < n) {
-        printUsage();
-        return;
+        nextArg++;
+        max++;
       }
 
-      String destFolder = args[n - 2];
-      String logFolder = args[n - 1];
+      String destFolder = args[nextArg++];
+
+      String logFolder = args.length >= max ? args[nextArg] : null;
       initLogger(logFolder);
       logger.info("destFolder: " + destFolder);
+
       install(useExitCode0, destFolder);
     }
     else {
       printUsage();
-      return;
     }
   }
 
-  private static boolean validateLogDir(String logFolder){
+  // checks that log directory 1)exists 2)has write perm. and 3)has 1MB+ free space
+  private static boolean isValidLogDir(String logFolder) {
     File fileLogDir = new File(logFolder);
-    /* check if the dir for log file
-      1)exists 2)has write perm. and 5)has 1MB+ free space */
-    if (!fileLogDir.exists() || !fileLogDir.canWrite() || fileLogDir.getUsableSpace() < 1000000){
-      return false;
-    }
-    return true;
+    return fileLogDir.isDirectory() && fileLogDir.canWrite() && fileLogDir.getUsableSpace() >= 1000000;
   }
 
-  private static String getLogDir(String logFolder){
-    if (!validateLogDir(logFolder)){
+  private static String getLogDir(String logFolder) {
+    if (logFolder == null || !isValidLogDir(logFolder)) {
       logFolder = System.getProperty("java.io.tmpdir");
-      if (!validateLogDir(logFolder)){
+      if (!isValidLogDir(logFolder)) {
         logFolder = System.getProperty("user.home");
       }
     }
-    System.out.println("Log dir: " + logFolder);
     return logFolder;
   }
 
@@ -141,11 +128,12 @@ public class Runner {
     return result;
   }
 
+  @SuppressWarnings("UseOfSystemOutOrSystemErr")
   private static void printUsage() {
     System.err.println("Usage:\n" +
                        "create <old_version_description> <new_version_description> <old_version_folder> <new_version_folder>" +
                        " <patch_file_name> [ignored=file1;file2;...] [critical=file1;file2;...] [optional=file1;file2;...]\n" +
-                       "install [--exit0] <destination_folder>\n");
+                       "install [--exit0] <destination_folder> [log_directory]\n");
   }
 
   private static void create(String oldBuildDesc,
