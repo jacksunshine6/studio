@@ -165,19 +165,22 @@ public class Main {
       }
 
       Collections.addAll(args,
-                         System.getProperty("java.home") + "/bin/java",
+                         System.getProperty("java.home") + "/bin/java".replace('/', File.separatorChar),
                          "-Xmx500m",
                          "-classpath",
-                         copyPatchFile.getPath() + File.pathSeparator + PathManager.getLibPath() + "/log4j.jar",
+                         copyPatchFile.getPath() + File.pathSeparator +
+                            PathManager.getLibPath() + File.separator + "log4j.jar",
                          "-Djava.io.tmpdir=" + tempDir,
                          "com.intellij.updater.Runner",
                          "install",
                          PathManager.getHomePath(),
                          PathManager.getLogPath());
 
+      appendLog("[Patch] Restarted cmd: %s\n", args.toString());
+
       status = Restarter.scheduleRestart(ArrayUtilRt.toStringArray(args));
 
-      appendLog("[Patch] Restarted status: %d, cmd: %s\n", status, args.toString());
+      appendLog("[Patch] Restarted status: %d\n", status);
     }
     else {
       appendLog("[Patch] Restart is not supported\n");
