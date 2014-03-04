@@ -724,6 +724,9 @@ def layoutCloud() {
       jar("google-cloud-tools.jar") {
         module("google-cloud-tools")
       }
+      dir("templates") {
+        fileset(dir: "$home/../studio/cloud/resources/templates")
+      }
       dir("sdktemplates") {
         fileset(dir: "$home/../studio/cloud/resources/sdktemplates")
       }
