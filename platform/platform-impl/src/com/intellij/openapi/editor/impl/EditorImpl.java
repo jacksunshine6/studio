@@ -29,10 +29,7 @@ import com.intellij.ide.dnd.DnDManager;
 import com.intellij.ide.ui.UISettings;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.IdeActions;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.actionSystem.impl.MouseGestureManager;
 import com.intellij.openapi.application.ApplicationManager;
@@ -59,6 +56,8 @@ import com.intellij.openapi.editor.markup.*;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.ex.IdeDocumentHistory;
 import com.intellij.openapi.fileEditor.impl.EditorsSplitters;
+import com.intellij.openapi.keymap.Keymap;
+import com.intellij.openapi.keymap.KeymapManager;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Queryable;
@@ -722,8 +721,14 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       repaintToScreenBottom(getCaretModel().getLogicalPosition().line);
       int y = getCaretModel().getVisualLineStart() * getLineHeight();
       myGutterComponent.repaint(0, y, myGutterComponent.getWidth(), myGutterComponent.getHeight() - y);
-      getCaretModel().moveToOffset(getCaretModel().getOffset());
     }
+    // make sure carets won't appear at invalid positions (e.g. on Tab width change)
+    getCaretModel().runForEachCaret(new CaretAction() {
+      @Override
+      public void perform(Caret caret) {
+        caret.moveToOffset(caret.getOffset());
+      }
+    });
   }
 
   private void initTabPainter() {
@@ -5661,8 +5666,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       if (e.getSource() != myGutterComponent
           || (eventArea != EditorMouseEventArea.LINE_MARKERS_AREA && eventArea != EditorMouseEventArea.ANNOTATIONS_AREA))
       {
-        boolean toggleCaret =
-          myCaretModel.supportsMultipleCarets() && e.getSource() != myGutterComponent && e.isAltDown() && e.isShiftDown() && !e.isControlDown();
+        boolean toggleCaret = myCaretModel.supportsMultipleCarets() && e.getSource() != myGutterComponent && isToggleCaretEvent(e);
         LogicalPosition pos = getLogicalPositionForScreenPos(x, y, true);
         if (toggleCaret) {
           VisualPosition visualPosition = logicalToVisualPosition(pos);
@@ -5770,6 +5774,27 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
 
       return isNavigation;
     }
+  }
+
+  private boolean isToggleCaretEvent(MouseEvent e) {
+    KeymapManager keymapManager = KeymapManager.getInstance();
+    if (keymapManager == null) {
+      return false;
+    }
+    Keymap keymap = keymapManager.getActiveKeymap();
+    if (keymap == null) {
+      return false;
+    }
+    String[] actionIds = keymap.getActionIds(new MouseShortcut(e.getButton(), e.getModifiersEx(), 1));
+    if (actionIds == null) {
+      return false;
+    }
+    for (String actionId : actionIds) {
+      if (IdeActions.ACTION_EDITOR_ADD_OR_REMOVE_CARET.equals(actionId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void selectWordAtCaret(boolean honorCamelCase) {
