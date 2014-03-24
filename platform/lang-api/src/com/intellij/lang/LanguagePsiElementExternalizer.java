@@ -13,19 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.intellij.ide.browsers.impl;
+package com.intellij.lang;
 
-import com.intellij.ide.browsers.BrowserLauncher;
-import com.intellij.ide.browsers.UrlOpener;
-import com.intellij.ide.browsers.WebBrowser;
 import com.intellij.openapi.project.Project;
-import com.intellij.util.ArrayUtil;
+import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-final class DefaultUrlOpener extends UrlOpener {
-  @Override
-  public boolean openUrl(@NotNull WebBrowser browser, @NotNull String url, @Nullable Project project) {
-    return BrowserLauncher.getInstance().browseUsingPath(url, null, browser, project, ArrayUtil.EMPTY_STRING_ARRAY);
+/**
+ * @author Konstantin Bulenkov
+ */
+public class LanguagePsiElementExternalizer extends LanguageExtension<PsiElementExternalizer> {
+  public static final LanguagePsiElementExternalizer INSTANCE = new LanguagePsiElementExternalizer();
+
+  private LanguagePsiElementExternalizer() {
+    super("com.intellij.lang.psiElementExternalizer", new PsiElementExternalizer() {
+      @Override
+      public String getQualifiedName(PsiElement element) {
+        return null;
+      }
+
+      @Nullable
+      @Override
+      public PsiElement findByQualifiedName(Project project, @NotNull String qualifiedName) {
+        return null;
+      }
+    });
   }
 }
