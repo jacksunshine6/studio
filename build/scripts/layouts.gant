@@ -639,74 +639,93 @@ def reorder(String home, String targetDirectory) {
 
 def layoutAndroid() {
   dir("plugins") {
-    layoutPlugin("android") {
-      fileset(dir: "${home}/../adt/idea/android/lib") {
-        include(name: "**/*.jar")
-      }
-
-      // Add Additional libraries that the Android plugin depends on that come from TOOLS_PREBUILTS.
-      // Note: This is a HACK: rather than encoding the full path, we should really query
-      // the project model for the classpath just like we do for the androidModules' dependencies
-      // below
-      fileset(file: "${home}/../../prebuilts/tools/common/freemarker/freemarker-2.3.19.jar")
-
-      androidModules = [
-              "assetstudio",
-              "common",
-              "ddmlib",
-              "draw9patch",
-              "dvlib",
-              "gradle-import",
-              "layoutlib-api",
-              "lint-api",
-              "lint-checks",
-              "manifest-merger",
-              "ninepatch",
-              "perflib",
-              "sdk-common",
-              "sdklib"
-      ]
-
-      androidModules.each { moduleName ->
-        jar("${moduleName}.jar") {
-          module(moduleName)
+    def androidModule = "android"
+    dir(androidModule) {
+      dir("lib") {
+        jar("android.jar") {
+          module("ui-designer-core") {
+            patternset(refid: "resources.excluded")
+          }
+          noResources(androidModule)
         }
-      }
 
-      jar("androidAnnotations.jar") {
-        fileset(dir: "${home}/../adt/idea/android/annotations")
-      }
+        jar("resources_en.jar") {
+          module(androidModule) {
+            patternset(refid: "resources.included")
+          }
+          module("ui-designer-core") {
+            patternset(refid: "resources.included")
+          }
+        }
 
-      // copy over dependencies of all android modules
-      androidModuleDeps = findModuleDependencies(androidModules)
-      androidModuleDeps.each {
-        fileset(file: it)
-      }
+        fileset(dir: "${home}/../adt/idea/android/lib") {
+          include(name: "**/*.jar")
+        }
 
-      jar("android-common.jar") {
-        module("android-common")
-      }
+        // Add Additional libraries that the Android plugin depends on that come from TOOLS_PREBUILTS.
+        // Note: This is a HACK: rather than encoding the full path, we should really query
+        // the project model for the classpath just like we do for the androidModules' dependencies
+        // below
+        fileset(file: "${home}/../../prebuilts/tools/common/freemarker/freemarker-2.3.19.jar")
 
-      jar("android-rt.jar") {
-        module("android-rt")
-      }
+        androidModules = [
+                "assetstudio",
+                "common",
+                "ddmlib",
+                "draw9patch",
+                "dvlib",
+                "gradle-import",
+                "layoutlib-api",
+                "lint-api",
+                "lint-checks",
+                "manifest-merger",
+                "ninepatch",
+                "perflib",
+                "sdk-common",
+                "sdklib"
+        ]
 
-      dir("jps") {
-        jar("android-jps-plugin.jar") { module("android-jps-plugin") }
-        jar("android-gradle-jps.jar") { module("android-gradle-jps") }
-      }
+        androidModules.each { moduleName ->
+          jar("${moduleName}.jar") {
+            module(moduleName)
+          }
+        }
 
-      dir("device-art-resources") {
-        fileset(dir: "${home}/../adt/idea/android/device-art-resources")
-      }
+        jar("androidAnnotations.jar") {
+          fileset(dir: "${home}/../adt/idea/android/annotations")
+        }
 
-      dir("templates") {
-        fileset(dir: "${home}/../base/templates") {
-         include(name: "activities/**")
-         include(name: "gradle/**")
-         include(name: "other/**")
-         include(name: "gradle-projects/**")
-       }
+        // copy over dependencies of all android modules
+        androidModuleDeps = findModuleDependencies(androidModules)
+        androidModuleDeps.each {
+          fileset(file: it)
+        }
+
+        jar("android-common.jar") {
+          module("android-common")
+        }
+
+        jar("android-rt.jar") {
+          module("android-rt")
+        }
+
+        dir("jps") {
+          jar("android-jps-plugin.jar") { module("android-jps-plugin") }
+          jar("android-gradle-jps.jar") { module("android-gradle-jps") }
+        }
+
+        dir("device-art-resources") {
+          fileset(dir: "${home}/../adt/idea/android/device-art-resources")
+        }
+
+        dir("templates") {
+          fileset(dir: "${home}/../base/templates") {
+            include(name: "activities/**")
+            include(name: "gradle/**")
+            include(name: "other/**")
+            include(name: "gradle-projects/**")
+          }
+        }
       }
     }
 
