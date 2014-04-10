@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import com.intellij.util.io.StringRef;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.asm4.*;
+import org.jetbrains.org.objectweb.asm.*;
 
 import java.lang.reflect.Array;
 import java.text.CharacterIterator;
@@ -57,6 +57,8 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
   public static final String FLOAT_NEGATIVE_INF = "-1.0f / 0.0";
   public static final String FLOAT_NAN = "0.0f / 0.0";
 
+  private static final int ASM_API = Opcodes.ASM5;
+
   @NonNls private static final String SYNTHETIC_CLASS_INIT_METHOD = "<clinit>";
   @NonNls private static final String SYNTHETIC_INIT_METHOD = "<init>";
 
@@ -69,7 +71,7 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
   private PsiModifierListStub myModList;
 
   public StubBuildingVisitor(T classSource, InnerClassSourceStrategy<T> innersStrategy, StubElement parent, int access, String shortName) {
-    super(Opcodes.ASM4);
+    super(ASM_API);
     mySource = classSource;
     myInnersStrategy = innersStrategy;
     myParent = parent;
@@ -206,6 +208,9 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
       case Opcodes.V1_7:
         return LanguageLevel.JDK_1_7;
 
+      case Opcodes.V1_8:
+        return LanguageLevel.JDK_1_8;
+
       default:
         return LanguageLevel.HIGHEST;
     }
@@ -319,14 +324,11 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
       return;
     }
 
-    final T innerSource = myInnersStrategy.findInnerClass(innerName, mySource);
-    if (innerSource == null) return;
-
-    final ClassReader reader = myInnersStrategy.readerForInnerClass(innerSource);
-    if (reader == null) return;
-
-    final StubBuildingVisitor<T> classVisitor = new StubBuildingVisitor<T>(innerSource, myInnersStrategy, myResult, access, innerName);
-    reader.accept(classVisitor, ClassReader.SKIP_FRAMES);
+    T innerClass = myInnersStrategy.findInnerClass(innerName, mySource);
+    if (innerClass != null) {
+      StubBuildingVisitor<T> visitor = new StubBuildingVisitor<T>(innerClass, myInnersStrategy, myResult, access, innerName);
+      myInnersStrategy.accept(innerClass, visitor);
+    }
   }
 
   private static boolean isCorrectName(String name) {
@@ -544,7 +546,7 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
     private final String myDesc;
 
     public AnnotationTextCollector(@Nullable String desc, AnnotationResultCallback callback) {
-      super(Opcodes.ASM4);
+      super(ASM_API);
       myCallback = callback;
 
       myDesc = desc;
@@ -616,7 +618,7 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
     private final PsiModifierListStub myModList;
 
     private AnnotationCollectingVisitor(final PsiModifierListStub modList) {
-      super(Opcodes.ASM4);
+      super(ASM_API);
       myModList = modList;
     }
 
@@ -647,7 +649,7 @@ public class StubBuildingVisitor<T> extends ClassVisitor {
                                              final int paramIgnoreCount,
                                              final int paramCount,
                                              final PsiParameterStubImpl[] paramStubs) {
-      super(Opcodes.ASM4);
+      super(ASM_API);
       myOwner = owner;
       myModList = modList;
       myIgnoreCount = ignoreCount;

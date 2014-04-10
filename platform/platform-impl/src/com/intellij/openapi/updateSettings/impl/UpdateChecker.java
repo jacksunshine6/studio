@@ -149,7 +149,7 @@ public final class UpdateChecker {
 
   private static void doUpdateAndShowResult(final @Nullable Project project,
                                             final boolean enableLink,
-                                            final boolean showDialog,
+                                            final boolean manualCheck,
                                             final @Nullable PluginHostsConfigurable hostsConfigurable,
                                             final UpdateSettings updateSettings,
                                             final @Nullable ProgressIndicator indicator,
@@ -162,17 +162,17 @@ public final class UpdateChecker {
       settings.setKnownChannelIds(result.getAllChannelsIds());
     }
     else if (result.getState() == UpdateStrategy.State.CONNECTION_ERROR) {
-      showErrorMessage(showDialog, project, IdeBundle.message("updates.error.connection.failed"));
+      showErrorMessage(manualCheck, project, IdeBundle.message("updates.error.connection.failed"));
       return;
     }
 
     boolean platformUpdate = newChannelReady(result.getChannelToPropose()) || result.getUpdatedChannel() != null;
-    final List<PluginDownloader> updatedPlugins = platformUpdate ? null : updatePlugins(showDialog, project, hostsConfigurable, indicator);
+    final List<PluginDownloader> updatedPlugins = platformUpdate ? null : updatePlugins(manualCheck, project, hostsConfigurable, indicator);
 
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
       public void run() {
-        showUpdateResult(project, result, updatedPlugins, enableLink, showDialog);
+        showUpdateResult(project, result, updatedPlugins, enableLink, manualCheck);
         if (callback != null) {
           callback.setDone();
         }
@@ -180,7 +180,7 @@ public final class UpdateChecker {
     });
   }
 
-  private static List<PluginDownloader> updatePlugins(boolean showDialog,
+  private static List<PluginDownloader> updatePlugins(boolean manualCheck,
                                                       @Nullable Project project,
                                                       @Nullable PluginHostsConfigurable hostsConfigurable,
                                                       @Nullable ProgressIndicator indicator) {
@@ -251,12 +251,12 @@ public final class UpdateChecker {
         return null;
       }
       catch (Exception e) {
-        showErrorMessage(showDialog, project, e.getMessage());
+        showErrorMessage(manualCheck, project, e.getMessage());
       }
     }
 
     if (!failed.isEmpty()) {
-      showErrorMessage(showDialog, project, IdeBundle.message("updates.error.plugin.description.failed", StringUtil.join(failed, ",")));
+      showErrorMessage(manualCheck, project, IdeBundle.message("updates.error.plugin.description.failed", StringUtil.join(failed, ",")));
     }
 
     return downloaded.isEmpty() ? null : downloaded;
@@ -279,7 +279,6 @@ public final class UpdateChecker {
       });
     }
     else {
-      showNotification(project, message, true, null);
       LOG.warn(message);
     }
   }

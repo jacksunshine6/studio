@@ -994,8 +994,8 @@ public class SearchEverywhereAction extends AnAction implements CustomComponentA
       }
 
       Color bg = cmp.getBackground();
-      cmp.setBackground(UIUtil.getListBackground(isSelected));
       if (bg == null) {
+        cmp.setBackground(UIUtil.getListBackground(isSelected));
         bg = cmp.getBackground();
       }
       myMainPanel.setBorder(new CustomLineBorder(bg, 0, 0, 2, 0));
@@ -1238,14 +1238,14 @@ public class SearchEverywhereAction extends AnAction implements CustomComponentA
         updatePopup();
 
 
-        ApplicationManager.getApplication().runReadAction(new Runnable() {
-          public void run() {
-            buildSymbols(pattern);
-          }
-        });
-
-
-        updatePopup();
+        if (!DumbService.getInstance(project).isDumb()) {
+          ApplicationManager.getApplication().runReadAction(new Runnable() {
+            public void run() {
+              buildSymbols(pattern);
+            }
+          });
+          updatePopup();
+        }
       }
       catch (Exception ignore) {
         myDone.setRejected();
@@ -1425,7 +1425,7 @@ public class SearchEverywhereAction extends AnAction implements CustomComponentA
 
         Object[] objects = mySymbolsModel.getElementsByName(o.elementName, showAll.get(), pattern);
         for (Object object : objects) {
-          if (!myListModel.contains(object)) {
+          if (!myListModel.contains(object) && !symbols.contains(object)) {
               symbols.add(object);
               symbolCounter++;
               if (symbolCounter > MAX_SYMBOLS) break;

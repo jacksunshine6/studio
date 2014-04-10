@@ -26,7 +26,6 @@ import com.intellij.openapi.editor.impl.AbstractEditorTest;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider;
-import com.intellij.testFramework.EditorTestUtil;
 import com.intellij.testFramework.TestFileType;
 import org.jetbrains.annotations.NotNull;
 
@@ -86,7 +85,7 @@ public class EditorMultiCaretUndoRedoTest extends AbstractEditorTest {
     type('b');
     undo();
     executeAction("EditorRightWithSelection");
-    verifyCaretsAndSelections(0, 3, 0, 2, 0, 3);
+    verifyCaretsAndSelections(0, 3, 2, 3);
   }
 
   public void testBlockSelectionStateAfterUndo2() throws Exception {
@@ -95,7 +94,7 @@ public class EditorMultiCaretUndoRedoTest extends AbstractEditorTest {
     mouse().clickAt(0, 0).dragTo(0, 2).release();
     type('b');
     undo();
-    verifyCaretsAndSelections(0, 2, 0, 0, 0, 2);
+    verifyCaretsAndSelections(0, 2, 0, 2);
   }
 
   public void testPrimaryCaretPositionAfterUndo() throws Exception {
@@ -134,7 +133,7 @@ public class EditorMultiCaretUndoRedoTest extends AbstractEditorTest {
 
   private void init(String text) throws IOException {
     init(text, TestFileType.TEXT);
-    EditorTestUtil.setEditorVisibleSize(myEditor, 1000, 1000);
+    setEditorVisibleSize(1000, 1000);
     getUndoManager().setEditorProvider(new CurrentEditorProvider() {
       @Override
       public FileEditor getCurrentEditor() {
