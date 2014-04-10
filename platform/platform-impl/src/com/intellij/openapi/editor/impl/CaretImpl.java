@@ -307,7 +307,7 @@ public class CaretImpl extends UserDataHolderBase implements Caret {
 
         VisualPosition pos = new VisualPosition(newLineNumber, newColumnNumber);
         int lastColumnNumber = newColumnNumber;
-        if (!editorSettings.isCaretInsideTabs() && !myEditor.getSoftWrapModel().isInsideSoftWrap(pos)) {
+        if (!myEditor.getSoftWrapModel().isInsideSoftWrap(pos)) {
           LogicalPosition log = myEditor.visualToLogicalPosition(new VisualPosition(newLineNumber, newColumnNumber));
           int offset = myEditor.logicalPositionToOffset(log);
           if (offset >= document.getTextLength()) {
@@ -316,21 +316,23 @@ public class CaretImpl extends UserDataHolderBase implements Caret {
             newColumnNumber = lastColumnNumber = Math.max(lastOffsetColumn, newColumnNumber);
             desiredX = -1;
           }
-          CharSequence text = document.getCharsSequence();
-          if (offset >= 0 && offset < document.getTextLength()) {
-            if (text.charAt(offset) == '\t' && (columnShift <= 0 || offset == myOffset)) {
-              if (columnShift <= 0) {
-                newColumnNumber = myEditor.offsetToVisualPosition(offset).column;
-              }
-              else {
-                SoftWrap softWrap = myEditor.getSoftWrapModel().getSoftWrap(offset + 1);
-                // There is a possible case that tabulation symbol is the last document symbol represented on a visual line before
-                // soft wrap. We can't just use column from 'offset + 1' because it would point on a next visual line.
-                if (softWrap == null) {
-                  newColumnNumber = myEditor.offsetToVisualPosition(offset + 1).column;
+          if (!editorSettings.isCaretInsideTabs()) {
+            CharSequence text = document.getCharsSequence();
+            if (offset >= 0 && offset < document.getTextLength()) {
+              if (text.charAt(offset) == '\t' && (columnShift <= 0 || offset == myOffset)) {
+                if (columnShift <= 0) {
+                  newColumnNumber = myEditor.offsetToVisualPosition(offset).column;
                 }
                 else {
-                  newColumnNumber = EditorUtil.getLastVisualLineColumnNumber(myEditor, newLineNumber);
+                  SoftWrap softWrap = myEditor.getSoftWrapModel().getSoftWrap(offset + 1);
+                  // There is a possible case that tabulation symbol is the last document symbol represented on a visual line before
+                  // soft wrap. We can't just use column from 'offset + 1' because it would point on a next visual line.
+                  if (softWrap == null) {
+                    newColumnNumber = myEditor.offsetToVisualPosition(offset + 1).column;
+                  }
+                  else {
+                    newColumnNumber = EditorUtil.getLastVisualLineColumnNumber(myEditor, newLineNumber);
+                  }
                 }
               }
             }
@@ -1439,7 +1441,19 @@ public class CaretImpl extends UserDataHolderBase implements Caret {
     CharSequence text = myEditor.getDocument().getCharsSequence();
     int selectionStart = getSelectionStart();
     int selectionEnd = getSelectionEnd();
-    return text.subSequence(selectionStart, selectionEnd).toString();
+    String selectedText = text.subSequence(selectionStart, selectionEnd).toString();
+    if (isVirtualSelectionEnabled() && myEndVirtualOffset > myStartVirtualOffset) {
+      int padding = myEndVirtualOffset - myStartVirtualOffset;
+      StringBuilder builder = new StringBuilder(selectedText.length() + padding);
+      builder.append(selectedText);
+      for (int i = 0; i < padding; i++) {
+        builder.append(' ');
+      }
+      return builder.toString();
+    }
+    else {
+      return selectedText;
+    }
   }
 
   private void validateContext(boolean isWrite) {

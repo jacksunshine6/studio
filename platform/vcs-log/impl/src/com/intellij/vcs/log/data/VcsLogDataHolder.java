@@ -127,7 +127,7 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
    * which is important because these details will be constantly visible to the user,
    * thus it would be annoying to re-load them from VCS if the cache overflows.
    */
-  @NotNull private final Map<Hash, VcsFullCommitDetails> myTopCommitsDetailsCache = ContainerUtil.newConcurrentMap();
+  @NotNull private final Map<Hash, VcsCommitMetadata> myTopCommitsDetailsCache = ContainerUtil.newConcurrentMap();
 
   /**
    * Checks if "load more commit details" process is already in progress to avoid scheduling multiple similar processes.
@@ -440,7 +440,12 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
       RecentCommitsInfo info = entry.getValue();
 
       // in this case new commits won't be attached to the log, but will substitute existing ones.
-      List<TimedVcsCommit> firstBlockCommits = new VcsLogSorter<TimedVcsCommit>().sortByDateTopoOrder(info.firstBlockCommits);
+      List<TimedVcsCommit> firstBlockCommits = info.firstBlockCommits;
+      if (getLogProvider(root).supportsFastUnorderedCommits()) {
+        // => we requested unordered => have to order them ourselves
+        firstBlockCommits = new VcsLogSorter<TimedVcsCommit>().sortByDateTopoOrder(firstBlockCommits);
+        firstBlockCommits = new ArrayList<TimedVcsCommit>(firstBlockCommits.subList(0, Math.min(firstBlockCommits.size(), commitCount)));
+      }
       logsToBuild.put(root, firstBlockCommits);
       refsByRoot.put(root, info.newRefs);
     }
@@ -479,7 +484,11 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
       VcsLogProvider logProvider = entry.getValue();
 
       StopWatch sw = StopWatch.start("readFirstBlock for " + root.getName());
-      List<? extends VcsFullCommitDetails> firstBlockDetails = logProvider.readFirstBlock(root, ordered, commitsCount);
+
+      boolean orderedForRepo = ordered && !logProvider.supportsFastUnorderedCommits(); // will order manually
+      int commitCountForRepo = orderedForRepo ? commitsCount : commitsCount * 2; // but need to request more commits
+
+      List<? extends VcsCommitMetadata> firstBlockDetails = logProvider.readFirstBlock(root, orderedForRepo, commitCountForRepo);
       sw.report();
       sw = StopWatch.start("readAllRefs for" + root.getName());
       Collection<VcsRef> newRefs = logProvider.readAllRefs(root);
@@ -494,8 +503,8 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
     return infoByRoot.entrySet();
   }
 
-  private void storeUsers(@NotNull List<? extends VcsFullCommitDetails> details) {
-    for (VcsFullCommitDetails detail : details) {
+  private void storeUsers(@NotNull List<? extends VcsCommitMetadata> details) {
+    for (VcsCommitMetadata detail : details) {
       myUserRegistry.addUser(detail.getAuthor());
       myUserRegistry.addUser(detail.getCommitter());
     }
@@ -625,18 +634,18 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
     });
   }
 
-  private void storeTopCommitsDetailsInCache(List<? extends VcsFullCommitDetails> firstBlockDetails) {
+  private void storeTopCommitsDetailsInCache(List<? extends VcsCommitMetadata> firstBlockDetails) {
     // some commits may be no longer available (e.g. rewritten after rebase), but let them stay in the cache:
     // they won't occupy too much place, while checking & removing them is not easy.
-    for (VcsFullCommitDetails detail : firstBlockDetails) {
+    for (VcsCommitMetadata detail : firstBlockDetails) {
       myTopCommitsDetailsCache.put(detail.getHash(), detail);
     }
   }
 
-  private List<TimedVcsCommit> getCommitsFromDetails(List<? extends VcsFullCommitDetails> firstBlockDetails) {
-    List<TimedVcsCommit> commits = ContainerUtil.map(firstBlockDetails, new Function<VcsFullCommitDetails, TimedVcsCommit>() {
+  private List<TimedVcsCommit> getCommitsFromDetails(List<? extends VcsCommitMetadata> firstBlockDetails) {
+    List<TimedVcsCommit> commits = ContainerUtil.map(firstBlockDetails, new Function<VcsCommitMetadata, TimedVcsCommit>() {
       @Override
-      public TimedVcsCommit fun(VcsFullCommitDetails details) {
+      public TimedVcsCommit fun(VcsCommitMetadata details) {
         return new CompactCommit(details.getHash(), details.getParents(), details.getTime());
       }
     });
@@ -715,7 +724,7 @@ public class VcsLogDataHolder implements Disposable, VcsLogDataProvider {
   }
 
   @Nullable
-  public VcsFullCommitDetails getTopCommitDetails(@NotNull Hash hash) {
+  public VcsCommitMetadata getTopCommitDetails(@NotNull Hash hash) {
     return myTopCommitsDetailsCache.get(hash);
   }
 
