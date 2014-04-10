@@ -21,7 +21,6 @@ import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.editor.impl.AbstractEditorTest;
 import com.intellij.openapi.keymap.Keymap;
 import com.intellij.openapi.keymap.KeymapManager;
-import com.intellij.testFramework.EditorTestUtil;
 import com.intellij.testFramework.TestFileType;
 
 import java.awt.event.InputEvent;
@@ -92,7 +91,7 @@ public class EditorMultiCaretTest extends AbstractEditorTest {
          "long line\n" +
          "line",
          TestFileType.TEXT);
-    EditorTestUtil.setEditorVisibleSize(myEditor, 1000, 1000);
+    setEditorVisibleSize(1000, 1000);
 
     mouse().alt().pressAt(1, 6);
     checkResultByText("line\n" +
@@ -130,7 +129,7 @@ public class EditorMultiCaretTest extends AbstractEditorTest {
          "long line\n" +
          "line",
          TestFileType.TEXT);
-    EditorTestUtil.setEditorVisibleSize(myEditor, 1000, 1000);
+    setEditorVisibleSize(1000, 1000);
 
     mouse().middle().pressAt(1, 17);
     checkResultByText("line\n" +
@@ -159,6 +158,27 @@ public class EditorMultiCaretTest extends AbstractEditorTest {
                       "very l<selection><caret>ong line</selection>\n" +
                       "long l<selection><caret>ine</selection>\n" +
                       "line");
+  }
+
+  public void testAltOnOffWhileDragging() throws Exception {
+    init("line1\n" +
+         "line2\n" +
+         "line3",
+         TestFileType.TEXT);
+    setEditorVisibleSize(1000, 1000);
+
+    mouse().clickAt(0, 1).dragTo(1, 2);
+    checkResultByText("l<selection>ine1\n" +
+                      "li<caret></selection>ne2\n" +
+                      "line3");
+    mouse().alt().dragTo(1, 3);
+    checkResultByText("l<selection>in<caret></selection>e1\n" +
+                      "l<selection>in<caret></selection>e2\n" +
+                      "line3");
+    mouse().dragTo(2, 4).release();
+    checkResultByText("l<selection>ine1\n" +
+                      "line2\n" +
+                      "line<caret></selection>3");
   }
 
   public void testTyping() throws Exception {
@@ -213,7 +233,8 @@ public class EditorMultiCaretTest extends AbstractEditorTest {
          "three<caret></selection> four \n" +
          "five <selection>six \n" +
          "seven<caret></selection> eight",
-         TestFileType.TEXT);
+         TestFileType.TEXT
+    );
     executeAction("EditorCut");
     executeAction("EditorLineEnd");
     executeAction("EditorPaste");
@@ -221,5 +242,67 @@ public class EditorMultiCaretTest extends AbstractEditorTest {
                       "three<caret> \n" +
                       "five  eightsix \n" +
                       "seven<caret>");
+  }
+
+  public void testEscapeAfterDragDown() throws Exception {
+    init("line1\n" +
+         "line2",
+         TestFileType.TEXT
+    );
+    setEditorVisibleSize(1000, 1000);
+
+    mouse().alt().clickAt(0, 1).dragTo(1, 2).release();
+    executeAction("EditorEscape");
+    checkResultByText("li<caret>ne1\n" +
+                      "line2");
+  }
+
+  public void testEscapeAfterDragUp() throws Exception {
+    init("line1\n" +
+         "line2",
+         TestFileType.TEXT);
+    setEditorVisibleSize(1000, 1000);
+
+    mouse().alt().clickAt(1, 1).dragTo(0, 2).release();
+    executeAction("EditorEscape");
+    checkResultByText("line1\n" +
+                      "li<caret>ne2");
+  }
+
+  public void testAltShiftDoubleClick() throws Exception {
+    init("q<caret>uick brown fox",
+         TestFileType.TEXT);
+    mouse().alt().shift().doubleClickAt(0, 8);
+    checkResultByText("q<caret>uick <selection>brown<caret></selection> fox");
+  }
+
+  public void testAltShiftDoubleClickAtExistingCaret() throws Exception {
+    init("q<caret>uick br<caret>own fox",
+         TestFileType.TEXT);
+    mouse().alt().shift().doubleClickAt(0, 8);
+    checkResultByText("q<caret>uick brown fox");
+  }
+
+  public void testAltShiftTripleClick() throws Exception {
+    init("q<caret>uick\n" +
+         "brown\n" +
+         "fox",
+         TestFileType.TEXT
+    );
+    mouse().alt().shift().tripleClickAt(1, 2);
+    checkResultByText("q<caret>uick\n" +
+                      "<selection>br<caret>own\n" +
+                      "</selection>fox");
+  }
+
+  public void testAltShiftTripleClickAtExistingCaret() throws Exception {
+    init("q<caret>uick\n" +
+         "br<caret>own\n" +
+         "fox",
+         TestFileType.TEXT);
+    mouse().alt().shift().tripleClickAt(1, 2);
+    checkResultByText("q<caret>uick\n" +
+                      "brown\n" +
+                      "fox");
   }
 }

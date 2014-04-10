@@ -59,9 +59,10 @@ public class HgLogProvider implements VcsLogProvider {
 
   @NotNull
   @Override
-  public List<? extends VcsFullCommitDetails> readFirstBlock(@NotNull VirtualFile root,
-                                                             boolean ordered, int commitCount) throws VcsException {
-    return HgHistoryUtil.history(myProject, root, commitCount, ordered ? Collections.<String>emptyList() : Arrays.asList("-r", "0:tip"));
+  public List<? extends VcsCommitMetadata> readFirstBlock(@NotNull VirtualFile root,
+                                                          boolean ordered, int commitCount) throws VcsException {
+    return HgHistoryUtil.loadMetadata(myProject, root, commitCount,
+                                      ordered ? Collections.<String>emptyList() : Arrays.asList("-r", "0:tip"));
   }
 
   @NotNull
@@ -243,6 +244,11 @@ public class HgLogProvider implements VcsLogProvider {
   @Override
   public Collection<String> getContainingBranches(@NotNull VirtualFile root, @NotNull Hash commitHash) throws VcsException {
     return HgHistoryUtil.getDescendingHeadsOfBranches(myProject, root, commitHash);
+  }
+
+  @Override
+  public boolean supportsFastUnorderedCommits() {
+    return false;
   }
 
   private static String prepareParameter(String paramName, String value) {
