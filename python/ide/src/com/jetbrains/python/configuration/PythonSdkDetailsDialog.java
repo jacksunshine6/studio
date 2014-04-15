@@ -37,6 +37,7 @@ import com.intellij.openapi.ui.DialogBuilder;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.remote.RemoteSdkAdditionalData;
@@ -223,6 +224,7 @@ public class PythonSdkDetailsDialog extends DialogWrapper {
     myProjectSdksModel.apply();
     mySdkListChanged = false;
     myShowMoreCallback.consume(getSelectedSdk());
+    Disposer.dispose(getDisposable());
   }
 
   @Nullable
@@ -270,7 +272,7 @@ public class PythonSdkDetailsDialog extends DialogWrapper {
 
   private void addCreatedSdk(@Nullable final Sdk sdk, boolean newVirtualEnv) {
     if (sdk != null) {
-      final PyRemovedSdkService sdkService = PyRemovedSdkService.getInstance();
+      final PySdkService sdkService = PySdkService.getInstance();
       sdkService.restoreSdk(sdk);
 
       boolean isVirtualEnv = PythonSdkType.isVirtualEnv(sdk);
@@ -383,7 +385,7 @@ public class PythonSdkDetailsDialog extends DialogWrapper {
   private void removeSdk() {
     final Sdk currentSdk = getSelectedSdk();
     if (currentSdk != null) {
-      final PyRemovedSdkService sdkService = PyRemovedSdkService.getInstance();
+      final PySdkService sdkService = PySdkService.getInstance();
       sdkService.removeSdk(currentSdk);
       myProjectSdksModel.removeSdk(currentSdk);
       if (myModificators.containsKey(currentSdk)) {
