@@ -4,6 +4,7 @@ includeTargets << new File("${guessHome(this)}/build/scripts/common_tests.gant")
 
 setProperty("testcases", ["com.intellij.AllTests"])
 setProperty("cucumber_test_dirs", [["git4idea", "Idea", "$home/plugins/git4idea/test-features/git4idea", "git4idea"]])
+setProperty("debug.port", 58094) // random value
 
 def isMac = System.getProperty("os.name").toLowerCase().startsWith("mac")
 def args = [
