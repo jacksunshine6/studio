@@ -727,22 +727,6 @@ def layoutAndroid() {
         }
       }
     }
-
-    dir("android-designer") {
-      dir("lib") {
-        jar("resources_en.jar") {
-          module("ui-designer-core") {
-            patternset(refid: "resources.included")
-          }
-        }
-        jar("android-designer.jar") {
-          module("ui-designer-core") {
-            patternset(refid: "resources.excluded")
-          }
-          module("android-designer")
-        }
-      }
-    }
   }
 }
 
