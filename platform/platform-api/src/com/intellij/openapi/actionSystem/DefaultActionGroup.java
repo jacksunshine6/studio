@@ -81,7 +81,7 @@ public class DefaultActionGroup extends ActionGroup {
     }
   }
 
-  public DefaultActionGroup(String shortName, boolean popup) {
+  public DefaultActionGroup(@Nullable String shortName, boolean popup) {
     super(shortName, popup);
   }
 
