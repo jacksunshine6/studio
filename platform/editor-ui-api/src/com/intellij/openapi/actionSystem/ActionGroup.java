@@ -69,7 +69,7 @@ public abstract class ActionGroup extends AnAction {
    * @param popup <code>true</code> if this group is a popup, <code>false</code>
    *  otherwise
    */
-  public ActionGroup(String shortName, boolean popup){
+  public ActionGroup(@Nullable String shortName, boolean popup){
     super(shortName);
     setPopup(popup);
   }
