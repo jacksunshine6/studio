@@ -15,6 +15,7 @@
  */
 package com.jetbrains.python.psi.impl;
 
+import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.module.Module;
@@ -158,57 +159,59 @@ public class PythonLanguageLevelPusher implements FilePropertyPusher<LanguageLev
   }
 
   public void afterRootsChanged(@NotNull final Project project) {
-    final Runnable updateLanguageLevel = new Runnable() {
+    Set<Sdk> updatedSdks = new HashSet<Sdk>();
+    final Module[] modules = ModuleManager.getInstance(project).getModules();
+    boolean needReparseOpenFiles = false;
+    for (Module module : modules) {
+      Sdk newSdk = PythonSdkType.findPythonSdk(module);
+      if (myModuleSdks.containsKey(module)) {
+        Sdk oldSdk = myModuleSdks.get(module);
+        if ((newSdk != null || oldSdk != null) && newSdk != oldSdk) {
+          needReparseOpenFiles = true;
+        }
+      }
+      myModuleSdks.put(module, newSdk);
+      if (newSdk != null && !updatedSdks.contains(newSdk)) {
+        updatedSdks.add(newSdk);
+        updateSdkLanguageLevel(project, newSdk);
+      }
+    }
+    if (needReparseOpenFiles) {
+      FileContentUtil.reparseFiles(project, Collections.<VirtualFile>emptyList(), true);
+    }
+  }
+
+  private void updateSdkLanguageLevel(final Project project, final Sdk sdk) {
+    final LanguageLevel languageLevel = PythonSdkType.getLanguageLevelForSdk(sdk);
+    final VirtualFile[] files = sdk.getRootProvider().getFiles(OrderRootType.CLASSES);
+    final Application application = ApplicationManager.getApplication();
+    application.executeOnPooledThread(new Runnable() {
       @Override
       public void run() {
-        final Set<Sdk> updatedSdks = new HashSet<Sdk>();
-        final Module[] modules = ModuleManager.getInstance(project).getModules();
-        boolean needReparseOpenFiles = false;
-        for (Module module : modules) {
-          Sdk newSdk = PythonSdkType.findPythonSdk(module);
-          if (myModuleSdks.containsKey(module)) {
-            Sdk oldSdk = myModuleSdks.get(module);
-            if ((newSdk != null || oldSdk != null) && newSdk != oldSdk) {
-              needReparseOpenFiles = true;
-            }
-          }
-          myModuleSdks.put(module, newSdk);
-          if (newSdk != null && !updatedSdks.contains(newSdk)) {
-            updatedSdks.add(newSdk);
-            updateSdkLanguageLevel(project, newSdk);
-          }
-        }
-        final boolean finalNeedReparseOpenFiles = needReparseOpenFiles;
-        ApplicationManager.getApplication().invokeLater(new Runnable() {
+        application.runReadAction(new Runnable() {
           @Override
           public void run() {
-            if (finalNeedReparseOpenFiles) {
-              FileContentUtil.reparseFiles(project, Collections.<VirtualFile>emptyList(), true);
+            if (project != null && project.isDisposed()) {
+              return;
+            }
+            for (VirtualFile file : files) {
+              if (file.isValid()) {
+                VirtualFile parent = file.getParent();
+                boolean suppressSizeLimit = false;
+                if (parent != null && parent.getName().equals(PythonSdkType.SKELETON_DIR_NAME)) {
+                  suppressSizeLimit = true;
+                }
+                markRecursively(project, file, languageLevel, suppressSizeLimit);
+              }
             }
           }
         });
       }
-    };
-    ApplicationManager.getApplication().runReadAction(updateLanguageLevel);
-  }
-
-  private void updateSdkLanguageLevel(Project project, Sdk sdk) {
-    final LanguageLevel languageLevel = PythonSdkType.getLanguageLevelForSdk(sdk);
-    final VirtualFile[] files = sdk.getRootProvider().getFiles(OrderRootType.CLASSES);
-    for (VirtualFile file : files) {
-      if (file.isValid()) {
-        VirtualFile parent = file.getParent();
-        boolean suppressSizeLimit = false;
-        if (parent != null && parent.getName().equals(PythonSdkType.SKELETON_DIR_NAME)) {
-          suppressSizeLimit = true;
-        }
-        markRecursively(project, file, languageLevel, suppressSizeLimit);
-      }
-    }
+    });
   }
 
   private void markRecursively(final Project project,
-                               @NotNull VirtualFile file,
+                               @NotNull final VirtualFile file,
                                final LanguageLevel languageLevel,
                                final boolean suppressSizeLimit) {
     final FileTypeManager fileTypeManager = FileTypeManager.getInstance();
