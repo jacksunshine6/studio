@@ -71,9 +71,15 @@ public class UpdateSettings implements PersistentStateComponent<Element>, UserUp
   }
 
   private void updateDefaultChannel() {
+    // Disabled in Android Studio: We've renamed the channels to be more similar
+    // to the Chrome channels (canary, dev, beta, stable), and the below would always
+    // force dev and beta into canary again. We'd like to let people choose updates from
+    // beta and not be offered less stable versions.
+    /*
     if (ApplicationInfoImpl.getShadowInstance().isEAP()) {
       UPDATE_CHANNEL_TYPE = ChannelStatus.EAP_CODE;
     }
+    */
   }
 
   public Element getState() {
