@@ -739,6 +739,9 @@ def layoutCloud() {
       dir("templates") {
         fileset(dir: "$home/../studio/cloud/resources/templates")
       }
+      dir("clientTemplates") {
+        fileset(dir: "$home/../studio/cloud/resources/clientTemplates")
+      }
     }
   }
 }
