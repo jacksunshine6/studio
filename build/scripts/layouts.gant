@@ -737,10 +737,13 @@ def layoutCloud() {
         module("google-cloud-tools")
       }
       dir("templates") {
-        fileset(dir: "$home/../studio/cloud/resources/templates")
+        fileset(dir: "${home}/../studio/cloud/resources/templates")
       }
       dir("clientTemplates") {
-        fileset(dir: "$home/../studio/cloud/resources/clientTemplates")
+        fileset(dir: "${home}/../studio/cloud/resources/clientTemplates")
+      }
+      fileset(dir: "${home}/../studio/cloud/lib") {
+        include(name: "**/*.jar")
       }
     }
   }
