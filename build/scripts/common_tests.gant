@@ -19,7 +19,6 @@ includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
 includeTargets << new File("${guessHome(this)}/build/scripts/cucumber-tests.gant")
 
 requireProperty("out", "$home/out")
-requireProperty("manifestJar", "${out}/test/_test_classpath_manifest.jar")
 
 target(check: "Ensure the environment is configured") {
   tempDir = p("teamcity.build.tempDir")
@@ -37,35 +36,6 @@ target(compile: "Compile project") {
   projectBuilder.buildAll()
 }
 
-target(createManifest: "Build the classpath manifest") {
-  // Stuff the classpaths into a manifest in a jar file since Windows can't handle
-  // anything longer than 8191 characters on the command line.
-  path(id: "classpaths") {
-    projectBuilder.moduleRuntimeClasspath(findModule("community-main"), true).each {
-      // Filter out junit.jar and explicitly include it in -classpath,
-      // or else *something* won't be happy about it.
-      if (!it.contains("junit.jar")) {
-        pathelement(location: it)
-      }
-    }
-  }
-
-  // Default maxParentLevels is 2. 50 ought to be enough for the number of parent directories to pop.
-  manifestclasspath(property: "manifestClasspaths", jarfile: "${manifestJar}", maxParentLevels: 50) {
-    classpath(refid: "classpaths")
-  }
-
-  ant.jar(destfile: manifestJar) {
-    manifest() {
-      attribute(name: "Class-Path", value: "${manifestClasspaths}")
-    }
-  }
-}
-
-target(deleteManifest: "Delete the classpath manifest file createManifest generated") {
-  delete(file: manifestJar)
-}
-
 private pass(String prop) {
   if (isDefined(prop)) {
     ant.jvmarg(value: "-D$prop=${p(prop)}")
@@ -73,10 +43,8 @@ private pass(String prop) {
 }
 
 target('run_tests': 'Run java tests') {
-  depends([check, compile, createManifest, run_junit_tests, deleteManifest])
-}
+  depends([check, compile])
 
-target('run_junit_tests': 'Run JUnit tests') {
   ant.junit(fork: "yes", showoutput: "true", logfailedtests:false, printsummary: "true") {
     pass("idea.test.group")
     pass("idea.test.patterns")
@@ -101,11 +69,8 @@ target('run_junit_tests': 'Run JUnit tests') {
 
     classpath {
       projectBuilder.moduleRuntimeClasspath(findModule("community-main"), true).each {
-        if (it.contains("junit.jar")) {
-          pathelement(location: it)
-        }
+        pathelement(location: it)
       }
-      pathelement(location: manifestJar)
       pathelement(location: "${jdkHome}/lib/tools.jar")
     }
 
