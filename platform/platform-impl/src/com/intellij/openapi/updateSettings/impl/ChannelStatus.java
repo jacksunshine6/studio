@@ -27,6 +27,7 @@ import java.util.List;
 public class ChannelStatus implements Comparable<ChannelStatus> {
   @NonNls public static final String EAP_CODE = "eap";
   @NonNls public static final String RELEASE_CODE = "release";
+  @NonNls public static final String BETA_CODE = "beta";
 
   /**
    * EAP is our Canary Channel.
@@ -45,7 +46,7 @@ public class ChannelStatus implements Comparable<ChannelStatus> {
    * It's updated roughly every month.
    */
   public static final ChannelStatus MILESTONE = new ChannelStatus(1, "milestone", "Dev Channel");
-  public static final ChannelStatus BETA = new ChannelStatus(2, "beta", "Beta Channel");
+  public static final ChannelStatus BETA = new ChannelStatus(2, BETA_CODE, "Beta Channel");
   public static final ChannelStatus RELEASE = new ChannelStatus(3, RELEASE_CODE, "Stable Channel");
 
   private static final List<ChannelStatus> ALL_TYPES = ContainerUtil.immutableList(RELEASE, BETA, MILESTONE, EAP);
