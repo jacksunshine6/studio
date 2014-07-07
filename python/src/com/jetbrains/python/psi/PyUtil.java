@@ -850,6 +850,29 @@ public class PyUtil {
     return null;
   }
 
+
+  /**
+   * Converts collection to list of certain type
+   * @param expression expression of collection type
+   * @param elementClass expected element type
+   * @param <T>  expected element type
+   * @return list of elements of expected element type
+   */
+  @NotNull
+  public static <T> List<T> asList(@Nullable final Collection<?> expression, @NotNull final Class<T> elementClass) {
+    if ((expression == null) || expression.isEmpty()) {
+      return Collections.emptyList();
+    }
+    final List<T> result = new ArrayList<T>();
+    for (final Object element : expression) {
+      final T toAdd = as(element, elementClass);
+      if (toAdd != null) {
+        result.add(toAdd);
+      }
+    }
+    return result;
+  }
+
   public static class KnownDecoratorProviderHolder {
     public static PyKnownDecoratorProvider[] KNOWN_DECORATOR_PROVIDERS = Extensions.getExtensions(PyKnownDecoratorProvider.EP_NAME);
 
@@ -1498,7 +1521,7 @@ public class PyUtil {
   public static List<PyParameter> getParameters(@NotNull Callable callable, @NotNull TypeEvalContext context) {
     PyType type = context.getType(callable);
     if (type instanceof PyUnionType) {
-      type = ((PyUnionType)type).excludeNull();
+      type = ((PyUnionType)type).excludeNull(context);
     }
     if (type instanceof PyCallableType) {
       final PyCallableType callableType = (PyCallableType)type;
