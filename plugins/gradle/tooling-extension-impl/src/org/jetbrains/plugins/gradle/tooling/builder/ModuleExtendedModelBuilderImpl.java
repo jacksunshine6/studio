@@ -20,14 +20,18 @@ import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
+import org.gradle.api.tasks.SourceSetOutput;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.plugins.ide.idea.IdeaPlugin;
 import org.gradle.plugins.ide.idea.model.IdeaModel;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.plugins.gradle.model.ExtIdeaContentRoot;
 import org.jetbrains.plugins.gradle.model.ModuleExtendedModel;
+import org.jetbrains.plugins.gradle.tooling.ErrorMessageBuilder;
 import org.jetbrains.plugins.gradle.tooling.ModelBuilderService;
+import org.jetbrains.plugins.gradle.tooling.internal.IdeaCompilerOutputImpl;
 import org.jetbrains.plugins.gradle.tooling.internal.IdeaContentRootImpl;
 import org.jetbrains.plugins.gradle.tooling.internal.IdeaSourceDirectoryImpl;
 import org.jetbrains.plugins.gradle.tooling.internal.ModuleExtendedModelImpl;
@@ -57,8 +61,9 @@ public class ModuleExtendedModelBuilderImpl implements ModelBuilderService {
     final String moduleName = project.getName();
     final String moduleGroup = project.getGroup().toString();
     final String moduleVersion = project.getVersion().toString();
+    final File buildDir = project.getBuildDir();
 
-    final ModuleExtendedModelImpl moduleVersionModel = new ModuleExtendedModelImpl(moduleName, moduleGroup, moduleVersion);
+    final ModuleExtendedModelImpl moduleVersionModel = new ModuleExtendedModelImpl(moduleName, moduleGroup, moduleVersion, buildDir);
 
     final List<File> artifacts = new ArrayList<File>();
     for (Task task : project.getTasks()) {
@@ -92,11 +97,24 @@ public class ModuleExtendedModelBuilderImpl implements ModelBuilderService {
       }
     }
 
+    IdeaCompilerOutputImpl compilerOutput = new IdeaCompilerOutputImpl();
+
     if (project.hasProperty(SOURCE_SETS_PROPERTY)) {
       Object sourceSets = project.property(SOURCE_SETS_PROPERTY);
       if (sourceSets instanceof SourceSetContainer) {
         SourceSetContainer sourceSetContainer = (SourceSetContainer)sourceSets;
         for (SourceSet sourceSet : sourceSetContainer) {
+
+          SourceSetOutput output = sourceSet.getOutput();
+          if (SourceSet.TEST_SOURCE_SET_NAME.equals(sourceSet.getName())) {
+            compilerOutput.setTestClassesDir(output.getClassesDir());
+            compilerOutput.setTestResourcesDir(output.getResourcesDir());
+          }
+          if (SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSet.getName())) {
+            compilerOutput.setMainClassesDir(output.getClassesDir());
+            compilerOutput.setMainResourcesDir(output.getResourcesDir());
+          }
+
           for (File javaSrcDir : sourceSet.getAllJava().getSrcDirs()) {
             boolean isTestDir = isTestDir(sourceSet, testClassesDirs);
             addFilePath(isTestDir ? testDirectories : sourceDirectories, javaSrcDir);
@@ -163,7 +181,16 @@ public class ModuleExtendedModelBuilderImpl implements ModelBuilderService {
     }
 
     moduleVersionModel.setContentRoots(Collections.<ExtIdeaContentRoot>singleton(contentRoot));
+    moduleVersionModel.setCompilerOutput(compilerOutput);
     return moduleVersionModel;
+  }
+
+  @NotNull
+  @Override
+  public ErrorMessageBuilder getErrorMessageBuilder(@NotNull Project project, @NotNull Exception e) {
+    return ErrorMessageBuilder.create(
+      project, e, "Other"
+    ).withDescription("Unable to resolve all content root directories");
   }
 
   private static boolean isTestDir(SourceSet sourceSet, List<File> testClassesDirs) {
