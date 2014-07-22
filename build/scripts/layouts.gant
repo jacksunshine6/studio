@@ -253,7 +253,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
 public def layoutCommunityPlugins(String home) {
   layoutAndroid()
-  layoutGoogle()
+  layoutCloud()
 
   dir("plugins") {
     def simplePlugins = ["commander", "copyright", "java-i18n", "hg4idea", "github"] //, "tasks-time-tracking"]
@@ -665,7 +665,6 @@ def layoutAndroid() {
         // Note: This is a HACK: rather than encoding the full path, we should really query
         // the project model for the classpath just like we do for the androidModules' dependencies
         // below
-        // Also see similar issue in Google Cloud Login plugin
         fileset(file: "${home}/../../prebuilts/tools/common/m2/repository/org/freemarker/freemarker/2.3.20/freemarker-2.3.20.jar")
 
         androidModules = [
@@ -731,7 +730,7 @@ def layoutAndroid() {
   }
 }
 
-def layoutGoogle() {
+def layoutCloud() {
   dir("plugins") {
     layoutPlugin("google-cloud-tools") {
       jar("google-cloud-tools.jar") {
@@ -746,17 +745,6 @@ def layoutGoogle() {
       fileset(dir: "${home}/../studio/cloud/lib") {
         include(name: "**/*.jar")
       }
-    }
-    layoutPlugin("google-login") {
-      jar("google-login.jar") {
-        module("google-login")
-      }
-      fileset(dir: "${home}/../studio/cloud/login/lib") {
-        include(name: "**/*.jar")
-      }
-      // Additional libraries that need to be manually copied, see how freemarker
-      // is copied by the Android plugin
-      fileset(file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.8.0-rc/google-api-java-client-min-repackaged.jar")
     }
   }
 }
