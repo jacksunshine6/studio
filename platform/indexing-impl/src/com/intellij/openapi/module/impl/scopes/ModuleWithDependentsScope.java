@@ -52,23 +52,27 @@ public class ModuleWithDependentsScope extends GlobalSearchScope {
     myProjectFileIndex = ProjectRootManager.getInstance(myModule.getProject()).getFileIndex();
     myProjectScope = ProjectScope.getProjectScope(myModule.getProject());
 
-    myModules = fillModules();
+    myModules = buildDependents(myModule);
   }
 
-  private Set<Module> fillModules() {
+  private static Set<Module> buildDependents(Module module) {
     Set<Module> result = new THashSet<Module>();
-    result.add(myModule);
+    result.add(module);
 
-    ModuleIndex index = getModuleIndex(myModule.getProject());
+    Set<Module> processedExporting = new THashSet<Module>();
+
+    ModuleIndex index = getModuleIndex(module.getProject());
 
     Queue<Module> walkingQueue = new Queue<Module>(10);
-    walkingQueue.addLast(myModule);
+    walkingQueue.addLast(module);
 
     while (!walkingQueue.isEmpty()) {
       Module current = walkingQueue.pullFirst();
+      processedExporting.add(current);
       result.addAll(index.plainUsages.get(current));
       for (Module dependent : index.exportingUsages.get(current)) {
-        if (result.add(dependent)) {
+        result.add(dependent);
+        if (processedExporting.add(dependent)) {
           walkingQueue.addLast(dependent);
         }
       }
