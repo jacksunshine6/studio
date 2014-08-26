@@ -29,12 +29,10 @@ import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.NotNullLazyKey;
 import com.intellij.openapi.vfs.*;
-import com.intellij.ui.EditorNotifications;
 import com.intellij.util.NotNullFunction;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 import java.util.*;
 
@@ -72,7 +70,6 @@ public class NonProjectFileWritingAccessProvider extends WritingAccessProvider {
         for (VirtualFile each : new ArrayList<VirtualFile>(files.keySet())) {
           if (isProjectFile(each)) {
             files.remove(each);
-            EditorNotifications.getInstance(myProject).updateNotifications(each);
           }
         }
       }
@@ -96,19 +93,47 @@ public class NonProjectFileWritingAccessProvider extends WritingAccessProvider {
       if (statuses.get(each) == AccessStatus.ALLOWED) continue;
 
       if (!(each.getFileSystem() instanceof LocalFileSystem)) continue; // do not block e.g., HttpFileSystem, LightFileSystem etc.  
-      if (isProjectFile(each)) continue;
+      if (isProjectFile(each)) {
+        statuses.remove(each);
+        continue;
+      }
 
       statuses.put(each, AccessStatus.REQUESTED);
       deniedFiles.add(each);
-      EditorNotifications.getInstance(myProject).updateNotifications(each);
     }
 
-    return deniedFiles;
+    if (deniedFiles.isEmpty()) return Collections.emptyList();
+
+    UnlockOption unlockOption = askToUnlock(deniedFiles);
+
+    if (unlockOption == null) return deniedFiles;
+
+    switch (unlockOption) {
+      case UNLOCK:
+        for (VirtualFile eachAllowed : deniedFiles) {
+          statuses.put(eachAllowed, AccessStatus.ALLOWED);
+        }
+        break;
+      case UNLOCK_ALL:
+        myProject.putUserData(ALL_ACCESS_ALLOWED, Boolean.TRUE);
+        break;
+    }
+
+    return Collections.emptyList();
+  }
+
+  @Nullable
+  private UnlockOption askToUnlock(@NotNull List<VirtualFile> files) {
+    NonProjectFileWritingAccessDialog dialog = new NonProjectFileWritingAccessDialog(myProject, files);
+    if (!dialog.showAndGet()) return null;
+    return dialog.getUnlockOption();
   }
 
   private boolean isProjectFile(@NotNull VirtualFile file) {
-    if (ProjectFileIndex.SERVICE.getInstance(myProject).isInContent(file)) return true;
-    
+    ProjectFileIndex fileIndex = ProjectFileIndex.SERVICE.getInstance(myProject);
+    if (fileIndex.isInContent(file)) return true;
+    if (fileIndex.isIgnored(file)) return true;
+
     if (myProject instanceof ProjectEx) {
       IProjectStore store = ((ProjectEx)myProject).getStateStore();
 
@@ -127,11 +152,6 @@ public class NonProjectFileWritingAccessProvider extends WritingAccessProvider {
     return false;
   }
 
-  @TestOnly
-  public static void enableChecksInTests(@NotNull Project project, boolean enable) {
-    project.putUserData(ENABLE_IN_TESTS, enable ? Boolean.TRUE : null);
-  } 
-
   private static boolean allAccessAllowed(@NotNull Project project) {
     // disable checks in tests, if not asked
     if (ApplicationManager.getApplication().isUnitTestMode() && project.getUserData(ENABLE_IN_TESTS) != Boolean.TRUE) {
@@ -141,33 +161,10 @@ public class NonProjectFileWritingAccessProvider extends WritingAccessProvider {
     return project.getUserData(ALL_ACCESS_ALLOWED) == Boolean.TRUE;
   }
 
-  @Nullable
-  public static AccessStatus getAccessStatus(@NotNull Project project, @NotNull VirtualFile file) {
-    return allAccessAllowed(project) ? AccessStatus.ALLOWED : getRegisteredFiles(project).get(file);
-  }
-
-  public static void allowAccessForAll(@NotNull Project project, @NotNull VirtualFile file) {
-    project.putUserData(ALL_ACCESS_ALLOWED, Boolean.TRUE);
-    // unlock the current file as well
-    ReadonlyStatusHandler.getInstance(project).ensureFilesWritable(file);
-
-    EditorNotifications.getInstance(project).updateAllNotifications();
-  }
-
-  public static void allowAccess(@NotNull Project project, @NotNull VirtualFile file) {
-    // Ask other access provides to remove read-only status
-    Map<VirtualFile, AccessStatus> statuses = getRegisteredFiles(project);
-    statuses.put(file, AccessStatus.ALLOWED);
-    if (ReadonlyStatusHandler.getInstance(project).ensureFilesWritable(file).hasReadonlyFiles()) {
-      // If failed, do not change the status
-      statuses.put(file, AccessStatus.REQUESTED);
-    }
-
-    EditorNotifications.getInstance(project).updateNotifications(file);
-  }
-
   @NotNull
   private static Map<VirtualFile, AccessStatus> getRegisteredFiles(@NotNull Project project) {
     return ACCESS_STATUS.getValue(project);
   }
+
+  public enum UnlockOption {UNLOCK, UNLOCK_ALL}
 }
