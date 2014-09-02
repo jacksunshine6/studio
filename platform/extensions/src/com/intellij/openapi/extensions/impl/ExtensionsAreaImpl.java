@@ -30,6 +30,7 @@ import org.picocontainer.MutablePicoContainer;
 import org.picocontainer.PicoContainer;
 import org.picocontainer.defaults.ConstructorInjectionComponentAdapter;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.*;
@@ -314,6 +315,21 @@ public class ExtensionsAreaImpl implements ExtensionsArea {
                                       @NotNull PluginDescriptor descriptor,
                                       @NotNull ExtensionPoint.Kind kind) {
     if (hasExtensionPoint(extensionPointName)) {
+      // Android Studio workaround for
+      // 73999: Corrupt installation: Still contains android-designer bits
+      // https://code.google.com/p/android/issues/detail?id=73999
+      if ("Designer.customizations".equals(extensionPointName)) {
+        String msg = "Your Android Studio installation is corrupt and will not work properly.\n" +
+                     "\n" +
+                     "This can happen if Android Studio is extracted into an existing older version.\n\n" +
+                     "Please reinstall (and make sure the new installation directory is empty first!)";
+        String title = "Corrupt Installation";
+        // Using JOptionPane rather than the better looking com.intellij.openapi.ui.Messages support
+        // here because this is called during early initialization
+        JOptionPane.showMessageDialog(null, msg, title, JOptionPane.ERROR_MESSAGE);
+        System.exit(-1);
+      }
+
       if (DEBUG_REGISTRATION) {
         final ExtensionPointImpl oldEP = getExtensionPoint(extensionPointName);
         myLogger.error("Duplicate registration for EP: " + extensionPointName + ": original plugin " + oldEP.getDescriptor().getPluginId() +
