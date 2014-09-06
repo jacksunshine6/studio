@@ -179,6 +179,8 @@ public class VisibilityInspection extends GlobalJavaBatchInspectionTool {
       RefClass refClass = (RefClass) refElement;
       if (refClass.isAnonymous() || refClass.isTestCase() || refClass.isServlet() || refClass.isApplet() || refClass.isLocalClass()) return null;
       if (isTopLevelClass(refClass) && !SUGGEST_PACKAGE_LOCAL_FOR_TOP_CLASSES) return null;
+
+      if (refClass.isAndroidPublic()) return null;
     }
 
     //ignore unreferenced code. They could be a potential entry points.
