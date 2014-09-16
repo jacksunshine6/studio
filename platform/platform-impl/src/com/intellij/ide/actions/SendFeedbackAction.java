@@ -88,7 +88,7 @@ public class SendFeedbackAction extends AnAction implements DumbAware {
       if (UIUtil.isRetina()) sb.append(" R");
       sb.append(")");
     }
-    return sb.toString();
+    return sb.toString().replace(' ', '-').trim();
   }
 
   private static boolean isEvaluationLicense() {
