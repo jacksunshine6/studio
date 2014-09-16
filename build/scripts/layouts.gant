@@ -659,6 +659,9 @@ def layoutAndroid() {
 
         fileset(dir: "${home}/../adt/idea/android/lib") {
           include(name: "**/*.jar")
+          exclude(name: "fest-*.jar")
+          exclude(name: "src/**/*")
+          exclude(name: "src")
         }
 
         jar("androidAnnotations.jar") {
