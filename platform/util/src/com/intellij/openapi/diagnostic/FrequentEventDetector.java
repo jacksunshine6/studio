@@ -44,10 +44,9 @@ public class FrequentEventDetector {
     myLevel = level;
   }
 
-  public void eventHappened() {
+  public boolean eventHappened() {
+    boolean shouldLog = false;
     if (myEventsPosted.incrementAndGet() > myEventCountThreshold) {
-      boolean shouldLog = false;
-
       synchronized (myEventsPosted) {
         if (myEventsPosted.get() > myEventCountThreshold) {
           long timeNow = System.currentTimeMillis();
@@ -70,5 +69,6 @@ public class FrequentEventDetector {
         }
       }
     }
+    return shouldLog;
   }
 }
