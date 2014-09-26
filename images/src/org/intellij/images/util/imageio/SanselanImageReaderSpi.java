@@ -44,15 +44,17 @@ public class SanselanImageReaderSpi extends ImageReaderSpi {
     vendorName = "JetBrains, s.r.o.";
     version = "1.0";
 
-    // todo standard GIF/BMP formats can be optionally skipped as well
+    // todo standard GIF format can be optionally skipped as well
     // JPEG is skipped due to Exception: Sanselan cannot read or write JPEG images. (JpegImageParser.java:92)
     // tiff reader seems to be broken
     // PNG reader has bugs with well-compressed PNG images, use standard one instead
+    // BMP reader cannot handle images with negative height (top down images)
     myFormats = new ArrayList<ImageFormat>(Arrays.asList(ImageFormat.getAllFormats()));
     myFormats.removeAll(Arrays.asList(ImageFormat.IMAGE_FORMAT_UNKNOWN,
                                          ImageFormat.IMAGE_FORMAT_JPEG,
                                          ImageFormat.IMAGE_FORMAT_TIFF,
-                                         ImageFormat.IMAGE_FORMAT_PNG));
+                                         ImageFormat.IMAGE_FORMAT_PNG,
+                                         ImageFormat.IMAGE_FORMAT_BMP));
 
     names = new String[myFormats.size() * 2];
     suffixes = new String[myFormats.size()];
