@@ -21,6 +21,7 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfoType;
 import com.intellij.codeInspection.*;
 import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.xml.SchemaPrefixReference;
 import com.intellij.psi.templateLanguages.OuterLanguageElement;
@@ -131,6 +132,20 @@ public class XmlUnboundNsPrefixInspection extends XmlSuppressableInspectionTool 
     final XmlExtension extension = XmlExtension.getExtension(containingFile);
     if (extension.getPrefixDeclaration(context, namespacePrefix) != null) {
       return;
+    }
+
+    // Android Studio Workaround for issue https://code.google.com/p/android/issues/detail?id=76715
+    // If this a generated file like this:
+    //   ${project}/${module}/build/generated/res/generated/{test?}/${flavors}/${build-type}/values/generated.xml
+    // ? If so, skip it.
+    if (psiFile.getName().equals("generated.xml")) {
+      VirtualFile virtualFile = psiFile.getVirtualFile();
+      while (virtualFile != null) {
+        if ("generated".equals(virtualFile.getName())) {
+          return;
+        }
+        virtualFile = virtualFile.getParent();
+      }
     }
 
     final String localizedMessage = isOnTheFly ? XmlErrorMessages.message("unbound.namespace", namespacePrefix) : XmlErrorMessages.message("unbound.namespace.no.param");
