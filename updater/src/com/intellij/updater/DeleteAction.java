@@ -61,7 +61,9 @@ public class DeleteAction extends PatchAction {
 
   @Override
   protected void doRevert(File toFile, File backupFile) throws IOException {
-    Utils.delete(toFile); // make sure there is no directory remained on this path (may remain from previous 'create' actions
-    Utils.copy(backupFile, toFile);
+    if (!toFile.exists() || isModified(toFile)) {
+      Utils.delete(toFile); // make sure there is no directory remained on this path (may remain from previous 'create' actions
+      Utils.copy(backupFile, toFile);
+    }
   }
 }
