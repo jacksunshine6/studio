@@ -764,7 +764,7 @@ def layoutGoogle() {
       jar("google-login.jar") {
         module("google-login")
       }
-      fileset(dir: "${home}/../studio/google/cloud/tools/login/lib") {
+      fileset(dir: "${home}/../studio/google/login/lib") {
         include(name: "**/*.jar")
       }
       // Additional libraries that need to be manually copied, see how freemarker
