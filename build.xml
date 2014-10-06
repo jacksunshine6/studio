@@ -68,6 +68,7 @@
     <jarjar jarfile="${out.dir}/updater-full.jar">
         <zipfileset src="${out.dir}/updater.jar" />
         <zipfileset src="lib/log4j.jar" />
+        <zipfileset src="lib/jna.jar" />
     </jarjar>
   </target>
 
