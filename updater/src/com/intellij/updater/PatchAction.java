@@ -4,6 +4,8 @@ import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -60,9 +62,15 @@ public abstract class PatchAction {
   protected abstract void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException;
 
   public boolean shouldApply(File toDir, Map<String, ValidationResult.Option> options) {
+    File file = getFile(toDir);
     ValidationResult.Option option = options.get(myPath);
     if (option == ValidationResult.Option.KEEP || option == ValidationResult.Option.IGNORE) return false;
-    return shouldApplyOn(getFile(toDir));
+    if (option == ValidationResult.Option.KILL_PROCESS) {
+      for (NativeFileManager.Process process : NativeFileManager.getProcessesUsing(file)) {
+        process.terminate();
+      }
+    }
+    return shouldApplyOn(file);
   }
 
   protected boolean shouldApplyOn(File toFile) {
@@ -78,6 +86,10 @@ public abstract class PatchAction {
   protected ValidationResult doValidateAccess(File toFile, ValidationResult.Action action) {
     if (!toFile.exists()) return null;
     if (toFile.isDirectory()) return null;
+    ValidationResult result = validateProcessLock(toFile, action);
+    if (result != null) {
+      return result;
+    }
     if (toFile.canRead() && toFile.canWrite() && isWritable(toFile)) return null;
     return new ValidationResult(ValidationResult.Kind.ERROR,
                                 myPath,
@@ -109,6 +121,23 @@ public abstract class PatchAction {
       Runner.printStackTrace(e);
       return false;
     }
+  }
+
+  private ValidationResult validateProcessLock(File toFile, ValidationResult.Action action) {
+    List<NativeFileManager.Process> processes = NativeFileManager.getProcessesUsing(toFile);
+    if (processes.size() > 0) {
+      Iterator<NativeFileManager.Process> it = processes.iterator();
+      String message = "Locked by: " + it.next().name;
+      while (it.hasNext()) {
+        message += ", " + it.next().name;
+      }
+      return new ValidationResult(ValidationResult.Kind.ERROR,
+                                  myPath,
+                                  action,
+                                  message,
+                                  ValidationResult.Option.KILL_PROCESS);
+    }
+    return null;
   }
 
   protected ValidationResult doValidateNotChanged(File toFile, ValidationResult.Kind kind, ValidationResult.Action action)
