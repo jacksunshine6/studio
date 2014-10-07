@@ -222,11 +222,13 @@ public class Runner {
   private static void install(final boolean useExitCode0, final String destFolder) throws Exception {
     InputStream in = Runner.class.getResourceAsStream("/" + PATCH_PROPERTIES_ENTRY);
     Properties props = new Properties();
-    try {
-      props.load(in);
-    }
-    finally {
-      in.close();
+    if (in != null) {
+      try {
+        props.load(in);
+      }
+      finally {
+        in.close();
+      }
     }
 
     // todo[r.sh] to delete in IDEA 14 (after a full circle of platform updates)
@@ -321,6 +323,10 @@ public class Runner {
   }
 
   private static File resolveJarFile() throws IOException {
+    String jar = System.getProperty("JAR_FILE");
+    if (jar != null) {
+      return new File(jar);
+    }
     URL url = Runner.class.getResource("");
     if (url == null) throw new IOException("Cannot resolve JAR file path");
     if (!"jar".equals(url.getProtocol())) throw new IOException("Patch file is not a JAR file");
