@@ -53,7 +53,7 @@ public class Patch {
     }
 
     for (Map.Entry<String, Long> each : diff.filesToUpdate.entrySet()) {
-      if (Utils.isZipFile(each.getKey())) {
+      if (!Runner.ZIP_AS_BINARY && Utils.isZipFile(each.getKey())) {
         tempActions.add(new UpdateZipAction(each.getKey(), each.getValue()));
       }
       else {
