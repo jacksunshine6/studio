@@ -161,9 +161,7 @@ public abstract class PatchAction {
     return null;
   }
 
-  protected boolean isModified(File toFile) throws IOException {
-    return myChecksum != Digester.digestFile(toFile);
-  }
+  abstract protected boolean isModified(File toFile) throws IOException;
 
   public void apply(ZipFile patchFile, File toDir) throws IOException {
     doApply(patchFile, getFile(toDir));
