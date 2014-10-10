@@ -308,6 +308,11 @@ public class PatchFileCreatorTest extends PatchTestCase {
     }
 
     @Override
+    protected boolean isModified(File toFile) throws IOException {
+      return false;
+    }
+
+    @Override
     protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
       throw new UnsupportedOperationException();
     }
