@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SwingUpdaterUI implements UpdaterUI {
-  static final int RESULT_REQUIRES_RESTART = 42;
+  private static final int RESULT_REQUIRES_RESTART = 42;
 
   private static final EmptyBorder FRAME_BORDER = new EmptyBorder(8, 8, 8, 8);
   private static final EmptyBorder LABEL_BORDER = new EmptyBorder(0, 0, 5, 0);
@@ -32,7 +32,6 @@ public class SwingUpdaterUI implements UpdaterUI {
 
   private static final String PROCEED_BUTTON_TITLE = "Proceed";
 
-  private final int mySuccessExitCode;
   private final InstallOperation myOperation;
 
   private final JLabel myProcessTitle;
@@ -50,19 +49,7 @@ public class SwingUpdaterUI implements UpdaterUI {
   private final JFrame myFrame;
   private boolean myApplied;
 
-  /**
-   * Displays the updater UI and asynchronously runs the operation list.
-   *
-   * @param oldBuildDesc The old build description, for display purposes.
-   * @param newBuildDesc The new build description, for display purposes.
-   * @param successExitCode The desired exit code on success. Default is {@link #RESULT_REQUIRES_RESTART}.
-   * @param operation The install operations to perform.
-   */
-  public SwingUpdaterUI(String oldBuildDesc,
-                        String newBuildDesc,
-                        int successExitCode,
-                        InstallOperation operation) {
-    mySuccessExitCode = successExitCode;
+  public SwingUpdaterUI(String oldBuildDesc, String newBuildDesc, InstallOperation operation) {
     myOperation = operation;
 
     myProcessTitle = new JLabel(" ");
@@ -83,7 +70,6 @@ public class SwingUpdaterUI implements UpdaterUI {
     myConsolePane.setVisible(false);
 
     myCancelButton.addActionListener(new ActionListener() {
-      @Override
       public void actionPerformed(ActionEvent e) {
         doCancel();
       }
@@ -143,7 +129,6 @@ public class SwingUpdaterUI implements UpdaterUI {
 
   private void startRequestDispatching() {
     new Thread(new Runnable() {
-      @Override
       public void run() {
         while (true) {
           try {
@@ -161,7 +146,6 @@ public class SwingUpdaterUI implements UpdaterUI {
           }
 
           SwingUtilities.invokeLater(new Runnable() {
-            @Override
             public void run() {
               for (UpdateRequest each : pendingRequests) {
                 each.perform();
@@ -192,7 +176,6 @@ public class SwingUpdaterUI implements UpdaterUI {
     isRunning.set(true);
 
     new Thread(new Runnable() {
-      @Override
       public void run() {
         try {
           myApplied = myOperation.execute(SwingUpdaterUI.this);
@@ -221,17 +204,15 @@ public class SwingUpdaterUI implements UpdaterUI {
   }
 
   private void exit() {
-    System.exit(myApplied ? mySuccessExitCode : 0);
+    System.exit(myApplied ? RESULT_REQUIRES_RESTART : 0);
   }
 
-  @Override
   public Map<String, ValidationResult.Option> askUser(final List<ValidationResult> validationResults) throws OperationCancelledException {
     if (validationResults.isEmpty()) return Collections.emptyMap();
 
     final Map<String, ValidationResult.Option> result = new HashMap<String, ValidationResult.Option>();
     try {
       SwingUtilities.invokeAndWait(new Runnable() {
-        @Override
         public void run() {
           final JDialog dialog = new JDialog(myFrame, TITLE, true);
           dialog.setLayout(new BorderLayout());
@@ -243,7 +224,6 @@ public class SwingUpdaterUI implements UpdaterUI {
           buttonsPanel.add(Box.createHorizontalGlue());
           JButton proceedButton = new JButton(PROCEED_BUTTON_TITLE);
           proceedButton.addActionListener(new ActionListener() {
-            @Override
             public void actionPerformed(ActionEvent e) {
               dialog.setVisible(false);
             }
@@ -251,7 +231,6 @@ public class SwingUpdaterUI implements UpdaterUI {
 
           JButton cancelButton = new JButton(CANCEL_BUTTON_TITLE);
           cancelButton.addActionListener(new ActionListener() {
-            @Override
             public void actionPerformed(ActionEvent e) {
               isCancelled.set(true);
               myCancelButton.setEnabled(false);
@@ -308,10 +287,8 @@ public class SwingUpdaterUI implements UpdaterUI {
     return result;
   }
 
-  @Override
   public void startProcess(final String title) {
     myQueue.add(new UpdateRequest() {
-      @Override
       public void perform() {
         myProcessStatus.setText(title);
         myProcessProgress.setIndeterminate(false);
@@ -320,10 +297,8 @@ public class SwingUpdaterUI implements UpdaterUI {
     });
   }
 
-  @Override
   public void setProgress(final int percentage) {
     myQueue.add(new UpdateRequest() {
-      @Override
       public void perform() {
         myProcessProgress.setIndeterminate(false);
         myProcessProgress.setValue(percentage);
@@ -331,26 +306,21 @@ public class SwingUpdaterUI implements UpdaterUI {
     });
   }
 
-  @Override
   public void setProgressIndeterminate() {
     myQueue.add(new UpdateRequest() {
-      @Override
       public void perform() {
         myProcessProgress.setIndeterminate(true);
       }
     });
   }
 
-  @Override
   public void setStatus(final String status) {
   }
 
-  @Override
   public void showError(final Throwable e) {
     hasError.set(true);
 
     myQueue.add(new UpdateRequest() {
-      @Override
       public void perform() {
         StringWriter w = new StringWriter();
         if (!myConsolePane.isVisible()) {
@@ -371,7 +341,6 @@ public class SwingUpdaterUI implements UpdaterUI {
     });
   }
 
-  @Override
   public void checkCancelled() throws OperationCancelledException {
     if (isCancelled.get()) throw new OperationCancelledException();
   }
@@ -385,8 +354,7 @@ public class SwingUpdaterUI implements UpdaterUI {
   }
 
   public static void main(String[] args) {
-    new SwingUpdaterUI("xxx", "yyy", RESULT_REQUIRES_RESTART, new InstallOperation() {
-      @Override
+    new SwingUpdaterUI("xxx", "yyy", new InstallOperation() {
       public boolean execute(UpdaterUI ui) throws OperationCancelledException {
         ui.startProcess("Process1");
         ui.checkCancelled();
@@ -470,7 +438,6 @@ public class SwingUpdaterUI implements UpdaterUI {
       }
     }
 
-    @Override
     public int getColumnCount() {
       return COLUMNS.length;
     }
@@ -497,7 +464,6 @@ public class SwingUpdaterUI implements UpdaterUI {
       return super.getColumnClass(columnIndex);
     }
 
-    @Override
     public int getRowCount() {
       return myItems.size();
     }
@@ -514,7 +480,6 @@ public class SwingUpdaterUI implements UpdaterUI {
       }
     }
 
-    @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
       Item item = myItems.get(rowIndex);
       switch (columnIndex) {

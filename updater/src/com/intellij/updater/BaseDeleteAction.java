@@ -46,12 +46,10 @@ public abstract class BaseDeleteAction extends PatchAction {
     Utils.delete(toFile);
   }
 
-  @Override
   protected void doBackup(File toFile, File backupFile) throws IOException {
     Utils.copy(toFile, backupFile);
   }
 
-  @Override
   protected void doRevert(File toFile, File backupFile) throws IOException {
     if (!toFile.exists() || isModified(toFile)) {
       Utils.delete(toFile); // make sure there is no directory remained on this path (may remain from previous 'create' actions
