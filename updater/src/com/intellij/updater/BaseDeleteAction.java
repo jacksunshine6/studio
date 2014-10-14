@@ -51,7 +51,7 @@ public abstract class BaseDeleteAction extends PatchAction {
   }
 
   protected void doRevert(File toFile, File backupFile) throws IOException {
-    if (!toFile.exists() || isModified(toFile)) {
+    if (!toFile.exists() || toFile.isDirectory() || isModified(toFile)) {
       Utils.delete(toFile); // make sure there is no directory remained on this path (may remain from previous 'create' actions
       Utils.copy(backupFile, toFile);
     }
