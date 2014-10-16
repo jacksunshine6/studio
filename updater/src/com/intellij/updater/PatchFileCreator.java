@@ -1,19 +1,21 @@
 package com.intellij.updater;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 public class PatchFileCreator {
   private static final String PATCH_INFO_FILE_NAME = ".patch-info";
+  private static final String PATCH_PROPERTIES_ENTRY = "patch.properties";
 
-  public static void create(File olderDir,
+  private static final String OLD_BUILD_DESCRIPTION = "old.build.description";
+  private static final String NEW_BUILD_DESCRIPTION = "new.build.description";
+
+  public static void create(String oldBuildDesc, String newBuildDesc, File olderDir,
                             File newerDir,
                             File patchFile,
                             List<String> ignoredFiles,
@@ -32,6 +34,13 @@ public class PatchFileCreator {
 
       out.putNextEntry(new ZipEntry(PATCH_INFO_FILE_NAME));
       patchInfo.write(out);
+      out.closeEntry();
+
+      out.putNextEntry(new ZipEntry(PATCH_PROPERTIES_ENTRY));
+      Properties props = new Properties();
+      props.setProperty(OLD_BUILD_DESCRIPTION, oldBuildDesc);
+      props.setProperty(NEW_BUILD_DESCRIPTION, newBuildDesc);
+      props.store(out, "");
       out.closeEntry();
 
       List<PatchAction> actions = patchInfo.getActions();
@@ -55,7 +64,18 @@ public class PatchFileCreator {
 
     ZipFile zipFile = new ZipFile(patchFile);
     try {
-      InputStream in = Utils.getEntryInputStream(zipFile, PATCH_INFO_FILE_NAME);
+
+      InputStream in = Utils.getEntryInputStream(zipFile, PATCH_PROPERTIES_ENTRY);
+      try {
+        Properties props = new Properties();
+        props.load(in);
+        ui.setDescription(props.getProperty(OLD_BUILD_DESCRIPTION), props.getProperty(NEW_BUILD_DESCRIPTION));
+      }
+      finally {
+        in.close();
+      }
+
+      in = Utils.getEntryInputStream(zipFile, PATCH_INFO_FILE_NAME);
       try {
         patch = new Patch(in);
       }
