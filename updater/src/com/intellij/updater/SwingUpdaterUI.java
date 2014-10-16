@@ -217,6 +217,14 @@ public class SwingUpdaterUI implements UpdaterUI {
     try {
       SwingUtilities.invokeAndWait(new Runnable() {
         public void run() {
+          boolean proceed = true;
+          for (ValidationResult result : validationResults) {
+            if (result.options.contains(ValidationResult.Option.NONE)) {
+              proceed = false;
+              break;
+            }
+          }
+
           final JDialog dialog = new JDialog(myFrame, TITLE, true);
           dialog.setLayout(new BorderLayout());
           dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
@@ -225,12 +233,6 @@ public class SwingUpdaterUI implements UpdaterUI {
           buttonsPanel.setBorder(BUTTONS_BORDER);
           buttonsPanel.setLayout(new BoxLayout(buttonsPanel, BoxLayout.X_AXIS));
           buttonsPanel.add(Box.createHorizontalGlue());
-          JButton proceedButton = new JButton(PROCEED_BUTTON_TITLE);
-          proceedButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-              dialog.setVisible(false);
-            }
-          });
 
           JButton cancelButton = new JButton(CANCEL_BUTTON_TITLE);
           cancelButton.addActionListener(new ActionListener() {
@@ -240,11 +242,20 @@ public class SwingUpdaterUI implements UpdaterUI {
               dialog.setVisible(false);
             }
           });
-
-          buttonsPanel.add(proceedButton);
           buttonsPanel.add(cancelButton);
 
-          dialog.getRootPane().setDefaultButton(proceedButton);
+          if (proceed) {
+            JButton proceedButton = new JButton(PROCEED_BUTTON_TITLE);
+            proceedButton.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                dialog.setVisible(false);
+              }
+            });
+            buttonsPanel.add(proceedButton);
+            dialog.getRootPane().setDefaultButton(proceedButton);
+          } else {
+            dialog.getRootPane().setDefaultButton(cancelButton);
+          }
 
           JTable table = new JTable();
 
@@ -259,10 +270,16 @@ public class SwingUpdaterUI implements UpdaterUI {
             each.setPreferredWidth(MyTableModel.getColumnWidth(i, new Dimension(600, 400).width));
           }
 
-          String message = "<html>There are some conflicts found in the installation.<br><br>" +
-                           "Please select desired solutions from the " + MyTableModel.COLUMNS[MyTableModel.OPTIONS_COLUMN_INDEX] +
-                           " column and press " + PROCEED_BUTTON_TITLE + ".<br>" +
-                           "If you do not want to proceed with the update, please press " + CANCEL_BUTTON_TITLE + ".</html>";
+          String message = "<html>Some conflicts were found in the installation area.<br><br>";
+
+          if (proceed) {
+            message += "Please select desired solutions from the " + MyTableModel.COLUMNS[MyTableModel.OPTIONS_COLUMN_INDEX] +
+                       " column and press " + PROCEED_BUTTON_TITLE + ".<br>" +
+                       "If you do not want to proceed with the update, please press " + CANCEL_BUTTON_TITLE + ".</html>";
+          } else {
+            message += "Some of the conflicts below do not have a solution, so the patch cannot be applied.<br>" +
+                       "Press " + CANCEL_BUTTON_TITLE + " to exit.</html>";
+          }
 
           JLabel label = new JLabel(message);
           label.setBorder(LABEL_BORDER);
