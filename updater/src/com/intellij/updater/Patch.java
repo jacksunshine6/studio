@@ -172,23 +172,23 @@ public class Patch {
     final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir);
     final List<ValidationResult> result = new ArrayList<ValidationResult>();
 
+    if (myIsStrict) {
+      // In strict mode add delete actions for unknown files.
+      for (PatchAction action : myActions) {
+        files.remove(action.getPath());
+      }
+      for (String file : files) {
+        myActions.add(new DeleteAction(this, file, -1));
+      }
+    }
     Runner.logger.info("Validating installation...");
     forEach(myActions, "Validating installation...", ui, true,
             new ActionsProcessor() {
               public void forEach(PatchAction each) throws IOException {
                 ValidationResult validationResult = each.validate(toDir);
                 if (validationResult != null) result.add(validationResult);
-                files.remove(each.getPath());
               }
             });
-
-    //for (String each : files) {
-    //  result.add(new ValidationResult(ValidationResult.Kind.INFO,
-    //                                  each,
-    //                                  ValidationResult.Action.NO_ACTION,
-    //                                  ValidationResult.MANUALLY_ADDED_MESSAGE,
-    //                                  ValidationResult.Option.KEEP, ValidationResult.Option.DELETE));
-    //}
 
     return result;
   }

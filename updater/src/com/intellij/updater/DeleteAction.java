@@ -29,11 +29,9 @@ public class DeleteAction extends PatchAction {
       ValidationResult.Option[] options = myPatch.isStrict()
                                           ? new ValidationResult.Option[]{ValidationResult.Option.DELETE}
                                           : new ValidationResult.Option[]{ValidationResult.Option.DELETE, ValidationResult.Option.KEEP};
-      return new ValidationResult(ValidationResult.Kind.CONFLICT,
-                                  myPath,
-                                  ValidationResult.Action.DELETE,
-                                  "Modified",
-                                  options);
+      ValidationResult.Action action = myChecksum == -1 ? ValidationResult.Action.VALIDATE : ValidationResult.Action.DELETE;
+      String message = myChecksum == -1 ? "Unknown" : "Modified";
+      return new ValidationResult(ValidationResult.Kind.CONFLICT, myPath, action, message, options);
     }
     return null;
   }
