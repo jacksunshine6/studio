@@ -9,12 +9,12 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 public class CreateAction extends PatchAction {
-  public CreateAction(String path) {
-    super(path, -1);
+  public CreateAction(Patch patch, String path) {
+    super(patch, path, -1);
   }
 
-  public CreateAction(DataInputStream in) throws IOException {
-    super(in);
+  public CreateAction(Patch patch, DataInputStream in) throws IOException {
+    super(patch, in);
   }
 
   protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
@@ -33,11 +33,13 @@ public class CreateAction extends PatchAction {
     if (result != null) return result;
 
     if (toFile.exists()) {
-      return new ValidationResult(ValidationResult.Kind.CONFLICT,
-                                  myPath,
+      ValidationResult.Option[] options = myPatch.isStrict()
+                                          ? new ValidationResult.Option[]{ValidationResult.Option.REPLACE}
+                                          : new ValidationResult.Option[]{ValidationResult.Option.REPLACE, ValidationResult.Option.KEEP};
+      return new ValidationResult(ValidationResult.Kind.CONFLICT, myPath,
                                   ValidationResult.Action.CREATE,
                                   ValidationResult.ALREADY_EXISTS_MESSAGE,
-                                  ValidationResult.Option.REPLACE, ValidationResult.Option.KEEP);
+                                  options);
     }
     return null;
   }

@@ -10,6 +10,7 @@ public class DiffCalculator {
     result.filesToDelete = withAllRemoved(oldChecksums, newChecksums);
     result.filesToCreate = withAllRemoved(newChecksums, oldChecksums).keySet();
     result.filesToUpdate = collect(oldChecksums, newChecksums, false);
+    result.commonFiles = collect(oldChecksums, newChecksums, true);
     return result;
   }
 
@@ -38,5 +39,6 @@ public class DiffCalculator {
     public Map<String, Long> filesToDelete;
     public Set<String> filesToCreate;
     public Map<String, Long> filesToUpdate;
+    public Map<String, Long> commonFiles;
   }
 }

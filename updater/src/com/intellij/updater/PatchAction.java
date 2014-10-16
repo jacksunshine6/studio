@@ -15,13 +15,16 @@ public abstract class PatchAction {
   protected long myChecksum;
   private boolean isCritical;
   private boolean isOptional;
+  protected transient Patch myPatch;
 
-  public PatchAction(String path, long checksum) {
+  public PatchAction(Patch patch, String path, long checksum) {
+    myPatch = patch;
     myPath = path;
     myChecksum = checksum;
   }
 
-  public PatchAction(DataInputStream in) throws IOException {
+  public PatchAction(Patch patch, DataInputStream in) throws IOException {
+    myPatch = patch;
     myPath = in.readUTF();
     myChecksum = in.readLong();
     isCritical = in.readBoolean();
@@ -95,7 +98,7 @@ public abstract class PatchAction {
                                 myPath,
                                 action,
                                 ValidationResult.ACCESS_DENIED_MESSAGE,
-                                ValidationResult.Option.IGNORE);
+                                myPatch.isStrict() ? ValidationResult.Option.NONE : ValidationResult.Option.IGNORE);
   }
 
   private boolean isWritable(File toFile) {
@@ -148,7 +151,7 @@ public abstract class PatchAction {
                                     myPath,
                                     action,
                                     ValidationResult.MODIFIED_MESSAGE,
-                                    ValidationResult.Option.IGNORE);
+                                    myPatch.isStrict() ? ValidationResult.Option.NONE : ValidationResult.Option.IGNORE);
       }
     }
     else if (!isOptional) {
@@ -156,12 +159,14 @@ public abstract class PatchAction {
                                   myPath,
                                   action,
                                   ValidationResult.ABSENT_MESSAGE,
-                                  ValidationResult.Option.IGNORE);
+                                  myPatch.isStrict() ? ValidationResult.Option.NONE : ValidationResult.Option.IGNORE);
     }
     return null;
   }
 
-  abstract protected boolean isModified(File toFile) throws IOException;
+  protected boolean isModified(File toFile) throws IOException {
+    return myChecksum == -1 || myChecksum != myPatch.digestFile(toFile);
+  }
 
   public void apply(ZipFile patchFile, File toDir) throws IOException {
     doApply(patchFile, getFile(toDir));

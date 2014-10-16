@@ -6,64 +6,67 @@ import java.util.zip.ZipFile;
 
 public class Patch {
   private List<PatchAction> myActions = new ArrayList<PatchAction>();
+  private boolean myIsBinary;
+  private boolean myIsStrict;
+  private String myOldBuild;
+  private String myNewBuild;
+  private List<String> myDeleteFiles;
 
   private static final int CREATE_ACTION_KEY = 1;
   private static final int UPDATE_ACTION_KEY = 2;
   private static final int UPDATE_ZIP_ACTION_KEY = 3;
   private static final int DELETE_ACTION_KEY = 4;
-  private static final int DELETE_ZIP_ACTION_KEY = 5;
+  private static final int VALIDATE_ACTION_KEY = 5;
 
-  public Patch(File olderDir,
-               File newerDir,
-               List<String> ignoredFiles,
-               List<String> criticalFiles,
-               List<String> optionalFiles,
-               UpdaterUI ui) throws IOException, OperationCancelledException {
-    calculateActions(olderDir, newerDir, ignoredFiles, criticalFiles, optionalFiles, ui);
+  public Patch(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
+    myIsBinary = spec.isBinary();
+    myIsStrict = spec.isStrict();
+    myOldBuild = spec.getOldVersionDescription();
+    myNewBuild = spec.getNewVersionDescription();
+    myDeleteFiles = spec.getDeleteFiles();
+
+    calculateActions(spec, ui);
   }
 
   public Patch(InputStream patchIn) throws IOException {
     read(patchIn);
   }
 
-  private void calculateActions(File olderDir,
-                                File newerDir,
-                                List<String> ignoredFiles,
-                                List<String> criticalFiles,
-                                List<String> optionalFiles,
-                                UpdaterUI ui)
-    throws IOException, OperationCancelledException {
+  private void calculateActions(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
     DiffCalculator.Result diff;
 
     Runner.logger.info("Calculating difference...");
     ui.startProcess("Calculating difference...");
     ui.checkCancelled();
 
-    diff = DiffCalculator.calculate(Digester.digestFiles(olderDir, ignoredFiles, ui),
-                                    Digester.digestFiles(newerDir, ignoredFiles, ui));
+    File olderDir = new File(spec.getOldFolder());
+    File newerDir = new File(spec.getNewFolder());
+    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui),
+                                    digestFiles(newerDir, spec.getIgnoredFiles(), ui));
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
 
     // 'delete' actions before 'create' actions to prevent newly created files to be deleted if the names differ only on case.
     for (Map.Entry<String, Long> each : diff.filesToDelete.entrySet()) {
-      if (!Runner.ZIP_AS_BINARY && Utils.isZipFile(each.getKey())) {
-        tempActions.add(new DeleteZipAction(each.getKey(), each.getValue()));
-      } else
-      {
-        tempActions.add(new DeleteAction(each.getKey(), each.getValue()));
-      }
+      tempActions.add(new DeleteAction(this, each.getKey(), each.getValue()));
     }
 
     for (String each : diff.filesToCreate) {
-      tempActions.add(new CreateAction(each));
+      tempActions.add(new CreateAction(this, each));
     }
 
     for (Map.Entry<String, Long> each : diff.filesToUpdate.entrySet()) {
-      if (!Runner.ZIP_AS_BINARY && Utils.isZipFile(each.getKey())) {
-        tempActions.add(new UpdateZipAction(each.getKey(), each.getValue()));
+      if (!spec.isBinary() && Utils.isZipFile(each.getKey())) {
+        tempActions.add(new UpdateZipAction(this, each.getKey(), each.getValue()));
       }
       else {
-        tempActions.add(new UpdateAction(each.getKey(), each.getValue()));
+        tempActions.add(new UpdateAction(this, each.getKey(), each.getValue()));
+      }
+    }
+
+    if (spec.isStrict()) {
+      for (Map.Entry<String, Long> each : diff.commonFiles.entrySet()) {
+        tempActions.add(new ValidateAction(this, each.getKey(), each.getValue()));
       }
     }
 
@@ -77,8 +80,8 @@ public class Patch {
 
       if (!each.calculate(olderDir, newerDir)) continue;
       myActions.add(each);
-      each.setCritical(criticalFiles.contains(each.getPath()));
-      each.setOptional(optionalFiles.contains(each.getPath()));
+      each.setCritical(spec.getCriticalFiles().contains(each.getPath()));
+      each.setOptional(spec.getOptionalFiles().contains(each.getPath()));
     }
   }
 
@@ -89,6 +92,12 @@ public class Patch {
   public void write(OutputStream out) throws IOException {
     @SuppressWarnings("IOResourceOpenedButNotSafelyClosed") DataOutputStream dataOut = new DataOutputStream(out);
     try {
+      dataOut.writeUTF(myOldBuild);
+      dataOut.writeUTF(myNewBuild);
+      dataOut.writeBoolean(myIsBinary);
+      dataOut.writeBoolean(myIsStrict);
+      writeList(dataOut, myDeleteFiles);
+
       dataOut.writeInt(myActions.size());
 
       for (PatchAction each : myActions) {
@@ -104,11 +113,11 @@ public class Patch {
         else if (clazz == UpdateZipAction.class) {
           key = UPDATE_ZIP_ACTION_KEY;
         }
-        else if (clazz == DeleteZipAction.class) {
-          key = DELETE_ZIP_ACTION_KEY;
-        }
         else if (clazz == DeleteAction.class) {
           key = DELETE_ACTION_KEY;
+        }
+        else if (clazz == ValidateAction.class) {
+          key = VALIDATE_ACTION_KEY;
         }
         else {
           throw new RuntimeException("Unknown action " + each);
@@ -122,10 +131,24 @@ public class Patch {
     }
   }
 
+  private static void writeList(DataOutputStream dataOut, List<String> list) throws  IOException {
+    dataOut.writeInt(list.size());
+    for (String string : list) {
+      dataOut.writeUTF(string);
+    }
+  }
+
   private void read(InputStream patchIn) throws IOException {
     List<PatchAction> newActions = new ArrayList<PatchAction>();
 
     @SuppressWarnings("IOResourceOpenedButNotSafelyClosed") DataInputStream in = new DataInputStream(patchIn);
+
+    myOldBuild = in.readUTF();
+    myNewBuild = in.readUTF();
+    myIsBinary = in.readBoolean();
+    myIsStrict = in.readBoolean();
+    myDeleteFiles = readList(in);
+
     int size = in.readInt();
 
     while (size-- > 0) {
@@ -133,19 +156,19 @@ public class Patch {
       PatchAction a;
       switch (key) {
         case CREATE_ACTION_KEY:
-          a = new CreateAction(in);
+          a = new CreateAction(this, in);
           break;
         case UPDATE_ACTION_KEY:
-          a = new UpdateAction(in);
+          a = new UpdateAction(this, in);
           break;
         case UPDATE_ZIP_ACTION_KEY:
-          a = new UpdateZipAction(in);
+          a = new UpdateZipAction(this, in);
           break;
         case DELETE_ACTION_KEY:
-          a = new DeleteAction(in);
+          a = new DeleteAction(this, in);
           break;
-        case DELETE_ZIP_ACTION_KEY:
-          a = new DeleteZipAction(in);
+        case VALIDATE_ACTION_KEY:
+          a = new ValidateAction(this, in);
           break;
         default:
           throw new RuntimeException("Unknown action type " + key);
@@ -156,27 +179,36 @@ public class Patch {
     myActions = newActions;
   }
 
+  private static List<String> readList(DataInputStream in) throws IOException {
+    int size = in.readInt();
+    List<String> list = new ArrayList<String>(size);
+    for (int i = 0; i < size; i++) {
+      list.add(in.readUTF());
+    }
+    return list;
+  }
+
   public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
     final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir);
     final List<ValidationResult> result = new ArrayList<ValidationResult>();
 
+    if (myIsStrict) {
+      // In strict mode add delete actions for unknown files.
+      for (PatchAction action : myActions) {
+        files.remove(action.getPath());
+      }
+      for (String file : files) {
+        myActions.add(new DeleteAction(this, file, -1));
+      }
+    }
     Runner.logger.info("Validating installation...");
     forEach(myActions, "Validating installation...", ui, true,
             new ActionsProcessor() {
               public void forEach(PatchAction each) throws IOException {
                 ValidationResult validationResult = each.validate(toDir);
                 if (validationResult != null) result.add(validationResult);
-                files.remove(each.getPath());
               }
             });
-
-    //for (String each : files) {
-    //  result.add(new ValidationResult(ValidationResult.Kind.INFO,
-    //                                  each,
-    //                                  ValidationResult.Action.NO_ACTION,
-    //                                  ValidationResult.MANUALLY_ADDED_MESSAGE,
-    //                                  ValidationResult.Option.KEEP, ValidationResult.Option.DELETE));
-    //}
 
     return result;
   }
@@ -261,6 +293,51 @@ public class Patch {
 
       ui.setProgress((i + 1) * 100 / actions.size());
     }
+  }
+
+  public long digestFile(File toFile) throws IOException {
+    if (!myIsBinary && Utils.isZipFile(toFile.getName())) {
+      return Digester.digestZipFile(toFile);
+    }
+    else {
+      return Digester.digestRegularFile(toFile);
+    }
+  }
+
+
+  public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, UpdaterUI ui)
+    throws IOException, OperationCancelledException {
+    Map<String, Long> result = new HashMap<String, Long>();
+
+    LinkedHashSet<String> paths = Utils.collectRelativePaths(dir);
+    for (String each : paths) {
+      if (ignoredFiles.contains(each)) continue;
+      ui.setStatus(each);
+      ui.checkCancelled();
+      result.put(each, digestFile(new File(dir, each)));
+    }
+    return result;
+  }
+
+  public String getOldBuild() {
+    return myOldBuild;
+  }
+
+  public String getNewBuild() {
+    return myNewBuild;
+  }
+
+  public boolean isStrict() {
+    return myIsStrict;
+  }
+
+  public boolean validateDeletion(String path) {
+    for (String delete : myDeleteFiles) {
+      if (path.matches(delete)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public interface ActionsProcessor {
