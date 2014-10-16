@@ -2,6 +2,7 @@ package com.intellij.updater;
 
 import org.junit.Test;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.Map;
 
@@ -10,12 +11,9 @@ import static org.junit.Assert.assertEquals;
 public class DigesterTest extends UpdaterTestCase {
   @Test
   public void testBasics() throws Exception {
-    Runner.initLogger();
-    Map<String, Long> checkSums = Digester.digestFiles(getDataDir(), Collections.<String>emptyList(), TEST_UI);
-    assertEquals(12, checkSums.size());
-
-    assertEquals(CHECKSUMS.README_TXT, (long)checkSums.get("Readme.txt"));
-    assertEquals(CHECKSUMS.FOCUSKILLER_DLL, (long)checkSums.get("bin/focuskiller.dll"));
-    assertEquals(CHECKSUMS.BOOTSTRAP_JAR, (long)checkSums.get("lib/bootstrap.jar"));
+    assertEquals(CHECKSUMS.README_TXT, Digester.digestRegularFile(new File(getDataDir(), "Readme.txt")));
+    assertEquals(CHECKSUMS.FOCUSKILLER_DLL, Digester.digestRegularFile(new File(getDataDir(), "/bin/focuskiller.dll")));
+    assertEquals(CHECKSUMS.BOOTSTRAP_JAR, Digester.digestZipFile(new File(getDataDir(), "/lib/bootstrap.jar")));
+    assertEquals(CHECKSUMS.BOOTSTRAP_JAR_BINARY, Digester.digestRegularFile(new File(getDataDir(), "/lib/bootstrap.jar")));
   }
 }

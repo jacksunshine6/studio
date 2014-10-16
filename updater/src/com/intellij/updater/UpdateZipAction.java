@@ -12,24 +12,24 @@ public class UpdateZipAction extends BaseUpdateAction {
   Set<String> myFilesToUpdate;
   Set<String> myFilesToDelete;
 
-  public UpdateZipAction(String path, long checksum) {
-    super(path, checksum);
+  public UpdateZipAction(Patch patch, String path, long checksum) {
+    super(patch, path, checksum);
   }
 
   // test support
-  public UpdateZipAction(String path,
+  public UpdateZipAction(Patch patch, String path,
                          Collection<String> filesToCreate,
                          Collection<String> filesToUpdate,
                          Collection<String> filesToDelete,
                          long checksum) {
-    super(path, checksum);
+    super(patch, path, checksum);
     myFilesToCreate = new HashSet<String>(filesToCreate);
     myFilesToUpdate = new HashSet<String>(filesToUpdate);
     myFilesToDelete = new HashSet<String>(filesToDelete);
   }
 
-  public UpdateZipAction(DataInputStream in) throws IOException {
-    super(in);
+  public UpdateZipAction(Patch patch, DataInputStream in) throws IOException {
+    super(patch, in);
 
     int count = in.readInt();
     myFilesToCreate = new HashSet<String>(count);
@@ -151,11 +151,6 @@ public class UpdateZipAction extends BaseUpdateAction {
     finally {
       olderZip.close();
     }
-  }
-
-  @Override
-  protected boolean isModified(File toFile) throws IOException {
-    return myChecksum != Digester.digestFile(toFile);
   }
 
   protected void doApply(final ZipFile patchFile, File toFile) throws IOException {
