@@ -99,7 +99,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
   public void testRevertedWhenFileToDeleteIsProcessLocked() throws Exception {
     if (!UtilsTest.mIsWindows) return;
 
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
 
@@ -126,7 +126,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
 
   @Test
   public void testApplyingWithAbsentFileToDelete() throws Exception {
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
     new File(myOlderDir, "bin/idea.bat").delete();
@@ -138,7 +138,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
   public void testApplyingWithAbsentOptionalFile() throws Exception {
     FileUtil.writeToFile(new File(myNewerDir, "bin/idea.bat"), "new content".getBytes());
 
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.singletonList("bin/idea.bat"), TEST_UI);
 
     new File(myOlderDir, "bin/idea.bat").delete();
@@ -150,7 +150,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
 
   @Test
   public void testRevertingWithAbsentFileToDelete() throws Exception {
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
     new File(myOlderDir, "bin/idea.bat").delete();
@@ -162,7 +162,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
 
   @Test
   public void testApplyingWithoutCriticalFiles() throws Exception {
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
 
@@ -171,7 +171,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
 
   @Test
   public void testApplyingWithCriticalFiles() throws Exception {
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Arrays.asList("lib/annotations.jar"),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Arrays.asList("lib/annotations.jar"),
                             Collections.<String>emptyList(), TEST_UI);
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
@@ -185,7 +185,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
     FileUtil.rename(new File(myOlderDir, "Readme.txt"),
                     new File(myOlderDir, "README.txt"));
 
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
     assertAppliedAndRevertedCorrectly(PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
@@ -204,7 +204,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
     FileUtil.copy(new File(myOlderDir, "lib/boot.jar"),
                   new File(myOlderDir, "lib/boot_with_directory_becomes_file.jar"));
 
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
     assertAppliedAndRevertedCorrectly(PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
@@ -219,7 +219,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
     FileUtil.copy(new File(myOlderDir, "lib/boot_with_directory_becomes_file.jar"),
                   new File(myOlderDir, "lib/boot.jar"));
 
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile, Collections.<String>emptyList(), Collections.<String>emptyList(),
                             Collections.<String>emptyList(), TEST_UI);
 
     assertAppliedAndRevertedCorrectly(PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
@@ -239,7 +239,7 @@ public class PatchFileCreatorTest extends PatchTestCase {
   }
 
   private void createPatch() throws IOException, OperationCancelledException {
-    PatchFileCreator.create(myOlderDir, myNewerDir, myFile,
+    PatchFileCreator.create("from", "to", myOlderDir, myNewerDir, myFile,
                             Collections.<String>emptyList(), Collections.<String>emptyList(), Collections.<String>emptyList(), TEST_UI);
     assertTrue(myFile.exists());
   }

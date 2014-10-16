@@ -49,7 +49,7 @@ public class SwingUpdaterUI implements UpdaterUI {
   private final JFrame myFrame;
   private boolean myApplied;
 
-  public SwingUpdaterUI(String oldBuildDesc, String newBuildDesc, InstallOperation operation) {
+  public SwingUpdaterUI(InstallOperation operation) {
     myOperation = operation;
 
     myProcessTitle = new JLabel(" ");
@@ -106,8 +106,6 @@ public class SwingUpdaterUI implements UpdaterUI {
     buttonsPanel.add(Box.createHorizontalGlue());
     buttonsPanel.add(myCancelButton);
 
-    myProcessTitle.setText("<html>Updating " + oldBuildDesc + " to " + newBuildDesc + "...");
-
     myFrame.add(processPanel, BorderLayout.CENTER);
     myFrame.add(buttonsPanel, BorderLayout.SOUTH);
 
@@ -125,6 +123,11 @@ public class SwingUpdaterUI implements UpdaterUI {
     });
 
     startRequestDispatching();
+  }
+
+  @Override
+  public void setDescription(String oldBuildDesc, String newBuildDesc) {
+    myProcessTitle.setText("<html>Updating " + oldBuildDesc + " to " + newBuildDesc + "...");
   }
 
   private void startRequestDispatching() {
@@ -354,7 +357,7 @@ public class SwingUpdaterUI implements UpdaterUI {
   }
 
   public static void main(String[] args) {
-    new SwingUpdaterUI("xxx", "yyy", new InstallOperation() {
+    new SwingUpdaterUI(new InstallOperation() {
       public boolean execute(UpdaterUI ui) throws OperationCancelledException {
         ui.startProcess("Process1");
         ui.checkCancelled();
