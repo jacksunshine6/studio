@@ -29,8 +29,8 @@ public class DeleteAction extends PatchAction {
       ValidationResult.Option[] options = myPatch.isStrict()
                                           ? new ValidationResult.Option[]{ValidationResult.Option.DELETE}
                                           : new ValidationResult.Option[]{ValidationResult.Option.DELETE, ValidationResult.Option.KEEP};
-      ValidationResult.Action action = myChecksum == -1 ? ValidationResult.Action.VALIDATE : ValidationResult.Action.DELETE;
-      String message = myChecksum == -1 ? "Unexpected file" : "Modified";
+      ValidationResult.Action action = myChecksum == Digester.INVALID ? ValidationResult.Action.VALIDATE : ValidationResult.Action.DELETE;
+      String message = myChecksum == Digester.INVALID ? "Unexpected file" : "Modified";
       return new ValidationResult(ValidationResult.Kind.CONFLICT, myPath, action, message, options);
     }
     return null;
