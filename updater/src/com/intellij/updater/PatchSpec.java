@@ -16,12 +16,13 @@
 package com.intellij.updater;
 
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
 public class PatchSpec {
   private String myOldVersionDescription = "";
   private String myNewVersionDescription = "";
-  private String myOldFolder;
+  private List<String> myOldFolders = new LinkedList<String>();
   private String myNewFolder;
   private String myPatchFile;
   private String myJarFile;
@@ -49,12 +50,12 @@ public class PatchSpec {
     return this;
   }
 
-  public String getOldFolder() {
-    return myOldFolder;
+  public List<String> getOldFolders() {
+    return myOldFolders;
   }
 
-  public PatchSpec setOldFolder(String oldFolder) {
-    myOldFolder = oldFolder;
+  public PatchSpec addOldFolder(String oldFolder) {
+    myOldFolders.add(oldFolder);
     return this;
   }
 
