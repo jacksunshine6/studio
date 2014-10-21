@@ -143,11 +143,27 @@ public abstract class PatchAction {
     throws IOException {
     if (toFile.exists()) {
       if (isModified(toFile)) {
+        ValidationResult.Option[] options;
+        if (myPatch.isStrict()) {
+          if (isCritical) {
+            options = new ValidationResult.Option[]{ ValidationResult.Option.REPLACE };
+          }
+          else {
+            options = new ValidationResult.Option[]{ ValidationResult.Option.NONE };
+          }
+        } else {
+          if (isCritical) {
+            options = new ValidationResult.Option[]{ ValidationResult.Option.REPLACE, ValidationResult.Option.IGNORE };
+          }
+          else {
+            options = new ValidationResult.Option[]{ ValidationResult.Option.IGNORE };
+          }
+        }
         return new ValidationResult(kind,
                                     myPath,
                                     action,
                                     ValidationResult.MODIFIED_MESSAGE,
-                                    myPatch.isStrict() ? ValidationResult.Option.NONE : ValidationResult.Option.IGNORE);
+                                    options);
       }
     }
     else if (!isOptional) {

@@ -132,12 +132,23 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   @Test
   public void testApplyingWithCriticalFiles() throws Exception {
     myPatchSpec.setCriticalFiles(Arrays.asList("lib/annotations.jar"));
-    PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
 
-    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
+  }
 
-    assertTrue(PatchFileCreator.apply(preparationResult, new HashMap<String, ValidationResult.Option>(), TEST_UI));
-    assertAppliedCorrectly();
+  @Test
+  public void testApplyingWithModifiedCriticalFiles() throws Exception {
+    myPatchSpec.setStrict(true);
+    myPatchSpec.setCriticalFiles(Arrays.asList("lib/annotations.jar"));
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    RandomAccessFile raf = new RandomAccessFile(new File(myOlderDir, "lib/annotations.jar"), "rw");
+    raf.seek(20);
+    raf.write(42);
+    raf.close();
+
+    assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
   }
 
   @Test
@@ -369,7 +380,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     PatchFileCreator.apply(preparationResult, options, TEST_UI);
     Map<String, Long> after = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
 
-    DiffCalculator.Result diff = DiffCalculator.calculate(before, after, false);
+    DiffCalculator.Result diff = DiffCalculator.calculate(before, after, new LinkedList<String>(), false);
     assertTrue(diff.filesToCreate.isEmpty());
     assertTrue(diff.filesToDelete.isEmpty());
     assertTrue(diff.filesToUpdate.isEmpty());
@@ -382,12 +393,19 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     Map<String, Long> target = patch.digestFiles(myNewerDir, Collections.<String>emptyList(), TEST_UI);
     File backup = getTempFile("backup");
 
+    HashMap<String, ValidationResult.Option> options = new HashMap<String, ValidationResult.Option>();
     for (ValidationResult each : preparationResult.validationResults) {
-      assertTrue(each.toString(), each.kind != ValidationResult.Kind.ERROR);
+      if (patch.isStrict()) {
+        assertFalse(each.options.contains(ValidationResult.Option.NONE));
+        assertTrue(each.options.size() > 0);
+        options.put(each.path, each.options.get(0));
+      } else {
+        assertTrue(each.toString(), each.kind != ValidationResult.Kind.ERROR);
+      }
     }
 
     List<PatchAction> appliedActions =
-      PatchFileCreator.apply(preparationResult, new HashMap<String, ValidationResult.Option>(), backup, TEST_UI).appliedActions;
+      PatchFileCreator.apply(preparationResult, options, backup, TEST_UI).appliedActions;
     Map<String, Long> patched = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
 
     if (patch.isStrict()) {
