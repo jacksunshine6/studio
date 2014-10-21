@@ -318,7 +318,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     PatchFileCreator.apply(preparationResult, options, TEST_UI);
     Map<String, Long> after = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
 
-    DiffCalculator.Result diff = DiffCalculator.calculate(before, after, false);
+    DiffCalculator.Result diff = DiffCalculator.calculate(before, after, new LinkedList<String>(), false);
     assertTrue(diff.filesToCreate.isEmpty());
     assertTrue(diff.filesToDelete.isEmpty());
     assertTrue(diff.filesToUpdate.isEmpty());
