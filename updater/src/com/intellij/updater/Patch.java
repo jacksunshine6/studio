@@ -69,7 +69,7 @@ public class Patch {
     throws IOException, OperationCancelledException {
     DiffCalculator.Result diff;
     diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui), digestFiles(newerDir, spec.getIgnoredFiles(), ui),
-                                    true);
+                                    spec.getCriticalFiles(), true);
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
 
