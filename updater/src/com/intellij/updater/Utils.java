@@ -2,6 +2,7 @@ package com.intellij.updater;
 
 import java.io.*;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -73,6 +74,7 @@ public class Utils {
   public static void copy(File from, File to) throws IOException {
     Runner.logger.info("from " + from.getPath() + " to " + to.getPath());
     if (from.isDirectory()) {
+      to.mkdirs();
       File[] files = from.listFiles();
       if (files == null) throw new IOException("Cannot get directory's content: " + from);
       for (File each : files) {
@@ -88,6 +90,15 @@ public class Utils {
         in.close();
       }
       setExecutable(to, from.canExecute());
+    }
+  }
+
+
+  public static void mirror(File from, File to) throws IOException {
+    if (from.exists()) {
+      copy(from, to);
+    } else {
+      delete(to);
     }
   }
 

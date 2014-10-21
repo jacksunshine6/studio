@@ -17,6 +17,7 @@ public class CreateAction extends PatchAction {
     super(patch, in);
   }
 
+  @Override
   protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
     Runner.logger.info("building PatchFile");
     patchOutput.putNextEntry(new ZipEntry(myPath));
@@ -29,7 +30,8 @@ public class CreateAction extends PatchAction {
   }
 
   @Override
-  protected ValidationResult doValidate(File toFile) {
+  public ValidationResult validate(File toDir) {
+    File toFile = getFile(toDir);
     ValidationResult result = doValidateAccess(toFile, ValidationResult.Action.CREATE);
     if (result != null) return result;
 
@@ -51,7 +53,7 @@ public class CreateAction extends PatchAction {
   }
 
   @Override
-  protected void doApply(ZipFile patchFile, File toFile) throws IOException {
+  protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
     prepareToWriteFile(toFile);
 
     ZipEntry entry = Utils.getZipEntry(patchFile, myPath);

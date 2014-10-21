@@ -19,8 +19,8 @@ public abstract class PatchAction {
 
   public PatchAction(Patch patch, String path, long checksum) {
     myPatch = patch;
-    myPath = path;
     myChecksum = checksum;
+    myPath = path;
   }
 
   public PatchAction(Patch patch, DataInputStream in) throws IOException {
@@ -73,18 +73,14 @@ public abstract class PatchAction {
         process.terminate();
       }
     }
-    return shouldApplyOn(file);
+    return doShouldApply(toDir);
   }
 
-  protected boolean shouldApplyOn(File toFile) {
+  protected boolean doShouldApply(File toDir) {
     return true;
   }
 
-  public ValidationResult validate(File toDir) throws IOException {
-    return doValidate(getFile(toDir));
-  }
-
-  protected abstract ValidationResult doValidate(final File toFile) throws IOException;
+  protected abstract ValidationResult validate(File toDir) throws IOException;
 
   protected ValidationResult doValidateAccess(File toFile, ValidationResult.Action action) {
     if (!toFile.exists()) return null;
@@ -168,11 +164,11 @@ public abstract class PatchAction {
     return myChecksum == -1 || myChecksum != myPatch.digestFile(toFile);
   }
 
-  public void apply(ZipFile patchFile, File toDir) throws IOException {
-    doApply(patchFile, getFile(toDir));
+  public void apply(ZipFile patchFile, File backupDir, File toDir) throws IOException {
+    doApply(patchFile, backupDir, getFile(toDir));
   }
 
-  protected abstract void doApply(ZipFile patchFile, File toFile) throws IOException;
+  protected abstract void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException;
 
   public void backup(File toDir, File backupDir) throws IOException {
     doBackup(getFile(toDir), getFile(backupDir));
@@ -186,7 +182,7 @@ public abstract class PatchAction {
 
   protected abstract void doRevert(File toFile, File backupFile) throws IOException;
 
-  private File getFile(File baseDir) {
+  protected File getFile(File baseDir) {
     return new File(baseDir, myPath);
   }
 

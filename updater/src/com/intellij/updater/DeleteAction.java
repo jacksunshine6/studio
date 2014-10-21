@@ -16,12 +16,13 @@ public class DeleteAction extends PatchAction {
   }
 
   @Override
-  public void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
+  public void doBuildPatchFile(File olderDir, File newerFile, ZipOutputStream patchOutput) throws IOException {
     // do nothing
   }
 
   @Override
-  protected ValidationResult doValidate(File toFile) throws IOException {
+  public ValidationResult validate(File toDir) throws IOException {
+    File toFile = getFile(toDir);
     ValidationResult result = doValidateAccess(toFile, ValidationResult.Action.DELETE);
     if (result != null) return result;
 
@@ -37,12 +38,12 @@ public class DeleteAction extends PatchAction {
   }
 
   @Override
-  protected boolean shouldApplyOn(File toFile) {
-    return toFile.exists();
+  protected boolean doShouldApply(File toDir) {
+    return getFile(toDir).exists();
   }
 
   @Override
-  protected void doApply(ZipFile patchFile, File toFile) throws IOException {
+  protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
     Utils.delete(toFile);
   }
 
