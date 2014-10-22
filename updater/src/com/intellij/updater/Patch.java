@@ -17,7 +17,6 @@ public class Patch {
   private static final int UPDATE_ZIP_ACTION_KEY = 3;
   private static final int DELETE_ACTION_KEY = 4;
   private static final int VALIDATE_ACTION_KEY = 5;
-  private static final int MULTI_ACTION_KEY = 6;
 
   public Patch(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
     myIsBinary = spec.isBinary();
@@ -38,37 +37,8 @@ public class Patch {
     ui.startProcess("Calculating difference...");
     ui.checkCancelled();
 
+    File olderDir = new File(spec.getOldFolder());
     File newerDir = new File(spec.getNewFolder());
-    List<PatchAction> actions = null;
-    for (String olderPath : spec.getOldFolders()) {
-      File olderDir = new File(olderPath);
-      List<PatchAction> newActions = createActionsFor(olderDir, newerDir, spec, ui);
-      actions = mergeActions(actions, newActions);
-    }
-    myActions = actions;
-  }
-
-  private List<PatchAction> mergeActions(List<PatchAction> actions, List<PatchAction> newActions) {
-    List<PatchAction> merged = new LinkedList<PatchAction>();
-    if (actions == null) return newActions;
-
-    Map<String, PatchAction> actionsToAdd = new LinkedHashMap<String, PatchAction>();
-    for (PatchAction action : newActions) {
-      actionsToAdd.put(action.getPath(), action);
-    }
-
-    for (PatchAction action : actions) {
-      PatchAction other = actionsToAdd.remove(action.getPath());
-      merged.add(other != null ? action.merge(other) : action);
-    }
-
-    merged.addAll(actionsToAdd.values());
-
-    return merged;
-  }
-
-  private List<PatchAction> createActionsFor(File olderDir, File newerDir, PatchSpec spec, UpdaterUI ui)
-    throws IOException, OperationCancelledException {
     DiffCalculator.Result diff;
     diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), isNormalized(), ui),
                                     digestFiles(newerDir, spec.getIgnoredFiles(), false, ui),
@@ -89,10 +59,10 @@ public class Patch {
     for (Map.Entry<String, DiffCalculator.Update> each : diff.filesToUpdate.entrySet()) {
       DiffCalculator.Update update = each.getValue();
       if (!spec.isBinary() && Utils.isZipFile(each.getKey())) {
-        tempActions.add(new UpdateZipAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
+        tempActions.add(new UpdateZipAction(this, each.getKey(), update.source, update.checksum, update.move));
       }
       else {
-        tempActions.add(new UpdateAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
+        tempActions.add(new UpdateAction(this, each.getKey(), update.source, update.checksum, update.move));
       }
     }
 
@@ -112,12 +82,10 @@ public class Patch {
       ui.checkCancelled();
 
       if (!each.calculate(olderDir, newerDir)) continue;
-      actions.add(each);
+      myActions.add(each);
       each.setCritical(spec.getCriticalFiles().contains(each.getPath()));
       each.setOptional(spec.getOptionalFiles().contains(each.getPath()));
     }
-
-    return actions;
   }
 
   public List<PatchAction> getActions() {
@@ -161,9 +129,6 @@ public class Patch {
       else if (clazz == ValidateAction.class) {
         key = VALIDATE_ACTION_KEY;
       }
-      else if (clazz == MultiAction.class) {
-        key = MULTI_ACTION_KEY;
-      }
       else {
         throw new RuntimeException("Unknown action " + each);
       }
@@ -205,9 +170,6 @@ public class Patch {
           break;
         case VALIDATE_ACTION_KEY:
           a = new ValidateAction(this, in);
-          break;
-        case MULTI_ACTION_KEY:
-          a = new MultiAction(this, in);
           break;
         default:
           throw new RuntimeException("Unknown action type " + key);

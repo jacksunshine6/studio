@@ -5,11 +5,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 public class CreateAction extends PatchAction {
-  // Only used on patch creation
-  protected transient File myOlderDir;
-
   public CreateAction(Patch patch, String path) {
     super(patch, path, Digester.INVALID);
   }
@@ -19,12 +18,12 @@ public class CreateAction extends PatchAction {
   }
 
   @Override
-  protected void doBuildPatchFile(File toFile, MultiZipFile.OutputStream patchOutput) throws IOException {
+  protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
     Runner.logger.info("building PatchFile");
-    patchOutput.putNextEntry(myPath);
-    if (!toFile.isDirectory()) {
-      writeExecutableFlag(patchOutput, toFile);
-      Utils.copyFileToStream(toFile, patchOutput);
+    patchOutput.putNextEntry(new ZipEntry(myPath));
+    if (!newerFile.isDirectory()) {
+      writeExecutableFlag(patchOutput, newerFile);
+      Utils.copyFileToStream(newerFile, patchOutput);
     }
 
     patchOutput.closeEntry();
@@ -54,7 +53,7 @@ public class CreateAction extends PatchAction {
   }
 
   @Override
-  protected void doApply(MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
+  protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
     prepareToWriteFile(toFile);
 
     ZipEntry entry = Utils.getZipEntry(patchFile, myPath);

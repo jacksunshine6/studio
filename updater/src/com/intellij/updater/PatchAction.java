@@ -58,11 +58,11 @@ public abstract class PatchAction {
     return true;
   }
 
-  public void buildPatchFile(File toDir, ZipOutputStream patchOutput) throws IOException {
-    doBuildPatchFile(getFile(toDir), new MultiZipFile.OutputStream(patchOutput));
+  public void buildPatchFile(File olderDir, File newerDir, ZipOutputStream patchOutput) throws IOException {
+    doBuildPatchFile(getFile(olderDir), getFile(newerDir), patchOutput);
   }
 
-  protected abstract void doBuildPatchFile(File toFile, MultiZipFile.OutputStream patchOutput) throws IOException;
+  protected abstract void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException;
 
   public boolean shouldApply(File toDir, Map<String, ValidationResult.Option> options) {
     File file = getFile(toDir);
@@ -181,10 +181,10 @@ public abstract class PatchAction {
   }
 
   public void apply(ZipFile patchFile, File backupDir, File toDir) throws IOException {
-    doApply(new MultiZipFile(patchFile), backupDir, getFile(toDir));
+    doApply(patchFile, backupDir, getFile(toDir));
   }
 
-  protected abstract void doApply(MultiZipFile patchFile, File backupDir, File toFile) throws IOException;
+  protected abstract void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException;
 
   public void backup(File toDir, File backupDir) throws IOException {
     doBackup(getFile(toDir), getFile(backupDir));
@@ -245,17 +245,5 @@ public abstract class PatchAction {
     result = 31 * result + (isCritical ? 1 : 0);
     result = 31 * result + (isOptional ? 1 : 0);
     return result;
-  }
-
-  public PatchAction merge(PatchAction other) {
-    if (this.equals(other)) {
-      return this;
-    }
-
-    MultiAction multi = new MultiAction(myPatch, myPath, Digester.INVALID);
-    multi.addAction(this);
-    multi.addAction(other);
-
-    return multi;
   }
 }
