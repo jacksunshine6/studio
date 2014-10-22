@@ -200,7 +200,7 @@ public class Utils {
       String relativePath = (parentPath == null ? "" : parentPath + "/") + each.getName();
       if (each.isDirectory()) {
         if (includeDirectories) {
-          // The trailing slash is very important, as its used by zip to determine whether it is a directory.
+          // The trailing slash is very important, as it's used by zip to determine whether it is a directory.
           result.add(relativePath + "/");
         }
         collectRelativePaths(each, result, relativePath, includeDirectories);
@@ -216,10 +216,8 @@ public class Utils {
     if (!normalize || !isZipFile(file.getName())) {
       return inputStream;
     }
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     TreeMap<String, NormalizedEntry> map = new TreeMap<String, NormalizedEntry>();
     ZipInputStream in = new ZipInputStream(inputStream);
-    ZipOutputStream out = new ZipOutputStream(outputStream);
     try {
       ZipEntry zipEntry;
       byte[] buffer = new byte[2048];
@@ -235,16 +233,22 @@ public class Utils {
         map.put(normalized.name, normalized);
       }
 
+    }
+    finally {
+      in.close();
+    }
+
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    ZipOutputStream out = new ZipOutputStream(outputStream);
+    try {
       for (NormalizedEntry entry : map.values()) {
-        zipEntry = new ZipEntry(entry.name);
+        ZipEntry zipEntry = new ZipEntry(entry.name);
         zipEntry.setTime(0);
         out.putNextEntry(zipEntry);
         out.write(entry.data.toByteArray());
         out.closeEntry();
       }
-    }
-    finally {
-      in.close();
+    } finally {
       out.close();
     }
 

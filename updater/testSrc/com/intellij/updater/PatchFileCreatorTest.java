@@ -80,6 +80,22 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   }
 
   @Test
+  public void testApplyingWithAbsentFileToUpdateStrict() throws Exception {
+    myPatchSpec.setStrict(true);
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    new File(myOlderDir, "lib/annotations.jar").delete();
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(1, preparationResult.validationResults.size());
+    assertEquals(new ValidationResult(ValidationResult.Kind.ERROR,
+                                      "lib/annotations.jar",
+                                      ValidationResult.Action.UPDATE,
+                                      ValidationResult.ABSENT_MESSAGE,
+                                      ValidationResult.Option.NONE), preparationResult.validationResults.get(0));
+  }
+
+  @Test
   public void testApplyingWithAbsentOptionalFile() throws Exception {
     FileUtil.writeToFile(new File(myNewerDir, "bin/idea.bat"), "new content".getBytes());
 

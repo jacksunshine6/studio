@@ -171,7 +171,7 @@ public abstract class PatchAction {
                                   myPath,
                                   action,
                                   ValidationResult.ABSENT_MESSAGE,
-                                  ValidationResult.Option.IGNORE);
+                                  myPatch.isStrict() ? ValidationResult.Option.NONE : ValidationResult.Option.IGNORE);
     }
     return null;
   }
