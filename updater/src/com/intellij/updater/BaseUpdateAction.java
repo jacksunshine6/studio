@@ -7,12 +7,12 @@ import java.io.*;
 import java.util.zip.ZipOutputStream;
 
 public abstract class BaseUpdateAction extends PatchAction {
-  public BaseUpdateAction(String path, long checksum) {
-    super(path, checksum);
+  public BaseUpdateAction(Patch patch, String path, long checksum) {
+    super(patch, path, checksum);
   }
 
-  public BaseUpdateAction(DataInputStream in) throws IOException {
-    super(in);
+  public BaseUpdateAction(Patch patch, DataInputStream in) throws IOException {
+    super(patch, in);
   }
 
   @Override

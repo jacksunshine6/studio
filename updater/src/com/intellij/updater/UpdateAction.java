@@ -6,12 +6,12 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 public class UpdateAction extends BaseUpdateAction {
-  public UpdateAction(String path, long checksum) {
-    super(path, checksum);
+  public UpdateAction(Patch patch, String path, long checksum) {
+    super(patch, path, checksum);
   }
 
-  public UpdateAction(DataInputStream in) throws IOException {
-    super(in);
+  public UpdateAction(Patch patch, DataInputStream in) throws IOException {
+    super(patch, in);
   }
 
   @Override
@@ -20,11 +20,6 @@ public class UpdateAction extends BaseUpdateAction {
     writeExecutableFlag(patchOutput, newerFile);
     writeDiff(olderFile, newerFile, patchOutput);
     patchOutput.closeEntry();
-  }
-
-  @Override
-  protected boolean isModified(File toFile) throws IOException {
-    return myChecksum != Digester.digestRegularFile(toFile);
   }
 
   @Override

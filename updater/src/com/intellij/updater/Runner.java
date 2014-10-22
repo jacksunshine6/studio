@@ -18,13 +18,6 @@ import java.util.zip.ZipInputStream;
 public class Runner {
   public static Logger logger = null;
 
-  /**
-   * Treats zip files as regular binary files. When false, zip/jar files are unzipped and diffed file by file.
-   * When true, the entire zip file is diffed as a single file. Set to true if preserving the timestamps of
-   * the files inside the zip is important. This variable can change via a command line option.
-   */
-  public static boolean ZIP_AS_BINARY = false;
-
   private static final String PATCH_FILE_NAME = "patch-file.zip";
 
   public static void main(String[] args) throws Exception {
@@ -40,12 +33,27 @@ public class Runner {
       String patchFile = args[5];
       initLogger();
 
-      ZIP_AS_BINARY = Arrays.asList(args).contains("--zip_as_binary");
+      boolean binary = Arrays.asList(args).contains("--zip_as_binary");
+      boolean strict = Arrays.asList(args).contains("--strict");
 
       List<String> ignoredFiles = extractFiles(args, "ignored");
       List<String> criticalFiles = extractFiles(args, "critical");
       List<String> optionalFiles = extractFiles(args, "optional");
-      create(oldVersionDesc, newVersionDesc, oldFolder, newFolder, patchFile, jarFile, ignoredFiles, criticalFiles, optionalFiles);
+
+      PatchSpec spec = new PatchSpec()
+        .setOldVersionDescription(oldVersionDesc)
+        .setNewVersionDescription(newVersionDesc)
+        .setOldFolder(oldFolder)
+        .setNewFolder(newFolder)
+        .setPatchFile(patchFile)
+        .setJarFile(jarFile)
+        .setStrict(strict)
+        .setBinary(binary)
+        .setIgnoredFiles(ignoredFiles)
+        .setCriticalFiles(criticalFiles)
+        .setOptionalFiles(optionalFiles);
+
+      create(spec);
     }
     else if (args.length >= 2 && "install".equals(args[0])) {
       String destFolder = args[1];
@@ -139,35 +147,19 @@ public class Runner {
                        "install <destination_folder>\n");
   }
 
-  private static void create(String oldBuildDesc,
-                             String newBuildDesc,
-                             String oldFolder,
-                             String newFolder,
-                             String patchFile,
-                             String jarFile,
-                             List<String> ignoredFiles,
-                             List<String> criticalFiles,
-                             List<String> optionalFiles) throws IOException, OperationCancelledException {
+  private static void create(PatchSpec spec) throws IOException, OperationCancelledException {
     UpdaterUI ui = new ConsoleUpdaterUI();
     try {
       File tempPatchFile = Utils.createTempFile();
-      PatchFileCreator.create(oldBuildDesc,
-                              newBuildDesc,
-                              new File(oldFolder),
-                              new File(newFolder),
-                              tempPatchFile,
-                              ignoredFiles,
-                              criticalFiles,
-                              optionalFiles,
-                              ui);
+      PatchFileCreator.create(spec, tempPatchFile, ui);
 
-      logger.info("Packing jar file: " + patchFile );
-      ui.startProcess("Packing jar file '" + patchFile + "'...");
+      logger.info("Packing jar file: " + spec.getPatchFile() );
+      ui.startProcess("Packing jar file '" + spec.getPatchFile() + "'...");
 
-      FileOutputStream fileOut = new FileOutputStream(patchFile);
+      FileOutputStream fileOut = new FileOutputStream(spec.getPatchFile());
       try {
         ZipOutputWrapper out = new ZipOutputWrapper(fileOut);
-        ZipInputStream in = new ZipInputStream(new FileInputStream(new File(jarFile)));
+        ZipInputStream in = new ZipInputStream(new FileInputStream(new File(spec.getJarFile())));
         try {
           ZipEntry e;
           while ((e = in.getNextEntry()) != null) {
