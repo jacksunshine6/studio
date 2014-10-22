@@ -194,7 +194,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   @Test
   public void testApplyWhenCommonFileChangesStrict() throws Exception {
     myPatchSpec.setStrict(true);
-    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+    PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
 
     FileUtil.copy(new File(myOlderDir, "/lib/bootstrap.jar"),
                   new File(myOlderDir, "/lib/boot.jar"));
@@ -206,6 +206,34 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
                                       ValidationResult.Action.VALIDATE,
                                       ValidationResult.MODIFIED_MESSAGE,
                                       ValidationResult.Option.NONE), preparationResult.validationResults.get(0));
+  }
+
+  @Test
+  public void testApplyWhenNewFileExists() throws Exception {
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    FileUtil.writeToFile(new File(myOlderDir, "newfile.txt"),"hello");
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertTrue(preparationResult.validationResults.isEmpty());
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
+  public void testApplyWhenNewFileExistsStrict() throws Exception {
+    myPatchSpec.setStrict(true);
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    FileUtil.writeToFile(new File(myOlderDir, "newfile.txt"),"hello");
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(1, preparationResult.validationResults.size());
+    assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT,
+                                      "newfile.txt",
+                                      ValidationResult.Action.VALIDATE,
+                                      "Unknown",
+                                      ValidationResult.Option.DELETE), preparationResult.validationResults.get(0));
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
   }
 
   protected Patch createPatch() throws IOException, OperationCancelledException {
