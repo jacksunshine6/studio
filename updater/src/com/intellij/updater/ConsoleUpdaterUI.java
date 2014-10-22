@@ -31,6 +31,11 @@ public class ConsoleUpdaterUI implements UpdaterUI {
   public void checkCancelled() throws OperationCancelledException {
   }
 
+  @Override
+  public void setDescription(String oldBuildDesc, String newBuildDesc) {
+    System.out.println("From " + oldBuildDesc + " to " + newBuildDesc);
+  }
+
   public Map<String, ValidationResult.Option> askUser(List<ValidationResult> validationResults) {
     return Collections.emptyMap();
   }

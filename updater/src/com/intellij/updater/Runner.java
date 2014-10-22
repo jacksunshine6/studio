@@ -26,11 +26,12 @@ public class Runner {
   public static boolean ZIP_AS_BINARY = false;
 
   private static final String PATCH_FILE_NAME = "patch-file.zip";
-  private static final String PATCH_PROPERTIES_ENTRY = "patch.properties";
-  private static final String OLD_BUILD_DESCRIPTION = "old.build.description";
-  private static final String NEW_BUILD_DESCRIPTION = "new.build.description";
 
   public static void main(String[] args) throws Exception {
+
+    String jarFile = getArgument(args, "jar");
+    jarFile = jarFile == null ? resolveJarFile() : jarFile;
+
     if (args.length >= 6 && "create".equals(args[0])) {
       String oldVersionDesc = args[1];
       String newVersionDesc = args[2];
@@ -44,14 +45,14 @@ public class Runner {
       List<String> ignoredFiles = extractFiles(args, "ignored");
       List<String> criticalFiles = extractFiles(args, "critical");
       List<String> optionalFiles = extractFiles(args, "optional");
-      create(oldVersionDesc, newVersionDesc, oldFolder, newFolder, patchFile, ignoredFiles, criticalFiles, optionalFiles);
+      create(oldVersionDesc, newVersionDesc, oldFolder, newFolder, patchFile, jarFile, ignoredFiles, criticalFiles, optionalFiles);
     }
     else if (args.length >= 2 && "install".equals(args[0])) {
       String destFolder = args[1];
       initLogger();
       logger.info("destFolder: " + destFolder);
 
-      install(destFolder);
+      install(jarFile, destFolder);
     }
     else {
       printUsage();
@@ -106,6 +107,16 @@ public class Runner {
     logger.error(e.getMessage(), e);
   }
 
+  public static String getArgument(String[] args, String name) {
+    String flag = "--" + name + "=";
+    for (String param : args) {
+      if (param.startsWith(flag)) {
+        return param.substring(flag.length());
+      }
+    }
+    return null;
+  }
+
   public static List<String> extractFiles(String[] args, String paramName) {
     List<String> result = new ArrayList<String>();
     for (String param : args) {
@@ -133,13 +144,16 @@ public class Runner {
                              String oldFolder,
                              String newFolder,
                              String patchFile,
+                             String jarFile,
                              List<String> ignoredFiles,
                              List<String> criticalFiles,
                              List<String> optionalFiles) throws IOException, OperationCancelledException {
     UpdaterUI ui = new ConsoleUpdaterUI();
     try {
       File tempPatchFile = Utils.createTempFile();
-      PatchFileCreator.create(new File(oldFolder),
+      PatchFileCreator.create(oldBuildDesc,
+                              newBuildDesc,
+                              new File(oldFolder),
                               new File(newFolder),
                               tempPatchFile,
                               ignoredFiles,
@@ -153,7 +167,7 @@ public class Runner {
       FileOutputStream fileOut = new FileOutputStream(patchFile);
       try {
         ZipOutputWrapper out = new ZipOutputWrapper(fileOut);
-        ZipInputStream in = new ZipInputStream(new FileInputStream(resolveJarFile()));
+        ZipInputStream in = new ZipInputStream(new FileInputStream(new File(jarFile)));
         try {
           ZipEntry e;
           while ((e = in.getNextEntry()) != null) {
@@ -164,18 +178,6 @@ public class Runner {
           in.close();
         }
 
-        ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-        try {
-          Properties props = new Properties();
-          props.setProperty(OLD_BUILD_DESCRIPTION, oldBuildDesc);
-          props.setProperty(NEW_BUILD_DESCRIPTION, newBuildDesc);
-          props.store(byteOut, "");
-        }
-        finally {
-          byteOut.close();
-        }
-
-        out.zipBytes(PATCH_PROPERTIES_ENTRY, byteOut);
         out.zipFile(PATCH_FILE_NAME, tempPatchFile);
         out.finish();
       }
@@ -195,18 +197,7 @@ public class Runner {
     Utils.cleanup();
   }
 
-  private static void install(final String destFolder) throws Exception {
-    InputStream in = Runner.class.getResourceAsStream("/" + PATCH_PROPERTIES_ENTRY);
-    Properties props = new Properties();
-    if (in != null) {
-      try {
-        props.load(in);
-      }
-      finally {
-        in.close();
-      }
-    }
-
+  private static void install(final String jarFile, final String destFolder) throws Exception {
     // todo[r.sh] to delete in IDEA 14 (after a full circle of platform updates)
     if (System.getProperty("swing.defaultlaf") == null) {
       SwingUtilities.invokeAndWait(new Runnable() {
@@ -222,27 +213,25 @@ public class Runner {
       });
     }
 
-    new SwingUpdaterUI(props.getProperty(OLD_BUILD_DESCRIPTION),
-                  props.getProperty(NEW_BUILD_DESCRIPTION),
-                  new SwingUpdaterUI.InstallOperation() {
-                    public boolean execute(UpdaterUI ui) throws OperationCancelledException {
-                      logger.info("installing patch to the " + destFolder);
-                      return doInstall(ui, destFolder);
-                    }
-                  });
+    new SwingUpdaterUI(new SwingUpdaterUI.InstallOperation() {
+                         public boolean execute(UpdaterUI ui) throws OperationCancelledException {
+                           logger.info("installing patch to the " + destFolder);
+                           return doInstall(jarFile, ui, destFolder);
+                         }
+                       });
   }
 
-  private static boolean doInstall(UpdaterUI ui, String destFolder) throws OperationCancelledException {
+  private static boolean doInstall(String jarFile, UpdaterUI ui, String destFolder) throws OperationCancelledException {
     try {
       try {
         File patchFile = Utils.createTempFile();
-        ZipFile jarFile = new ZipFile(resolveJarFile());
+        ZipFile zipFile = new ZipFile(jarFile);
 
         logger.info("Extracting patch file...");
         ui.startProcess("Extracting patch file...");
         ui.setProgressIndeterminate();
         try {
-          InputStream in = Utils.getEntryInputStream(jarFile, PATCH_FILE_NAME);
+          InputStream in = Utils.getEntryInputStream(zipFile, PATCH_FILE_NAME);
           OutputStream out = new BufferedOutputStream(new FileOutputStream(patchFile));
           try {
             Utils.copyStream(in, out);
@@ -253,7 +242,7 @@ public class Runner {
           }
         }
         finally {
-          jarFile.close();
+          zipFile.close();
         }
 
         ui.checkCancelled();
@@ -281,11 +270,7 @@ public class Runner {
     return false;
   }
 
-  private static File resolveJarFile() throws IOException {
-    String jar = System.getProperty("JAR_FILE");
-    if (jar != null) {
-      return new File(jar);
-    }
+  private static String resolveJarFile() throws IOException {
     URL url = Runner.class.getResource("");
     if (url == null) throw new IOException("Cannot resolve jar file path");
     if (!"jar".equals(url.getProtocol())) throw new IOException("Patch file is not a 'jar' file");
@@ -299,7 +284,7 @@ public class Runner {
     String jarFileUrl = path.substring(start, end);
 
     try {
-      return new File(new URI(jarFileUrl));
+      return new File(new URI(jarFileUrl)).getAbsolutePath();
     }
     catch (URISyntaxException e) {
       printStackTrace(e);
