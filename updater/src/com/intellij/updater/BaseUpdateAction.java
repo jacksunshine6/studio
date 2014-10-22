@@ -72,7 +72,7 @@ public abstract class BaseUpdateAction extends PatchAction {
   }
 
   protected void writeDiff(File olderFile, File newerFile, OutputStream patchOutput) throws IOException {
-    BufferedInputStream olderFileIn = new BufferedInputStream(new FileInputStream(olderFile));
+    BufferedInputStream olderFileIn = new BufferedInputStream(Utils.newFileInputStream(olderFile, myPatch.isNormalized()));
     BufferedInputStream newerFileIn = new BufferedInputStream(new FileInputStream(newerFile));
     try {
       writeDiff(olderFileIn, newerFileIn, patchOutput);
