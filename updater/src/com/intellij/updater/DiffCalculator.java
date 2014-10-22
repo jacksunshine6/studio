@@ -1,6 +1,6 @@
 package com.intellij.updater;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,7 +15,7 @@ public class DiffCalculator {
   }
 
   private static Map<String, Long> withAllRemoved(Map<String, Long> from, Map<String, Long> toRemove) {
-    Map<String, Long> result = new HashMap<String, Long>(from);
+    Map<String, Long> result = new LinkedHashMap<String, Long>(from);
     for (String each : toRemove.keySet()) {
       result.remove(each);
     }
@@ -23,7 +23,7 @@ public class DiffCalculator {
   }
 
   private static Map<String, Long> collect(Map<String, Long> older, Map<String, Long> newer, boolean equal) {
-    Map<String, Long> result = new HashMap<String, Long>();
+    Map<String, Long> result = new LinkedHashMap<String, Long>();
     for (Map.Entry<String, Long> each : newer.entrySet()) {
       String file = each.getKey();
       Long oldChecksum = older.get(file);
