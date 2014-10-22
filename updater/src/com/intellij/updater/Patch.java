@@ -46,7 +46,8 @@ public class Patch {
 
     // 'delete' actions before 'create' actions to prevent newly created files to be deleted if the names differ only on case.
     for (Map.Entry<String, Long> each : diff.filesToDelete.entrySet()) {
-      tempActions.add(new DeleteAction(this, each.getKey(), each.getValue()));
+      // Add them in reverse order so directory structures start deleting the files before the directory itself.
+      tempActions.add(0, new DeleteAction(this, each.getKey(), each.getValue()));
     }
 
     for (String each : diff.filesToCreate) {
@@ -169,7 +170,7 @@ public class Patch {
   }
 
   public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
-    final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir);
+    final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir, myIsStrict);
     final List<ValidationResult> result = new ArrayList<ValidationResult>();
 
     if (myIsStrict) {
@@ -178,12 +179,13 @@ public class Patch {
         files.remove(action.getPath());
       }
       for (String file : files) {
-        myActions.add(new DeleteAction(this, file, -1));
+        myActions.add(0, new DeleteAction(this, file, Digester.INVALID));
       }
     }
     Runner.logger.info("Validating installation...");
     forEach(myActions, "Validating installation...", ui, true,
             new ActionsProcessor() {
+              @Override
               public void forEach(PatchAction each) throws IOException {
                 ValidationResult validationResult = each.validate(toDir);
                 if (validationResult != null) result.add(validationResult);
@@ -206,6 +208,7 @@ public class Patch {
 
     forEach(actionsToProcess, "Backing up files...", ui, true,
             new ActionsProcessor() {
+              @Override
               public void forEach(PatchAction each) throws IOException {
                 each.backup(toDir, backupDir);
               }
@@ -217,6 +220,7 @@ public class Patch {
     try {
       forEach(actionsToProcess, "Applying patch...", ui, true,
               new ActionsProcessor() {
+                @Override
                 public void forEach(PatchAction each) throws IOException {
                   appliedActions.add(each);
                   each.apply(patchFile, toDir);
@@ -252,6 +256,7 @@ public class Patch {
     Collections.reverse(actions);
     forEach(actions, "Reverting...", ui, false,
             new ActionsProcessor() {
+              @Override
               public void forEach(PatchAction each) throws IOException {
                 each.revert(toDir, backupDir);
               }
@@ -287,9 +292,9 @@ public class Patch {
 
   public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, UpdaterUI ui)
     throws IOException, OperationCancelledException {
-    Map<String, Long> result = new HashMap<String, Long>();
+    Map<String, Long> result = new LinkedHashMap<String, Long>();
 
-    LinkedHashSet<String> paths = Utils.collectRelativePaths(dir);
+    LinkedHashSet<String> paths = Utils.collectRelativePaths(dir, myIsStrict);
     for (String each : paths) {
       if (ignoredFiles.contains(each)) continue;
       ui.setStatus(each);

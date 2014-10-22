@@ -10,7 +10,7 @@ import java.util.zip.ZipOutputStream;
 
 public class CreateAction extends PatchAction {
   public CreateAction(Patch patch, String path) {
-    super(patch, path, -1);
+    super(patch, path, Digester.INVALID);
   }
 
   public CreateAction(Patch patch, DataInputStream in) throws IOException {
@@ -20,9 +20,10 @@ public class CreateAction extends PatchAction {
   protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
     Runner.logger.info("building PatchFile");
     patchOutput.putNextEntry(new ZipEntry(myPath));
-
-    writeExecutableFlag(patchOutput, newerFile);
-    Utils.copyFileToStream(newerFile, patchOutput);
+    if (!newerFile.isDirectory()) {
+      writeExecutableFlag(patchOutput, newerFile);
+      Utils.copyFileToStream(newerFile, patchOutput);
+    }
 
     patchOutput.closeEntry();
   }
@@ -53,14 +54,21 @@ public class CreateAction extends PatchAction {
   protected void doApply(ZipFile patchFile, File toFile) throws IOException {
     prepareToWriteFile(toFile);
 
-    InputStream in = Utils.getEntryInputStream(patchFile, myPath);
-    try {
-      boolean executable = readExecutableFlag(in);
-      Utils.copyStreamToFile(in, toFile);
-      Utils.setExecutable(toFile, executable);
-    }
-    finally {
-      in.close();
+    ZipEntry entry = Utils.getZipEntry(patchFile, myPath);
+    if (entry.isDirectory()) {
+      if (!toFile.mkdir()) {
+        throw new IOException("Unable to create directory " + myPath);
+      }
+    } else {
+      InputStream in = Utils.findEntryInputStreamForEntry(patchFile, entry);
+      try {
+        boolean executable = readExecutableFlag(in);
+        Utils.copyStreamToFile(in, toFile);
+        Utils.setExecutable(toFile, executable);
+      }
+      finally {
+        in.close();
+      }
     }
   }
 
