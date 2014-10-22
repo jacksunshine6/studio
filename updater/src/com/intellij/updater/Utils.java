@@ -1,11 +1,10 @@
 package com.intellij.updater;
 
-import sun.plugin.dom.exception.NoModificationAllowedException;
-
 import java.io.*;
 import java.util.LinkedHashSet;
 import java.util.TreeMap;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
@@ -158,25 +157,25 @@ public class Utils {
     }
   }
 
-  public static InputStream getEntryInputStream(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static InputStream getEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = getZipEntry(zipFile, entryPath);
     return findEntryInputStreamForEntry(zipFile, entry);
   }
 
-  public static InputStream findEntryInputStream(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static InputStream findEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = zipFile.getEntry(entryPath);
     if (entry == null) return null;
     return findEntryInputStreamForEntry(zipFile, entry);
   }
 
-  public static ZipEntry getZipEntry(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static ZipEntry getZipEntry(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = zipFile.getEntry(entryPath);
     if (entry == null) throw new IOException("Entry " + entryPath + " not found");
     Runner.logger.info("entryPath: " + entryPath);
     return entry;
   }
 
-  public static InputStream findEntryInputStreamForEntry(MultiZipFile zipFile, ZipEntry entry) throws IOException {
+  public static InputStream findEntryInputStreamForEntry(ZipFile zipFile, ZipEntry entry) throws IOException {
     if (entry.isDirectory()) return null;
     // There is a bug in some JVM implementations where for a directory "X/" in a zipfile, if we do
     // "zip.getEntry("X/").isDirectory()" returns true, but if we do "zip.getEntry("X").isDirectory()" is false.
