@@ -12,11 +12,11 @@ public class Digester {
   public static long INVALID = -1;
   public static long DIRECTORY = -2;
 
-  public static long digestRegularFile(File file) throws IOException {
+  public static long digestRegularFile(File file, boolean normalize) throws IOException {
     if (file.isDirectory()) {
       return DIRECTORY;
     }
-    InputStream in = new BufferedInputStream(new FileInputStream(file));
+    InputStream in = new BufferedInputStream(Utils.newFileInputStream(file, normalize));
     try {
       return digestStream(in);
     }
@@ -31,7 +31,7 @@ public class Digester {
       zipFile = new ZipFile(file);
     } catch (ZipException e) {
       // This was not a zip file...
-      return digestRegularFile(file);
+      return digestRegularFile(file, false);
     }
     try {
       List<ZipEntry> sorted = new ArrayList<ZipEntry>();

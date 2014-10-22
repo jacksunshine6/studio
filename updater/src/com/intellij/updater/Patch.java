@@ -8,6 +8,7 @@ public class Patch {
   private List<PatchAction> myActions = new ArrayList<PatchAction>();
   private boolean myIsBinary;
   private boolean myIsStrict;
+  private boolean myIsNormalized;
   private String myOldBuild;
   private String myNewBuild;
 
@@ -21,6 +22,7 @@ public class Patch {
   public Patch(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
     myIsBinary = spec.isBinary();
     myIsStrict = spec.isStrict();
+    myIsNormalized = spec.isNormalized();
     myOldBuild = spec.getOldVersionDescription();
     myNewBuild = spec.getNewVersionDescription();
 
@@ -68,7 +70,8 @@ public class Patch {
   private List<PatchAction> createActionsFor(File olderDir, File newerDir, PatchSpec spec, UpdaterUI ui)
     throws IOException, OperationCancelledException {
     DiffCalculator.Result diff;
-    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui), digestFiles(newerDir, spec.getIgnoredFiles(), ui),
+    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), isNormalized(), ui),
+                                    digestFiles(newerDir, spec.getIgnoredFiles(), false, ui),
                                     spec.getCriticalFiles(), true);
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
@@ -128,6 +131,7 @@ public class Patch {
       dataOut.writeUTF(myNewBuild);
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
+      dataOut.writeBoolean(myIsNormalized);
       writeActions(dataOut, myActions);
     }
     finally {
@@ -176,6 +180,7 @@ public class Patch {
     myNewBuild = in.readUTF();
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
+    myIsNormalized = in.readBoolean();
     myActions = readActions(in);
   }
 
@@ -323,17 +328,16 @@ public class Patch {
     }
   }
 
-  public long digestFile(File toFile) throws IOException {
+  public long digestFile(File toFile, boolean normalize) throws IOException {
     if (!myIsBinary && Utils.isZipFile(toFile.getName())) {
       return Digester.digestZipFile(toFile);
     }
     else {
-      return Digester.digestRegularFile(toFile);
+      return Digester.digestRegularFile(toFile, normalize);
     }
   }
 
-
-  public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, UpdaterUI ui)
+  public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, boolean normalize, UpdaterUI ui)
     throws IOException, OperationCancelledException {
     Map<String, Long> result = new LinkedHashMap<String, Long>();
 
@@ -342,7 +346,7 @@ public class Patch {
       if (ignoredFiles.contains(each)) continue;
       ui.setStatus(each);
       ui.checkCancelled();
-      result.put(each, digestFile(new File(dir, each)));
+      result.put(each, digestFile(new File(dir, each), normalize));
     }
     return result;
   }
@@ -357,6 +361,10 @@ public class Patch {
 
   public boolean isStrict() {
     return myIsStrict;
+  }
+
+  public boolean isNormalized() {
+    return myIsNormalized;
   }
 
   public interface ActionsProcessor {
