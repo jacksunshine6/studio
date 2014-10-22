@@ -16,6 +16,7 @@ public class Patch {
   private static final int UPDATE_ZIP_ACTION_KEY = 3;
   private static final int DELETE_ACTION_KEY = 4;
   private static final int VALIDATE_ACTION_KEY = 5;
+  private static final int MULTI_ACTION_KEY = 6;
 
   public Patch(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
     myIsBinary = spec.isBinary();
@@ -31,16 +32,44 @@ public class Patch {
   }
 
   private void calculateActions(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
-    DiffCalculator.Result diff;
-
     Runner.logger.info("Calculating difference...");
     ui.startProcess("Calculating difference...");
     ui.checkCancelled();
 
-    File olderDir = new File(spec.getOldFolder());
     File newerDir = new File(spec.getNewFolder());
-    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui),
-                                    digestFiles(newerDir, spec.getIgnoredFiles(), ui));
+    List<PatchAction> actions = null;
+    for (String olderPath : spec.getOldFolders()) {
+      File olderDir = new File(olderPath);
+      List<PatchAction> newActions = createActionsFor(olderDir, newerDir, spec, ui);
+      actions = mergeActions(actions, newActions);
+    }
+    myActions = actions;
+  }
+
+  private List<PatchAction> mergeActions(List<PatchAction> actions, List<PatchAction> newActions) {
+    List<PatchAction> merged = new LinkedList<PatchAction>();
+    if (actions == null) return newActions;
+
+    Map<String, PatchAction> actionsToAdd = new LinkedHashMap<String, PatchAction>();
+    for (PatchAction action : newActions) {
+      actionsToAdd.put(action.getPath(), action);
+    }
+
+    for (PatchAction action : actions) {
+      PatchAction other = actionsToAdd.remove(action.getPath());
+      merged.add(other != null ? action.merge(other) : action);
+    }
+
+    merged.addAll(actionsToAdd.values());
+
+    return merged;
+  }
+
+  private List<PatchAction> createActionsFor(File olderDir, File newerDir, PatchSpec spec, UpdaterUI ui)
+    throws IOException, OperationCancelledException {
+    DiffCalculator.Result diff;
+    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui), digestFiles(newerDir, spec.getIgnoredFiles(), ui),
+                                    true);
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
 
@@ -50,16 +79,17 @@ public class Patch {
       tempActions.add(0, new DeleteAction(this, each.getKey(), each.getValue()));
     }
 
-    for (String each : diff.filesToCreate) {
+    for (String each : diff.filesToCreate.keySet()) {
       tempActions.add(new CreateAction(this, each));
     }
 
-    for (Map.Entry<String, Long> each : diff.filesToUpdate.entrySet()) {
+    for (Map.Entry<String, DiffCalculator.Update> each : diff.filesToUpdate.entrySet()) {
+      DiffCalculator.Update update = each.getValue();
       if (!spec.isBinary() && Utils.isZipFile(each.getKey())) {
-        tempActions.add(new UpdateZipAction(this, each.getKey(), each.getValue()));
+        tempActions.add(new UpdateZipAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
       }
       else {
-        tempActions.add(new UpdateAction(this, each.getKey(), each.getValue()));
+        tempActions.add(new UpdateAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
       }
     }
 
@@ -73,15 +103,18 @@ public class Patch {
     ui.startProcess("Preparing actions...");
     ui.checkCancelled();
 
+    List<PatchAction> actions = new ArrayList<PatchAction>();
     for (PatchAction each : tempActions) {
       ui.setStatus(each.getPath());
       ui.checkCancelled();
 
       if (!each.calculate(olderDir, newerDir)) continue;
-      myActions.add(each);
+      actions.add(each);
       each.setCritical(spec.getCriticalFiles().contains(each.getPath()));
       each.setOptional(spec.getOptionalFiles().contains(each.getPath()));
     }
+
+    return actions;
   }
 
   public List<PatchAction> getActions() {
@@ -95,42 +128,47 @@ public class Patch {
       dataOut.writeUTF(myNewBuild);
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
-
-      dataOut.writeInt(myActions.size());
-
-      for (PatchAction each : myActions) {
-        int key;
-        Class clazz = each.getClass();
-
-        if (clazz == CreateAction.class) {
-          key = CREATE_ACTION_KEY;
-        }
-        else if (clazz == UpdateAction.class) {
-          key = UPDATE_ACTION_KEY;
-        }
-        else if (clazz == UpdateZipAction.class) {
-          key = UPDATE_ZIP_ACTION_KEY;
-        }
-        else if (clazz == DeleteAction.class) {
-          key = DELETE_ACTION_KEY;
-        }
-        else if (clazz == ValidateAction.class) {
-          key = VALIDATE_ACTION_KEY;
-        }
-        else {
-          throw new RuntimeException("Unknown action " + each);
-        }
-        dataOut.writeInt(key);
-        each.write(dataOut);
-      }
+      writeActions(dataOut, myActions);
     }
     finally {
       dataOut.flush();
     }
   }
 
+  public void writeActions(DataOutputStream dataOut, List<PatchAction> actions) throws IOException {
+    dataOut.writeInt(actions.size());
+
+    for (PatchAction each : actions) {
+      int key;
+      Class clazz = each.getClass();
+
+      if (clazz == CreateAction.class) {
+        key = CREATE_ACTION_KEY;
+      }
+      else if (clazz == UpdateAction.class) {
+        key = UPDATE_ACTION_KEY;
+      }
+      else if (clazz == UpdateZipAction.class) {
+        key = UPDATE_ZIP_ACTION_KEY;
+      }
+      else if (clazz == DeleteAction.class) {
+        key = DELETE_ACTION_KEY;
+      }
+      else if (clazz == ValidateAction.class) {
+        key = VALIDATE_ACTION_KEY;
+      }
+      else if (clazz == MultiAction.class) {
+        key = MULTI_ACTION_KEY;
+      }
+      else {
+        throw new RuntimeException("Unknown action " + each);
+      }
+      dataOut.writeInt(key);
+      each.write(dataOut);
+    }
+  }
+
   private void read(InputStream patchIn) throws IOException {
-    List<PatchAction> newActions = new ArrayList<PatchAction>();
 
     @SuppressWarnings("IOResourceOpenedButNotSafelyClosed") DataInputStream in = new DataInputStream(patchIn);
 
@@ -138,9 +176,12 @@ public class Patch {
     myNewBuild = in.readUTF();
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
+    myActions = readActions(in);
+  }
 
+  public List<PatchAction> readActions(DataInputStream in) throws IOException {
+    List<PatchAction> actions = new ArrayList<PatchAction>();
     int size = in.readInt();
-
     while (size-- > 0) {
       int key = in.readInt();
       PatchAction a;
@@ -160,13 +201,15 @@ public class Patch {
         case VALIDATE_ACTION_KEY:
           a = new ValidateAction(this, in);
           break;
+        case MULTI_ACTION_KEY:
+          a = new MultiAction(this, in);
+          break;
         default:
           throw new RuntimeException("Unknown action type " + key);
       }
-      newActions.add(a);
+      actions.add(a);
     }
-
-    myActions = newActions;
+    return actions;
   }
 
   public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
@@ -223,7 +266,7 @@ public class Patch {
                 @Override
                 public void forEach(PatchAction each) throws IOException {
                   appliedActions.add(each);
-                  each.apply(patchFile, toDir);
+                  each.apply(patchFile, backupDir, toDir);
                 }
               });
     }

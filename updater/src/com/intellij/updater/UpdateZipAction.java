@@ -5,24 +5,23 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 public class UpdateZipAction extends BaseUpdateAction {
   Set<String> myFilesToCreate;
   Set<String> myFilesToUpdate;
   Set<String> myFilesToDelete;
 
-  public UpdateZipAction(Patch patch, String path, long checksum) {
-    super(patch, path, checksum);
+  public UpdateZipAction(Patch patch, File olderDir, String path, String source, long checksum, boolean move) {
+    super(patch, olderDir, path, source, checksum, move);
   }
 
   // test support
-  public UpdateZipAction(Patch patch, String path,
+  public UpdateZipAction(Patch patch, File olderDir, String path,
                          Collection<String> filesToCreate,
                          Collection<String> filesToUpdate,
                          Collection<String> filesToDelete,
                          long checksum) {
-    super(patch, path, checksum);
+    super(patch, olderDir, path, path, checksum, false);
     myFilesToCreate = new HashSet<String>(filesToCreate);
     myFilesToUpdate = new HashSet<String>(filesToUpdate);
     myFilesToDelete = new HashSet<String>(filesToDelete);
@@ -87,9 +86,9 @@ public class UpdateZipAction extends BaseUpdateAction {
       }
     });
 
-    DiffCalculator.Result diff = DiffCalculator.calculate(oldCheckSums, newCheckSums);
+    DiffCalculator.Result diff = DiffCalculator.calculate(oldCheckSums, newCheckSums, false);
 
-    myFilesToCreate = diff.filesToCreate;
+    myFilesToCreate = diff.filesToCreate.keySet();
     myFilesToUpdate = diff.filesToUpdate.keySet();
     myFilesToDelete = diff.filesToDelete.keySet();
 
@@ -97,40 +96,41 @@ public class UpdateZipAction extends BaseUpdateAction {
   }
 
   @Override
-  public void doBuildPatchFile(final File olderFile, final File newerFile, final ZipOutputStream patchOutput) throws IOException {
+  public void doBuildPatchFile(final File toFile, final MultiZipFile.OutputStream patchOutput) throws IOException {
     try {
       //noinspection IOResourceOpenedButNotSafelyClosed
-      new ZipFile(newerFile).close();
+      new ZipFile(toFile).close();
     }
     catch (IOException e) {
-      Runner.logger.error("Corrupted target file: " + newerFile);
+      Runner.logger.error("Corrupted target file: " + toFile);
       Runner.printStackTrace(e);
-      throw new IOException("Corrupted target file: " + newerFile, e);
+      throw new IOException("Corrupted target file: " + toFile, e);
     }
 
     final Set<String> filesToProcess = new HashSet<String>(myFilesToCreate);
     filesToProcess.addAll(myFilesToUpdate);
     if (filesToProcess.isEmpty()) return;
 
-    final ZipFile olderZip;
+    File sourceFile = getSource(myOlderDir);
+    final MultiZipFile olderZip;
     try {
-      olderZip = new ZipFile(olderFile);
+      olderZip = new MultiZipFile(sourceFile);
     }
     catch (IOException e) {
-      Runner.logger.error("Corrupted source file: " + olderFile);
+      Runner.logger.error("Corrupted source file: " + sourceFile);
       Runner.printStackTrace(e);
-      throw new IOException("Corrupted source file: " + olderFile, e);
+      throw new IOException("Corrupted source file: " + sourceFile, e);
     }
 
     try {
-      processZipFile(newerFile, new Processor() {
+      processZipFile(toFile, new Processor() {
         public void process(ZipEntry newerEntry, InputStream newerEntryIn) throws IOException {
           if (newerEntry.isDirectory()) return;
           String name = newerEntry.getName();
           if (!filesToProcess.contains(name)) return;
 
           try {
-            patchOutput.putNextEntry(new ZipEntry(myPath + "/" + name));
+            patchOutput.putNextEntry(myPath + "/" + name);
             InputStream olderEntryIn = Utils.findEntryInputStream(olderZip, name);
             if (olderEntryIn == null) {
               Utils.copyStream(newerEntryIn, patchOutput);
@@ -153,14 +153,16 @@ public class UpdateZipAction extends BaseUpdateAction {
     }
   }
 
-  protected void doApply(final ZipFile patchFile, File toFile) throws IOException {
+  @Override
+  protected void doApply(final MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
     File temp = Utils.createTempFile();
     FileOutputStream fileOut = new FileOutputStream(temp);
     try {
       final ZipOutputWrapper out = new ZipOutputWrapper(fileOut);
       out.setCompressionLevel(0);
 
-      processZipFile(toFile, new Processor() {
+      processZipFile(getSource(backupDir), new Processor() {
+        @Override
         public void process(ZipEntry entry, InputStream in) throws IOException {
           String path = entry.getName();
           if (myFilesToDelete.contains(path)) return;
