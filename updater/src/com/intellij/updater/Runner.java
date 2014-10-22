@@ -42,12 +42,10 @@ public class Runner {
       List<String> criticalFiles = extractFiles(args, "critical");
       List<String> optionalFiles = extractFiles(args, "optional");
 
-      List<String> oldFolders = extractFiles(args, "variations");
-
       PatchSpec spec = new PatchSpec()
         .setOldVersionDescription(oldVersionDesc)
         .setNewVersionDescription(newVersionDesc)
-        .addOldFolder(oldFolder)
+        .setOldFolder(oldFolder)
         .setNewFolder(newFolder)
         .setPatchFile(patchFile)
         .setJarFile(jarFile)
@@ -57,10 +55,6 @@ public class Runner {
         .setIgnoredFiles(ignoredFiles)
         .setCriticalFiles(criticalFiles)
         .setOptionalFiles(optionalFiles);
-
-      for (String path : oldFolders) {
-        spec.addOldFolder(path);
-      }
 
       create(spec);
     }
@@ -255,7 +249,7 @@ public class Runner {
         ui.startProcess("Extracting patch file...");
         ui.setProgressIndeterminate();
         try {
-          InputStream in = Utils.getEntryInputStream(new MultiZipFile(zipFile), PATCH_FILE_NAME);
+          InputStream in = Utils.getEntryInputStream(zipFile, PATCH_FILE_NAME);
           OutputStream out = new BufferedOutputStream(new FileOutputStream(patchFile));
           try {
             Utils.copyStream(in, out);

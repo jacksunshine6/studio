@@ -5,23 +5,24 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class UpdateZipAction extends BaseUpdateAction {
   Set<String> myFilesToCreate;
   Set<String> myFilesToUpdate;
   Set<String> myFilesToDelete;
 
-  public UpdateZipAction(Patch patch, File olderDir, String path, String source, long checksum, boolean move) {
-    super(patch, olderDir, path, source, checksum, move);
+  public UpdateZipAction(Patch patch, String path, String source, long checksum, boolean move) {
+    super(patch, path, source, checksum, move);
   }
 
   // test support
-  public UpdateZipAction(Patch patch, File olderDir, String path,
+  public UpdateZipAction(Patch patch, String path,
                          Collection<String> filesToCreate,
                          Collection<String> filesToUpdate,
                          Collection<String> filesToDelete,
                          long checksum) {
-    super(patch, olderDir, path, path, checksum, false);
+    super(patch, path, path, checksum, false);
     myFilesToCreate = new HashSet<String>(filesToCreate);
     myFilesToUpdate = new HashSet<String>(filesToUpdate);
     myFilesToDelete = new HashSet<String>(filesToDelete);
@@ -96,41 +97,40 @@ public class UpdateZipAction extends BaseUpdateAction {
   }
 
   @Override
-  public void doBuildPatchFile(final File toFile, final MultiZipFile.OutputStream patchOutput) throws IOException {
+  public void doBuildPatchFile(final File olderFile, final File newerFile, final ZipOutputStream patchOutput) throws IOException {
     try {
       //noinspection IOResourceOpenedButNotSafelyClosed
-      new ZipFile(toFile).close();
+      new ZipFile(newerFile).close();
     }
     catch (IOException e) {
-      Runner.logger.error("Corrupted target file: " + toFile);
+      Runner.logger.error("Corrupted target file: " + newerFile);
       Runner.printStackTrace(e);
-      throw new IOException("Corrupted target file: " + toFile, e);
+      throw new IOException("Corrupted target file: " + newerFile, e);
     }
 
     final Set<String> filesToProcess = new HashSet<String>(myFilesToCreate);
     filesToProcess.addAll(myFilesToUpdate);
     if (filesToProcess.isEmpty()) return;
 
-    File sourceFile = getSource(myOlderDir);
-    final MultiZipFile olderZip;
+    final ZipFile olderZip;
     try {
-      olderZip = new MultiZipFile(sourceFile);
+      olderZip = new ZipFile(olderFile);
     }
     catch (IOException e) {
-      Runner.logger.error("Corrupted source file: " + sourceFile);
+      Runner.logger.error("Corrupted source file: " + olderFile);
       Runner.printStackTrace(e);
-      throw new IOException("Corrupted source file: " + sourceFile, e);
+      throw new IOException("Corrupted source file: " + olderFile, e);
     }
 
     try {
-      processZipFile(toFile, new Processor() {
+      processZipFile(newerFile, new Processor() {
         public void process(ZipEntry newerEntry, InputStream newerEntryIn) throws IOException {
           if (newerEntry.isDirectory()) return;
           String name = newerEntry.getName();
           if (!filesToProcess.contains(name)) return;
 
           try {
-            patchOutput.putNextEntry(myPath + "/" + name);
+            patchOutput.putNextEntry(new ZipEntry(myPath + "/" + name));
             InputStream olderEntryIn = Utils.findEntryInputStream(olderZip, name);
             if (olderEntryIn == null) {
               Utils.copyStream(newerEntryIn, patchOutput);
@@ -154,7 +154,7 @@ public class UpdateZipAction extends BaseUpdateAction {
   }
 
   @Override
-  protected void doApply(final MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
+  protected void doApply(final ZipFile patchFile, File backupDir, File toFile) throws IOException {
     File temp = Utils.createTempFile();
     FileOutputStream fileOut = new FileOutputStream(temp);
     try {

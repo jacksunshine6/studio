@@ -18,6 +18,8 @@ package com.intellij.updater;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 public class ValidateAction extends PatchAction {
   // Only used on patch creation
@@ -32,7 +34,7 @@ public class ValidateAction extends PatchAction {
   }
 
   @Override
-  protected void doBuildPatchFile(File toFile, MultiZipFile.OutputStream patchOutput) throws IOException {
+  protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
   }
 
   @Override
@@ -41,7 +43,7 @@ public class ValidateAction extends PatchAction {
   }
 
   @Override
-  protected void doApply(MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
+  protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
   }
 
   @Override

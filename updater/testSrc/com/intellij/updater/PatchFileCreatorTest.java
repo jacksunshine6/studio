@@ -8,6 +8,7 @@ import java.io.*;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.Assert.*;
 
@@ -22,7 +23,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     super.setUp();
     myFile = getTempFile("patch.zip");
     myPatchSpec = new PatchSpec()
-      .addOldFolder(myOlderDir.getAbsolutePath())
+      .setOldFolder(myOlderDir.getAbsolutePath())
       .setNewFolder(myNewerDir.getAbsolutePath());
   }
 
@@ -420,7 +421,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     }
 
     @Override
-    protected void doBuildPatchFile(File toFile, MultiZipFile.OutputStream patchOutput) throws IOException {
+    protected void doBuildPatchFile(File olderFile, File newerFile, ZipOutputStream patchOutput) throws IOException {
       throw new UnsupportedOperationException();
     }
 
@@ -430,7 +431,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     }
 
     @Override
-    protected void doApply(MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
+    protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
       throw new IOException("dummy exception");
     }
 
