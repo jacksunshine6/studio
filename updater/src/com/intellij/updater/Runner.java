@@ -33,8 +33,10 @@ public class Runner {
       String patchFile = args[5];
       initLogger();
 
+      // See usage for an explanation of these flags
       boolean binary = Arrays.asList(args).contains("--zip_as_binary");
       boolean strict = Arrays.asList(args).contains("--strict");
+      boolean normalized = Arrays.asList(args).contains("--normalized");
 
       List<String> ignoredFiles = extractFiles(args, "ignored");
       List<String> criticalFiles = extractFiles(args, "critical");
@@ -50,6 +52,7 @@ public class Runner {
         .setJarFile(jarFile)
         .setStrict(strict)
         .setBinary(binary)
+        .setNormalized(normalized)
         .setIgnoredFiles(ignoredFiles)
         .setCriticalFiles(criticalFiles)
         .setOptionalFiles(optionalFiles)
@@ -143,10 +146,33 @@ public class Runner {
 
   @SuppressWarnings("UseOfSystemOutOrSystemErr")
   private static void printUsage() {
-    System.err.println("Usage:\n" +
-                       "create <old_version_description> <new_version_description> <old_version_folder> <new_version_folder>" +
-                       " <patch_file_name> [ignored=file1;file2;...] [critical=file1;file2;...] [optional=file1;file2;...]\n" +
-                       "install <destination_folder>\n");
+    System.err.println(
+      "Usage:\n" +
+      "  Runner create <old_version> <new_version> <old_folder> <new_folder> <patch_file> [<file_set>=file1;file2;...] [<flags>]\n" +
+      "  Runner install <folder>\n" +
+      "\n" +
+      "Where:\n" +
+      "  <old_version>: A description of the version to generate the patch from.\n" +
+      "  <new_version>: A description of the version to generate the patch to.\n" +
+      "  <old_folder>: The folder where to find the old version.\n" +
+      "  <new_folder>: The folder where to find the new version.\n" +
+      "  <patch_file>: The .jar patch file to create which contains the patch and the patcher.\n" +
+      "  <file_set>: Can be one of:\n" +
+      "    ignored: The set of files that will not be included in the patch.\n" +
+      "    critical: Fully included in the patch, so they can be replaced at destination even if they have changed.\n" +
+      "    optional: A set of files that is ok for them no to exist when applying the patch.\n" +
+      "    delete: A set of regular expressions for paths that is safe to delete without user confirmation.\n" +
+      "  <flags>: Can be:\n" +
+      "    --zip_as_binary: Zip and jar files will be treated as binary files and not inspected internally.\n" +
+      "    --strict: The created patch will contain extra information to fully validate an installation. A strict\n" +
+      "              patch will only be applied if it is guaranteed that the patched version will match exactly\n" +
+      "              the source of the patch. This means that unexpected files will be deleted and all existing files\n" +
+      "              will be validated\n" +
+      "    --normalized: This creates a normalized patch. This flag only makes sense in addition to --zip_as_binary\n" +
+      "                  A normalized patch must be used to move from an installation that was patched\n" +
+      "                  in a non-binary way to a fully binary patch. This will yield a larger patch, but the\n" +
+      "                  generated patch can be applied on versions where non-binary patches have been applied to and it\n" +
+      "                  guarantees that the patched version will match exactly the original one.\n");
   }
 
   private static void create(PatchSpec spec) throws IOException, OperationCancelledException {
@@ -253,6 +279,7 @@ public class Runner {
     }
     finally {
       try {
+        System.gc();
         cleanup(ui);
       }
       catch (IOException e) {
