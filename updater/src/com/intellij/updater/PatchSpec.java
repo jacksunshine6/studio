@@ -31,6 +31,7 @@ public class PatchSpec {
   private List<String> myIgnoredFiles = Collections.emptyList();
   private List<String> myCriticalFiles = Collections.emptyList();
   private List<String> myOptionalFiles = Collections.emptyList();
+  private boolean myIsNormalized;
 
   public String getOldVersionDescription() {
     return myOldVersionDescription;
@@ -129,5 +130,14 @@ public class PatchSpec {
 
   public boolean isBinary() {
     return myIsBinary;
+  }
+
+  public boolean isNormalized() {
+    return myIsNormalized;
+  }
+
+  public PatchSpec setNormalized(boolean normalized) {
+    myIsNormalized = normalized;
+    return this;
   }
 }
