@@ -16,13 +16,12 @@
 package com.intellij.updater;
 
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 
 public class PatchSpec {
   private String myOldVersionDescription = "";
   private String myNewVersionDescription = "";
-  private List<String> myOldFolders = new LinkedList<String>();
+  private String myOldFolder;
   private String myNewFolder;
   private String myPatchFile;
   private String myJarFile;
@@ -31,6 +30,7 @@ public class PatchSpec {
   private List<String> myIgnoredFiles = Collections.emptyList();
   private List<String> myCriticalFiles = Collections.emptyList();
   private List<String> myOptionalFiles = Collections.emptyList();
+  private boolean myIsNormalized;
 
   public String getOldVersionDescription() {
     return myOldVersionDescription;
@@ -50,12 +50,12 @@ public class PatchSpec {
     return this;
   }
 
-  public List<String> getOldFolders() {
-    return myOldFolders;
+  public String getOldFolder() {
+    return myOldFolder;
   }
 
-  public PatchSpec addOldFolder(String oldFolder) {
-    myOldFolders.add(oldFolder);
+  public PatchSpec setOldFolder(String oldFolder) {
+    myOldFolder = oldFolder;
     return this;
   }
 
@@ -129,5 +129,14 @@ public class PatchSpec {
 
   public boolean isBinary() {
     return myIsBinary;
+  }
+
+  public boolean isNormalized() {
+    return myIsNormalized;
+  }
+
+  public PatchSpec setNormalized(boolean normalized) {
+    myIsNormalized = normalized;
+    return this;
   }
 }

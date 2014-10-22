@@ -2,9 +2,11 @@ package com.intellij.updater;
 
 import java.io.*;
 import java.util.LinkedHashSet;
-import java.util.Map;
+import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class Utils {
   // keep buffer static as there may be many calls of the copyStream method.
@@ -155,25 +157,25 @@ public class Utils {
     }
   }
 
-  public static InputStream getEntryInputStream(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static InputStream getEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = getZipEntry(zipFile, entryPath);
     return findEntryInputStreamForEntry(zipFile, entry);
   }
 
-  public static InputStream findEntryInputStream(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static InputStream findEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = zipFile.getEntry(entryPath);
     if (entry == null) return null;
     return findEntryInputStreamForEntry(zipFile, entry);
   }
 
-  public static ZipEntry getZipEntry(MultiZipFile zipFile, String entryPath) throws IOException {
+  public static ZipEntry getZipEntry(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = zipFile.getEntry(entryPath);
     if (entry == null) throw new IOException("Entry " + entryPath + " not found");
     Runner.logger.info("entryPath: " + entryPath);
     return entry;
   }
 
-  public static InputStream findEntryInputStreamForEntry(MultiZipFile zipFile, ZipEntry entry) throws IOException {
+  public static InputStream findEntryInputStreamForEntry(ZipFile zipFile, ZipEntry entry) throws IOException {
     if (entry.isDirectory()) return null;
     // There is a bug in some JVM implementations where for a directory "X/" in a zipfile, if we do
     // "zip.getEntry("X/").isDirectory()" returns true, but if we do "zip.getEntry("X").isDirectory()" is false.
@@ -206,5 +208,50 @@ public class Utils {
         result.add(relativePath);
       }
     }
+  }
+
+  public static InputStream newFileInputStream(File file, boolean normalize) throws IOException {
+    FileInputStream inputStream = new FileInputStream(file);
+    if (!normalize || !isZipFile(file.getName())) {
+      return inputStream;
+    }
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    TreeMap<String, NormalizedEntry> map = new TreeMap<String, NormalizedEntry>();
+    ZipInputStream in = new ZipInputStream(inputStream);
+    ZipOutputStream out = new ZipOutputStream(outputStream);
+    try {
+      ZipEntry zipEntry;
+      byte[] buffer = new byte[2048];
+      while ((zipEntry = in.getNextEntry()) != null) {
+        zipEntry.setTime(0);
+        if (zipEntry.isDirectory()) continue;
+        NormalizedEntry normalized = new NormalizedEntry();
+        normalized.name = zipEntry.getName();
+        int len;
+        while ((len = in.read(buffer)) > 0) {
+          normalized.data.write(buffer, 0, len);
+        }
+        map.put(normalized.name, normalized);
+      }
+
+      for (NormalizedEntry entry : map.values()) {
+        zipEntry = new ZipEntry(entry.name);
+        zipEntry.setTime(0);
+        out.putNextEntry(zipEntry);
+        out.write(entry.data.toByteArray());
+        out.closeEntry();
+      }
+    }
+    finally {
+      in.close();
+      out.close();
+    }
+
+    return new ByteArrayInputStream(outputStream.toByteArray());
+  }
+
+  static class NormalizedEntry {
+    public String name;
+    public ByteArrayOutputStream data = new ByteArrayOutputStream();
   }
 }

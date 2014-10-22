@@ -4,16 +4,14 @@ import ie.wombat.jbdiff.JBDiff;
 import ie.wombat.jbdiff.JBPatch;
 
 import java.io.*;
+import java.util.zip.ZipOutputStream;
 
 public abstract class BaseUpdateAction extends PatchAction {
   private final String mySource;
   protected final boolean myIsMove;
 
-  protected transient File myOlderDir; // Only used on patch creation.
-
-  public BaseUpdateAction(Patch patch, File olderDir, String path, String source, long checksum, boolean move) {
+  public BaseUpdateAction(Patch patch, String path, String source, long checksum, boolean move) {
     super(patch, path, checksum);
-    myOlderDir = olderDir;
     myIsMove = move;
     mySource = source;
   }
@@ -39,6 +37,11 @@ public abstract class BaseUpdateAction extends PatchAction {
   protected boolean doShouldApply(File toDir) {
     // if the file is optional in may not exist
     return getSource(toDir).exists();
+  }
+
+  @Override
+  public void buildPatchFile(File olderDir, File newerDir, ZipOutputStream patchOutput) throws IOException {
+    doBuildPatchFile(getSource(olderDir), getFile(newerDir), patchOutput);
   }
 
   @Override
@@ -72,7 +75,7 @@ public abstract class BaseUpdateAction extends PatchAction {
   }
 
   protected void writeDiff(File olderFile, File newerFile, OutputStream patchOutput) throws IOException {
-    BufferedInputStream olderFileIn = new BufferedInputStream(new FileInputStream(olderFile));
+    BufferedInputStream olderFileIn = new BufferedInputStream(Utils.newFileInputStream(olderFile, myPatch.isNormalized()));
     BufferedInputStream newerFileIn = new BufferedInputStream(new FileInputStream(newerFile));
     try {
       writeDiff(olderFileIn, newerFileIn, patchOutput);

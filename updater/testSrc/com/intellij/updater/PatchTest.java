@@ -21,14 +21,14 @@ public class PatchTest extends PatchTestCase {
   public void setUp() throws Exception {
     super.setUp();
     PatchSpec spec = new PatchSpec()
-      .addOldFolder(myOlderDir.getAbsolutePath())
+      .setOldFolder(myOlderDir.getAbsolutePath())
       .setNewFolder(myNewerDir.getAbsolutePath());
     myPatch = new Patch(spec, TEST_UI);
   }
 
   @Test
   public void testDigestFiles() throws Exception {
-    Map<String, Long> checkSums = myPatch.digestFiles(getDataDir(), Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> checkSums = myPatch.digestFiles(getDataDir(), Collections.<String>emptyList(), false, TEST_UI);
     assertEquals(9, checkSums.size());
   }
 
@@ -36,13 +36,13 @@ public class PatchTest extends PatchTestCase {
   public void testBasics() throws Exception {
     List<PatchAction> expectedActions = Arrays.asList(
       new CreateAction(myPatch, "newDir/newFile.txt"),
-      new UpdateAction(myPatch, myOlderDir, "Readme.txt", CHECKSUMS.README_TXT),
-      new UpdateZipAction(myPatch, myOlderDir, "lib/annotations.jar",
+      new UpdateAction(myPatch, "Readme.txt", CHECKSUMS.README_TXT),
+      new UpdateZipAction(myPatch, "lib/annotations.jar",
                           Arrays.asList("org/jetbrains/annotations/NewClass.class"),
                           Arrays.asList("org/jetbrains/annotations/Nullable.class"),
                           Arrays.asList("org/jetbrains/annotations/TestOnly.class"),
                           CHECKSUMS.ANNOTATIONS_JAR),
-      new UpdateZipAction(myPatch, myOlderDir, "lib/bootstrap.jar",
+      new UpdateZipAction(myPatch, "lib/bootstrap.jar",
                           Collections.<String>emptyList(),
                           Collections.<String>emptyList(),
                           Arrays.asList("com/intellij/ide/ClassloaderUtil.class"),
@@ -57,7 +57,7 @@ public class PatchTest extends PatchTestCase {
   @Test
   public void testCreatingWithIgnoredFiles() throws Exception {
     PatchSpec spec = new PatchSpec()
-      .addOldFolder(myOlderDir.getAbsolutePath())
+      .setOldFolder(myOlderDir.getAbsolutePath())
       .setNewFolder(myNewerDir.getAbsolutePath())
       .setIgnoredFiles(Arrays.asList("Readme.txt", "bin/idea.bat"));
     myPatch = new Patch(spec,
@@ -65,12 +65,12 @@ public class PatchTest extends PatchTestCase {
 
     List<PatchAction> expectedActions = Arrays.asList(
       new CreateAction(myPatch, "newDir/newFile.txt"),
-      new UpdateZipAction(myPatch, myOlderDir, "lib/annotations.jar",
+      new UpdateZipAction(myPatch, "lib/annotations.jar",
                           Arrays.asList("org/jetbrains/annotations/NewClass.class"),
                           Arrays.asList("org/jetbrains/annotations/Nullable.class"),
                           Arrays.asList("org/jetbrains/annotations/TestOnly.class"),
                           CHECKSUMS.ANNOTATIONS_JAR),
-      new UpdateZipAction(myPatch, myOlderDir, "lib/bootstrap.jar",
+      new UpdateZipAction(myPatch, "lib/bootstrap.jar",
                           Collections.<String>emptyList(),
                           Collections.<String>emptyList(),
                           Arrays.asList("com/intellij/ide/ClassloaderUtil.class"),
@@ -134,7 +134,7 @@ public class PatchTest extends PatchTestCase {
                  new HashSet<ValidationResult>(myPatch.validate(myOlderDir, TEST_UI)));
 
     PatchSpec spec = new PatchSpec()
-      .addOldFolder(myOlderDir.getAbsolutePath())
+      .setOldFolder(myOlderDir.getAbsolutePath())
       .setNewFolder(myNewerDir.getAbsolutePath())
       .setOptionalFiles(Arrays.asList("lib/annotations.jar"));
     myPatch = new Patch(spec, TEST_UI);

@@ -25,6 +25,7 @@ public class PatchFileCreator {
       patchInfo.write(out);
       out.closeEntry();
 
+      File olderDir = new File(spec.getOldFolder());
       File newerDir = new File(spec.getNewFolder());
       List<PatchAction> actions = patchInfo.getActions();
       for (PatchAction each : actions) {
@@ -32,7 +33,7 @@ public class PatchFileCreator {
         Runner.logger.info("Packing " + each.getPath());
         ui.setStatus("Packing " + each.getPath());
         ui.checkCancelled();
-        each.buildPatchFile(newerDir, out);
+        each.buildPatchFile(olderDir, newerDir, out);
       }
     }
     finally {
@@ -47,7 +48,7 @@ public class PatchFileCreator {
                                                      UpdaterUI ui) throws IOException, OperationCancelledException {
     Patch patch;
 
-    MultiZipFile zipFile = new MultiZipFile(patchFile);
+    ZipFile zipFile = new ZipFile(patchFile);
     try {
 
       InputStream in = Utils.getEntryInputStream(zipFile, PATCH_INFO_FILE_NAME);

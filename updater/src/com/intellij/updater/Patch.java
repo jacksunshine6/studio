@@ -8,6 +8,7 @@ public class Patch {
   private List<PatchAction> myActions = new ArrayList<PatchAction>();
   private boolean myIsBinary;
   private boolean myIsStrict;
+  private boolean myIsNormalized;
   private String myOldBuild;
   private String myNewBuild;
 
@@ -16,11 +17,11 @@ public class Patch {
   private static final int UPDATE_ZIP_ACTION_KEY = 3;
   private static final int DELETE_ACTION_KEY = 4;
   private static final int VALIDATE_ACTION_KEY = 5;
-  private static final int MULTI_ACTION_KEY = 6;
 
   public Patch(PatchSpec spec, UpdaterUI ui) throws IOException, OperationCancelledException {
     myIsBinary = spec.isBinary();
     myIsStrict = spec.isStrict();
+    myIsNormalized = spec.isNormalized();
     myOldBuild = spec.getOldVersionDescription();
     myNewBuild = spec.getNewVersionDescription();
 
@@ -36,39 +37,11 @@ public class Patch {
     ui.startProcess("Calculating difference...");
     ui.checkCancelled();
 
+    File olderDir = new File(spec.getOldFolder());
     File newerDir = new File(spec.getNewFolder());
-    List<PatchAction> actions = null;
-    for (String olderPath : spec.getOldFolders()) {
-      File olderDir = new File(olderPath);
-      List<PatchAction> newActions = createActionsFor(olderDir, newerDir, spec, ui);
-      actions = mergeActions(actions, newActions);
-    }
-    myActions = actions;
-  }
-
-  private List<PatchAction> mergeActions(List<PatchAction> actions, List<PatchAction> newActions) {
-    List<PatchAction> merged = new LinkedList<PatchAction>();
-    if (actions == null) return newActions;
-
-    Map<String, PatchAction> actionsToAdd = new LinkedHashMap<String, PatchAction>();
-    for (PatchAction action : newActions) {
-      actionsToAdd.put(action.getPath(), action);
-    }
-
-    for (PatchAction action : actions) {
-      PatchAction other = actionsToAdd.remove(action.getPath());
-      merged.add(other != null ? action.merge(other) : action);
-    }
-
-    merged.addAll(actionsToAdd.values());
-
-    return merged;
-  }
-
-  private List<PatchAction> createActionsFor(File olderDir, File newerDir, PatchSpec spec, UpdaterUI ui)
-    throws IOException, OperationCancelledException {
     DiffCalculator.Result diff;
-    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui), digestFiles(newerDir, spec.getIgnoredFiles(), ui),
+    diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), isNormalized(), ui),
+                                    digestFiles(newerDir, spec.getIgnoredFiles(), false, ui),
                                     spec.getCriticalFiles(), true);
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
@@ -86,10 +59,10 @@ public class Patch {
     for (Map.Entry<String, DiffCalculator.Update> each : diff.filesToUpdate.entrySet()) {
       DiffCalculator.Update update = each.getValue();
       if (!spec.isBinary() && Utils.isZipFile(each.getKey())) {
-        tempActions.add(new UpdateZipAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
+        tempActions.add(new UpdateZipAction(this, each.getKey(), update.source, update.checksum, update.move));
       }
       else {
-        tempActions.add(new UpdateAction(this, olderDir, each.getKey(), update.source, update.checksum, update.move));
+        tempActions.add(new UpdateAction(this, each.getKey(), update.source, update.checksum, update.move));
       }
     }
 
@@ -109,12 +82,10 @@ public class Patch {
       ui.checkCancelled();
 
       if (!each.calculate(olderDir, newerDir)) continue;
-      actions.add(each);
+      myActions.add(each);
       each.setCritical(spec.getCriticalFiles().contains(each.getPath()));
       each.setOptional(spec.getOptionalFiles().contains(each.getPath()));
     }
-
-    return actions;
   }
 
   public List<PatchAction> getActions() {
@@ -128,6 +99,7 @@ public class Patch {
       dataOut.writeUTF(myNewBuild);
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
+      dataOut.writeBoolean(myIsNormalized);
       writeActions(dataOut, myActions);
     }
     finally {
@@ -157,9 +129,6 @@ public class Patch {
       else if (clazz == ValidateAction.class) {
         key = VALIDATE_ACTION_KEY;
       }
-      else if (clazz == MultiAction.class) {
-        key = MULTI_ACTION_KEY;
-      }
       else {
         throw new RuntimeException("Unknown action " + each);
       }
@@ -176,6 +145,7 @@ public class Patch {
     myNewBuild = in.readUTF();
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
+    myIsNormalized = in.readBoolean();
     myActions = readActions(in);
   }
 
@@ -200,9 +170,6 @@ public class Patch {
           break;
         case VALIDATE_ACTION_KEY:
           a = new ValidateAction(this, in);
-          break;
-        case MULTI_ACTION_KEY:
-          a = new MultiAction(this, in);
           break;
         default:
           throw new RuntimeException("Unknown action type " + key);
@@ -323,17 +290,16 @@ public class Patch {
     }
   }
 
-  public long digestFile(File toFile) throws IOException {
+  public long digestFile(File toFile, boolean normalize) throws IOException {
     if (!myIsBinary && Utils.isZipFile(toFile.getName())) {
       return Digester.digestZipFile(toFile);
     }
     else {
-      return Digester.digestRegularFile(toFile);
+      return Digester.digestRegularFile(toFile, normalize);
     }
   }
 
-
-  public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, UpdaterUI ui)
+  public Map<String, Long> digestFiles(File dir, List<String> ignoredFiles, boolean normalize, UpdaterUI ui)
     throws IOException, OperationCancelledException {
     Map<String, Long> result = new LinkedHashMap<String, Long>();
 
@@ -342,7 +308,7 @@ public class Patch {
       if (ignoredFiles.contains(each)) continue;
       ui.setStatus(each);
       ui.checkCancelled();
-      result.put(each, digestFile(new File(dir, each)));
+      result.put(each, digestFile(new File(dir, each), normalize));
     }
     return result;
   }
@@ -357,6 +323,10 @@ public class Patch {
 
   public boolean isStrict() {
     return myIsStrict;
+  }
+
+  public boolean isNormalized() {
+    return myIsNormalized;
   }
 
   public interface ActionsProcessor {

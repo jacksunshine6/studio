@@ -3,11 +3,10 @@ package com.intellij.updater;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 public class DeleteAction extends PatchAction {
-  // Only used on patch creation
-  protected transient File myOlderDir;
-
   public DeleteAction(Patch patch, String path, long checksum) {
     super(patch, path, checksum);
   }
@@ -17,7 +16,7 @@ public class DeleteAction extends PatchAction {
   }
 
   @Override
-  public void doBuildPatchFile(File toFile, MultiZipFile.OutputStream patchOutput) throws IOException {
+  public void doBuildPatchFile(File olderDir, File newerFile, ZipOutputStream patchOutput) throws IOException {
     // do nothing
   }
 
@@ -44,7 +43,7 @@ public class DeleteAction extends PatchAction {
   }
 
   @Override
-  protected void doApply(MultiZipFile patchFile, File backupDir, File toFile) throws IOException {
+  protected void doApply(ZipFile patchFile, File backupDir, File toFile) throws IOException {
     Utils.delete(toFile);
   }
 
