@@ -6,7 +6,6 @@ import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 public class Utils {
   // keep buffer static as there may be many calls of the copyStream method.
@@ -237,21 +236,16 @@ public class Utils {
       in.close();
     }
 
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    ZipOutputStream out = new ZipOutputStream(outputStream);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
     try {
       for (NormalizedEntry entry : map.values()) {
-        ZipEntry zipEntry = new ZipEntry(entry.name);
-        zipEntry.setTime(0);
-        out.putNextEntry(zipEntry);
         out.write(entry.data.toByteArray());
-        out.closeEntry();
       }
     } finally {
       out.close();
     }
 
-    return new ByteArrayInputStream(outputStream.toByteArray());
+    return new ByteArrayInputStream(out.toByteArray());
   }
 
   static class NormalizedEntry {
