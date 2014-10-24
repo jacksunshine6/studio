@@ -76,7 +76,6 @@ public class Patch {
     ui.startProcess("Preparing actions...");
     ui.checkCancelled();
 
-    List<PatchAction> actions = new ArrayList<PatchAction>();
     for (PatchAction each : tempActions) {
       ui.setStatus(each.getPath());
       ui.checkCancelled();
