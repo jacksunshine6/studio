@@ -17,6 +17,7 @@ package com.intellij.updater;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class PatchSpec {
   private String myOldVersionDescription = "";
@@ -31,6 +32,7 @@ public class PatchSpec {
   private List<String> myCriticalFiles = Collections.emptyList();
   private List<String> myOptionalFiles = Collections.emptyList();
   private boolean myIsNormalized;
+  private Map<String, String> myWarnings = Collections.emptyMap();
   private List<String> myDeleteFiles = Collections.emptyList();
 
   public String getOldVersionDescription() {
@@ -139,6 +141,15 @@ public class PatchSpec {
   public PatchSpec setNormalized(boolean normalized) {
     myIsNormalized = normalized;
     return this;
+  }
+
+  public PatchSpec setWarnings(Map<String, String> warnings) {
+    myWarnings = warnings;
+    return this;
+  }
+
+  public Map<String, String> getWarnings() {
+    return myWarnings;
   }
 
   public PatchSpec setDeleteFiles(List<String> deleteFiles) {

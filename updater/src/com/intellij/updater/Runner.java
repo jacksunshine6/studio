@@ -38,10 +38,12 @@ public class Runner {
       boolean strict = Arrays.asList(args).contains("--strict");
       boolean normalized = Arrays.asList(args).contains("--normalized");
 
-      List<String> ignoredFiles = extractFiles(args, "ignored");
-      List<String> criticalFiles = extractFiles(args, "critical");
-      List<String> optionalFiles = extractFiles(args, "optional");
-      List<String> deleteFiles = extractFiles(args, "delete");
+      List<String> ignoredFiles = extractArguments(args, "ignored");
+      List<String> criticalFiles = extractArguments(args, "critical");
+      List<String> optionalFiles = extractArguments(args, "optional");
+      List<String> deleteFiles = extractArguments(args, "delete");
+
+      List<String> warnings = extractArguments(args, "warning");
 
       PatchSpec spec = new PatchSpec()
         .setOldVersionDescription(oldVersionDesc)
@@ -56,7 +58,8 @@ public class Runner {
         .setIgnoredFiles(ignoredFiles)
         .setCriticalFiles(criticalFiles)
         .setOptionalFiles(optionalFiles)
-        .setDeleteFiles(deleteFiles);
+        .setDeleteFiles(deleteFiles)
+        .setWarnings(buildWarningMap(warnings));
 
       create(spec);
     }
@@ -70,6 +73,19 @@ public class Runner {
     else {
       printUsage();
     }
+  }
+
+  private static Map<String, String> buildWarningMap(List<String> warnings) {
+    Map<String, String> map = new HashMap<String, String>();
+    for (String warning : warnings) {
+      int ix = warning.indexOf(":");
+      if (ix != -1) {
+        String path = warning.substring(0, ix);
+        String message = warning.substring(ix + 1).replace("\\n","\n");
+        map.put(path, message);
+      }
+    }
+    return map;
   }
 
   // checks that log directory 1)exists 2)has write perm. and 3)has 1MB+ free space
@@ -130,7 +146,7 @@ public class Runner {
     return null;
   }
 
-  public static List<String> extractFiles(String[] args, String paramName) {
+  public static List<String> extractArguments(String[] args, String paramName) {
     List<String> result = new ArrayList<String>();
     for (String param : args) {
       if (param.startsWith(paramName + "=")) {

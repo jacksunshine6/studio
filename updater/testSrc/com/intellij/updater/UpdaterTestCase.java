@@ -22,6 +22,11 @@ public abstract class UpdaterTestCase {
     @Override
     public void setDescription(String oldBuildDesc, String newBuildDesc) {
     }
+
+    @Override
+    public boolean showWarning(String message) {
+      return false;
+    }
   };
 
   protected CheckSums CHECKSUMS;
