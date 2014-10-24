@@ -277,6 +277,7 @@ public class Runner {
     }
     finally {
       try {
+        System.gc();
         cleanup(ui);
       }
       catch (IOException e) {
