@@ -11,6 +11,7 @@ public class Patch {
   private boolean myIsNormalized;
   private String myOldBuild;
   private String myNewBuild;
+  private Map<String, String> myWarnings;
 
   private static final int CREATE_ACTION_KEY = 1;
   private static final int UPDATE_ACTION_KEY = 2;
@@ -24,6 +25,7 @@ public class Patch {
     myIsNormalized = spec.isNormalized();
     myOldBuild = spec.getOldVersionDescription();
     myNewBuild = spec.getNewVersionDescription();
+    myWarnings = spec.getWarnings();
 
     calculateActions(spec, ui);
   }
@@ -99,10 +101,19 @@ public class Patch {
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
       dataOut.writeBoolean(myIsNormalized);
+      writeMap(dataOut, myWarnings);
       writeActions(dataOut, myActions);
     }
     finally {
       dataOut.flush();
+    }
+  }
+
+  private static void writeMap(DataOutputStream dataOut, Map<String, String> map) throws IOException {
+    dataOut.writeInt(map.size());
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+      dataOut.writeUTF(entry.getKey());
+      dataOut.writeUTF(entry.getValue());
     }
   }
 
@@ -145,7 +156,18 @@ public class Patch {
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
     myIsNormalized = in.readBoolean();
+    myWarnings = readMap(in);
     myActions = readActions(in);
+  }
+
+  private static Map<String, String> readMap(DataInputStream in) throws IOException {
+    int size = in.readInt();
+    Map<String, String> map = new HashMap<String, String>();
+    for (int i = 0; i < size; i++) {
+      String key = in.readUTF();
+      map.put(key, in.readUTF());
+    }
+    return map;
   }
 
   public List<PatchAction> readActions(DataInputStream in) throws IOException {
@@ -188,6 +210,13 @@ public class Patch {
         files.remove(action.getPath());
       }
       for (String file : files) {
+        String warning = myWarnings.get(file);
+        if (warning != null) {
+          ui.showWarning(warning);
+          result.add(new ValidationResult(ValidationResult.Kind.ERROR,
+                                          file, ValidationResult.Action.VALIDATE,
+                                          warning, ValidationResult.Option.NONE));
+        }
         myActions.add(0, new DeleteAction(this, file, Digester.INVALID));
       }
     }
