@@ -1,11 +1,9 @@
 package com.intellij.updater;
 
 import java.io.*;
-import java.util.LinkedHashSet;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 public class Utils {
   // keep buffer static as there may be many calls of the copyStream method.
@@ -214,42 +212,65 @@ public class Utils {
     if (!normalize || !isZipFile(file.getName())) {
       return inputStream;
     }
-    TreeMap<String, NormalizedEntry> map = new TreeMap<String, NormalizedEntry>();
-    ZipInputStream in = new ZipInputStream(inputStream);
-    try {
-      ZipEntry zipEntry;
-      byte[] buffer = new byte[2048];
-      while ((zipEntry = in.getNextEntry()) != null) {
-        zipEntry.setTime(0);
-        if (zipEntry.isDirectory()) continue;
-        NormalizedEntry normalized = new NormalizedEntry();
-        normalized.name = zipEntry.getName();
-        int len;
-        while ((len = in.read(buffer)) > 0) {
-          normalized.data.write(buffer, 0, len);
-        }
-        map.put(normalized.name, normalized);
-      }
-
-    }
-    finally {
-      in.close();
-    }
-
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try {
-      for (NormalizedEntry entry : map.values()) {
-        out.write(entry.data.toByteArray());
-      }
-    } finally {
-      out.close();
-    }
-
-    return new ByteArrayInputStream(out.toByteArray());
+    return new NormalizedZipInputStream(file);
   }
 
-  static class NormalizedEntry {
-    public String name;
-    public ByteArrayOutputStream data = new ByteArrayOutputStream();
+  static class NormalizedZipInputStream extends InputStream {
+
+    private ArrayList<? extends ZipEntry> myEntries;
+    private InputStream myStream = null;
+    private int myNextEntry = 0;
+    private final ZipFile myZip;
+    private byte[] myByte = new byte[1];
+
+    NormalizedZipInputStream(File file) throws IOException {
+      myZip = new ZipFile(file);
+      myEntries = Collections.list(myZip.entries());
+      Collections.sort(myEntries, new Comparator<ZipEntry>() {
+        @Override
+        public int compare(ZipEntry a, ZipEntry b) {
+          return a.getName().compareTo(b.getName());
+        }
+      });
+
+      loadNextEntry();
+    }
+
+    private void loadNextEntry() throws IOException {
+      if (myStream != null) {
+        myStream.close();
+      }
+      myStream = null;
+      while (myNextEntry < myEntries.size() && myStream == null) {
+        myStream = findEntryInputStreamForEntry(myZip, myEntries.get(myNextEntry++));
+      }
+    }
+
+    @Override
+    public int read(byte[] bytes, int off, int len) throws IOException {
+      if (myStream == null) {
+        return -1;
+      }
+      int b = myStream.read(bytes, off, len);
+      if (b == -1) {
+        loadNextEntry();
+        return read(bytes, off, len);
+      }
+      return b;
+    }
+
+    @Override
+    public int read() throws IOException {
+      int b = read(myByte, 0, 1);
+      return b == -1 ? -1 : myByte[0];
+    }
+
+    @Override
+    public void close() throws IOException {
+      if (myStream != null) {
+        myStream.close();
+      }
+      myZip.close();
+    }
   }
 }
