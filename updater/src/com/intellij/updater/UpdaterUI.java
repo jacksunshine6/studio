@@ -18,5 +18,7 @@ public interface UpdaterUI {
 
   void setDescription(String oldBuildDesc, String newBuildDesc);
 
+  void showWarning(String message);
+
   Map<String, ValidationResult.Option> askUser(List<ValidationResult> validationResults) throws OperationCancelledException;
 }

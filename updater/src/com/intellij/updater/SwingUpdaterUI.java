@@ -130,6 +130,11 @@ public class SwingUpdaterUI implements UpdaterUI {
     myProcessTitle.setText("<html>Updating " + oldBuildDesc + " to " + newBuildDesc + "...");
   }
 
+  @Override
+  public void showWarning(String message) {
+    JOptionPane.showMessageDialog(null, message);
+  }
+
   private void startRequestDispatching() {
     new Thread(new Runnable() {
       public void run() {
