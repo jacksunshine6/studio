@@ -239,7 +239,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertEquals(1, preparationResult.validationResults.size());
-    assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT, "newfile.txt", ValidationResult.Action.VALIDATE, "Unknown",
+    assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT, "newfile.txt", ValidationResult.Action.VALIDATE, "Unexpected file",
                                       ValidationResult.Option.DELETE), preparationResult.validationResults.get(0));
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
   }
@@ -262,12 +262,12 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT,
                                       "unexpected_newdir/unexpected.txt",
                                       ValidationResult.Action.VALIDATE,
-                                      "Unknown",
+                                      "Unexpected file",
                                       ValidationResult.Option.DELETE), preparationResult.validationResults.get(0));
     assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT,
                                       "unexpected_newdir/",
                                       ValidationResult.Action.VALIDATE,
-                                      "Unknown",
+                                      "Unexpected file",
                                       ValidationResult.Option.DELETE), preparationResult.validationResults.get(1));
     assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT,
                                       "newDir/",
