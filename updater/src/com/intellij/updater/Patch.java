@@ -201,7 +201,23 @@ public class Patch {
   }
 
   public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
-    final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir, myIsStrict);
+    LinkedHashSet<String> files = null;
+    boolean checkWarnings = true;
+    while (checkWarnings) {
+      files = Utils.collectRelativePaths(toDir, myIsStrict);
+      checkWarnings = false;
+      for (String file : files) {
+        String warning = myWarnings.get(file);
+        if (warning != null) {
+          if (!ui.showWarning(warning)) {
+            throw new OperationCancelledException();
+          }
+          checkWarnings = true;
+          break;
+        }
+      }
+    }
+
     final List<ValidationResult> result = new ArrayList<ValidationResult>();
 
     if (myIsStrict) {
@@ -210,13 +226,6 @@ public class Patch {
         files.remove(action.getPath());
       }
       for (String file : files) {
-        String warning = myWarnings.get(file);
-        if (warning != null) {
-          ui.showWarning(warning);
-          result.add(new ValidationResult(ValidationResult.Kind.ERROR,
-                                          file, ValidationResult.Action.VALIDATE,
-                                          warning, ValidationResult.Option.NONE));
-        }
         myActions.add(0, new DeleteAction(this, file, Digester.INVALID));
       }
     }

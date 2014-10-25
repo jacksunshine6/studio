@@ -131,8 +131,10 @@ public class SwingUpdaterUI implements UpdaterUI {
   }
 
   @Override
-  public void showWarning(String message) {
-    JOptionPane.showMessageDialog(null, message);
+  public boolean showWarning(String message) {
+    Object[] choices = new Object[] { "Retry", "Exit" };
+    int choice = JOptionPane.showOptionDialog(null, message, "Warning", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+    return choice == 0;
   }
 
   private void startRequestDispatching() {
