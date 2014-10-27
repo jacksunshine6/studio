@@ -4,6 +4,7 @@
       <w>&amp;amp</w>
       <w>aapt</w>
       <w>aarrggbb</w>
+      <w>aars</w>
       <w>accessors</w>
       <w>actionbar</w>
       <w>adb's</w>
@@ -108,11 +109,13 @@
       <w>globbing</w>
       <w>goto</w>
       <w>gradle</w>
+      <w>gradlew</w>
       <w>guide's</w>
       <w>guillemets</w>
       <w>hardcode</w>
       <w>hardcoding</w>
       <w>hashcode</w>
+      <w>haxm</w>
       <w>hdpi</w>
       <w>holo</w>
       <w>horiz</w>
@@ -122,6 +125,7 @@
       <w>iastore</w>
       <w>iconst</w>
       <w>inflater</w>
+      <w>inflaters</w>
       <w>infos</w>
       <w>inlined</w>
       <w>innerclass</w>
@@ -148,6 +152,8 @@
       <w>keepclasseswithmembernames</w>
       <w>keepclasseswithmembers</w>
       <w>keygen</w>
+      <w>keymap</w>
+      <w>keymaps</w>
       <w>keypass</w>
       <w>keysexposed</w>
       <w>keyshidden</w>
@@ -158,6 +164,7 @@
       <w>landroid</w>
       <w>layoublib</w>
       <w>layoutlib</w>
+      <w>layoutlib's</w>
       <w>layoutlibs</w>
       <w>layoutopt</w>
       <w>layoutrules</w>
@@ -275,6 +282,7 @@
       <w>testcase</w>
       <w>testroot</w>
       <w>testsuite</w>
+      <w>timeline</w>
       <w>tmpdir</w>
       <w>traceview</w>
       <w>tuple</w>
