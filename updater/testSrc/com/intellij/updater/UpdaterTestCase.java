@@ -24,7 +24,8 @@ public abstract class UpdaterTestCase {
     }
 
     @Override
-    public void showWarning(String message) {
+    public boolean showWarning(String message) {
+      return false;
     }
   };
 

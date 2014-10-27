@@ -37,8 +37,9 @@ public class ConsoleUpdaterUI implements UpdaterUI {
   }
 
   @Override
-  public void showWarning(String message) {
+  public boolean showWarning(String message) {
     System.out.println("Warning: " + message);
+    return false;
   }
 
   public Map<String, ValidationResult.Option> askUser(List<ValidationResult> validationResults) {
