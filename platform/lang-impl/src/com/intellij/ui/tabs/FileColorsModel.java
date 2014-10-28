@@ -56,9 +56,10 @@ public class FileColorsModel implements Cloneable {
   static {
     globalScopes = new HashMap<String, String>();
     globalScopes.put(NonProjectFilesScope.NAME, "file.colors.enable.non.project");
-    if (PlatformUtils.isIntelliJ() || PlatformUtils.isRubyMine()) {
+    //Enable for Android Studio (We don't have access to FileColorsModel programmatically)
+    //if (PlatformUtils.isIntelliJ() || PlatformUtils.isRubyMine()) {
       globalScopes.put(TestsScope.NAME, "file.colors.enable.tests");
-    }
+    //}
 
     globalScopesColors = new HashMap<String, String>();
   }
