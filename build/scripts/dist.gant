@@ -183,7 +183,8 @@ private layoutWin(Map _args, String home, Paths paths) {
   ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-x64/studio64.exe",
            tofile: "$target/bin/studio64.exe")
 
-  winScripts(target, home, "studio.bat", args)
+  // Unlike intellij we do not distribute a batch file to launch studio.
+  // winScripts(target, home, "studio.bat", args)
   winVMOptions(target, args, "studio.exe", "studio64.exe")
 }
 
