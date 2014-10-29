@@ -33,6 +33,7 @@ public class PatchSpec {
   private List<String> myOptionalFiles = Collections.emptyList();
   private boolean myIsNormalized;
   private Map<String, String> myWarnings = Collections.emptyMap();
+  private List<String> myDeleteFiles = Collections.emptyList();
 
   public String getOldVersionDescription() {
     return myOldVersionDescription;
@@ -149,5 +150,14 @@ public class PatchSpec {
 
   public Map<String, String> getWarnings() {
     return myWarnings;
+  }
+
+  public PatchSpec setDeleteFiles(List<String> deleteFiles) {
+    myDeleteFiles = deleteFiles;
+    return this;
+  }
+
+  public List<String> getDeleteFiles() {
+    return myDeleteFiles;
   }
 }

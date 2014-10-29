@@ -2,6 +2,7 @@ package com.intellij.updater;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
 public class Patch {
@@ -12,6 +13,7 @@ public class Patch {
   private String myOldBuild;
   private String myNewBuild;
   private Map<String, String> myWarnings;
+  private List<String> myDeleteFiles;
 
   private static final int CREATE_ACTION_KEY = 1;
   private static final int UPDATE_ACTION_KEY = 2;
@@ -26,6 +28,7 @@ public class Patch {
     myOldBuild = spec.getOldVersionDescription();
     myNewBuild = spec.getNewVersionDescription();
     myWarnings = spec.getWarnings();
+    myDeleteFiles = spec.getDeleteFiles();
 
     calculateActions(spec, ui);
   }
@@ -102,10 +105,18 @@ public class Patch {
       dataOut.writeBoolean(myIsStrict);
       dataOut.writeBoolean(myIsNormalized);
       writeMap(dataOut, myWarnings);
+      writeList(dataOut, myDeleteFiles);
       writeActions(dataOut, myActions);
     }
     finally {
       dataOut.flush();
+    }
+  }
+
+  private static void writeList(DataOutputStream dataOut, List<String> list) throws  IOException {
+    dataOut.writeInt(list.size());
+    for (String string : list) {
+      dataOut.writeUTF(string);
     }
   }
 
@@ -157,7 +168,17 @@ public class Patch {
     myIsStrict = in.readBoolean();
     myIsNormalized = in.readBoolean();
     myWarnings = readMap(in);
+    myDeleteFiles = readList(in);
     myActions = readActions(in);
+  }
+
+  private static List<String> readList(DataInputStream in) throws IOException {
+    int size = in.readInt();
+    List<String> list = new ArrayList<String>(size);
+    for (int i = 0; i < size; i++) {
+      list.add(in.readUTF());
+    }
+    return list;
   }
 
   private static Map<String, String> readMap(DataInputStream in) throws IOException {
@@ -364,6 +385,15 @@ public class Patch {
 
   public boolean isNormalized() {
     return myIsNormalized;
+  }
+
+  public boolean validateDeletion(String path) {
+    for (String delete : myDeleteFiles) {
+      if (path.matches(delete)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public interface ActionsProcessor {
