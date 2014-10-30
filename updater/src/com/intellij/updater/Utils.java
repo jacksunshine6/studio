@@ -73,6 +73,7 @@ public class Utils {
   public static void copy(File from, File to) throws IOException {
     Runner.logger.info("from " + from.getPath() + " to " + to.getPath());
     if (from.isDirectory()) {
+      to.mkdirs();
       File[] files = from.listFiles();
       if (files == null) throw new IOException("Cannot get directory's content: " + from);
       for (File each : files) {
