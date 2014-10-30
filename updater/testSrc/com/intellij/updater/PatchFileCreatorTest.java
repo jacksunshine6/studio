@@ -233,14 +233,31 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   @Test
   public void testApplyWhenNewFileExistsStrict() throws Exception {
     myPatchSpec.setStrict(true);
+    myPatchSpec.setDeleteFiles(Collections.singletonList("lib/java_pid.*\\.hprof"));
+
     Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
 
     FileUtil.writeToFile(new File(myOlderDir, "newfile.txt"), "hello");
+    FileUtil.writeToFile(new File(myOlderDir, "lib/java_pid1234.hprof"), "bye!");
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertEquals(1, preparationResult.validationResults.size());
     assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT, "newfile.txt", ValidationResult.Action.VALIDATE, "Unexpected file",
                                       ValidationResult.Option.DELETE), preparationResult.validationResults.get(0));
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
+  public void testApplyWhenNewDeletableFileExistsStrict() throws Exception {
+    myPatchSpec.setStrict(true);
+    myPatchSpec.setDeleteFiles(Collections.singletonList("lib/java_pid.*\\.hprof"));
+
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    FileUtil.writeToFile(new File(myOlderDir, "lib/java_pid1234.hprof"), "bye!");
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(0, preparationResult.validationResults.size());
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
   }
 
@@ -293,6 +310,23 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertEquals("/a/deleted/file/that/is/a/copy/move.me", update.getSource(new File("/")).getAbsolutePath());
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
+  public void testDontMoveFromDirectoryToFile() throws IOException, OperationCancelledException {
+    myPatchSpec.setStrict(true);
+    new File(myOlderDir, "from/move.me").mkdirs();
+    FileUtil.writeToFile(new File(myNewerDir, "move/to/move.me"), "different");
+
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+    // Creating a patch would have crashed if the directory had been chosen.
+    PatchAction action = getAction(patch, "move/to/move.me");
+    assertTrue(action instanceof CreateAction);
+    action = getAction(patch, "from/move.me/");
+    assertTrue(action instanceof DeleteAction);
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(0, preparationResult.validationResults.size());
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
   }
 
