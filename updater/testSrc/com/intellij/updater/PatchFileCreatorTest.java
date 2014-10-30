@@ -233,14 +233,31 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   @Test
   public void testApplyWhenNewFileExistsStrict() throws Exception {
     myPatchSpec.setStrict(true);
+    myPatchSpec.setDeleteFiles(Collections.singletonList("lib/java_pid.*\\.hprof"));
+
     Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
 
     FileUtil.writeToFile(new File(myOlderDir, "newfile.txt"), "hello");
+    FileUtil.writeToFile(new File(myOlderDir, "lib/java_pid1234.hprof"), "bye!");
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertEquals(1, preparationResult.validationResults.size());
     assertEquals(new ValidationResult(ValidationResult.Kind.CONFLICT, "newfile.txt", ValidationResult.Action.VALIDATE, "Unexpected file",
                                       ValidationResult.Option.DELETE), preparationResult.validationResults.get(0));
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
+  public void testApplyWhenNewDeletableFileExistsStrict() throws Exception {
+    myPatchSpec.setStrict(true);
+    myPatchSpec.setDeleteFiles(Collections.singletonList("lib/java_pid.*\\.hprof"));
+
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    FileUtil.writeToFile(new File(myOlderDir, "lib/java_pid1234.hprof"), "bye!");
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(0, preparationResult.validationResults.size());
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
   }
 

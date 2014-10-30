@@ -26,7 +26,7 @@ public class DeleteAction extends PatchAction {
     ValidationResult result = doValidateAccess(toFile, ValidationResult.Action.DELETE);
     if (result != null) return result;
 
-    if (toFile.exists() && isModified(toFile)) {
+    if (myPatch.validateDeletion(myPath) && toFile.exists() && isModified(toFile)) {
       ValidationResult.Option[] options = myPatch.isStrict()
                                           ? new ValidationResult.Option[]{ValidationResult.Option.DELETE}
                                           : new ValidationResult.Option[]{ValidationResult.Option.DELETE, ValidationResult.Option.KEEP};
