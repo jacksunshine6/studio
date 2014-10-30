@@ -22,7 +22,7 @@ public class DiffCalculator {
 
     if (move) {
       Map<Long, String> byContent = inverse(result.filesToDelete);
-      Map<String, List<String>> byName = groupByName(result.filesToDelete);
+      Map<String, List<String>> byName = groupFilesByName(result.filesToDelete);
 
       // Find first by content
       for (Map.Entry<String, Long> create : toCreate.entrySet()) {
@@ -73,16 +73,18 @@ public class DiffCalculator {
     return best;
   }
 
-  private static Map<String, List<String>> groupByName(Map<String, Long> toDelete) {
+  private static Map<String, List<String>> groupFilesByName(Map<String, Long> toDelete) {
     Map<String, List<String>> result = new HashMap<String, List<String>>();
     for (String path : toDelete.keySet()) {
-      String name = new File(path).getName();
-      List<String> paths = result.get(name);
-      if (paths == null) {
-        paths = new LinkedList<String>();
-        result.put(name, paths);
+      if (!path.endsWith("/")) {
+        String name = new File(path).getName();
+        List<String> paths = result.get(name);
+        if (paths == null) {
+          paths = new LinkedList<String>();
+          result.put(name, paths);
+        }
+        paths.add(path);
       }
-      paths.add(path);
     }
     return result;
   }
