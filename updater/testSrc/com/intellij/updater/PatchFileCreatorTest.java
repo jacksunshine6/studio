@@ -314,6 +314,23 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   }
 
   @Test
+  public void testDontMoveFromDirectoryToFile() throws IOException, OperationCancelledException {
+    myPatchSpec.setStrict(true);
+    new File(myOlderDir, "from/move.me").mkdirs();
+    FileUtil.writeToFile(new File(myNewerDir, "move/to/move.me"), "different");
+
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+    // Creating a patch would have crashed if the directory had been chosen.
+    PatchAction action = getAction(patch, "move/to/move.me");
+    assertTrue(action instanceof CreateAction);
+    action = getAction(patch, "from/move.me/");
+    assertTrue(action instanceof DeleteAction);
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertEquals(0, preparationResult.validationResults.size());
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
   public void testMoveFileByLocation() throws IOException, OperationCancelledException {
     myPatchSpec.setStrict(true);
     FileUtil.writeToFile(new File(myOlderDir, "move/from/this/directory/move.me"), "they");
