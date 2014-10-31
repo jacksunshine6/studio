@@ -15,6 +15,7 @@
  */
 package org.jetbrains.plugins.coursecreator;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -23,6 +24,7 @@ import com.intellij.refactoring.listeners.RefactoringElementListener;
 import com.intellij.refactoring.listeners.RefactoringElementListenerProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.plugins.coursecreator.actions.CCRunTestsAction;
 import org.jetbrains.plugins.coursecreator.format.Course;
 import org.jetbrains.plugins.coursecreator.format.Lesson;
 import org.jetbrains.plugins.coursecreator.format.Task;
@@ -61,7 +63,7 @@ public class CCRefactoringElementListenerProvider implements RefactoringElementL
     }
 
     private static void renameTaskFile(PsiFile file, String oldName) {
-      PsiDirectory taskDir = file.getContainingDirectory();
+      final PsiDirectory taskDir = file.getContainingDirectory();
       Course course = CCProjectService.getInstance(file.getProject()).getCourse();
       if (course == null) {
         return;
@@ -81,6 +83,12 @@ public class CCRefactoringElementListenerProvider implements RefactoringElementL
       if (task == null) {
         return;
       }
+      ApplicationManager.getApplication().runWriteAction(new Runnable() {
+        @Override
+        public void run() {
+          CCRunTestsAction.clearTestEnvironment(taskDir.getVirtualFile(), taskDir.getProject());
+        }
+      });
       Map<String, TaskFile> taskFiles = task.getTaskFiles();
       TaskFile taskFile = task.getTaskFile(oldName);
       String realTaskFileName = CCProjectService.getRealTaskFileName(oldName);

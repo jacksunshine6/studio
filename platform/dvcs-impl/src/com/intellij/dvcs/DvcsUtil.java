@@ -17,6 +17,8 @@ package com.intellij.dvcs;
 
 import com.intellij.dvcs.repo.Repository;
 import com.intellij.dvcs.repo.RepositoryManager;
+import com.intellij.ide.file.BatchFileChangeListener;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -25,12 +27,10 @@ import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vcs.AbstractVcs;
 import com.intellij.openapi.vcs.ProjectLevelVcsManager;
-import com.intellij.openapi.vcs.VcsKey;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.StatusBar;
@@ -39,10 +39,9 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.impl.status.StatusBarUtil;
 import com.intellij.util.Function;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.io.storage.HeavyProcessLatch;
 import com.intellij.util.text.DateFormatUtil;
 import com.intellij.vcs.log.TimedVcsCommit;
-import com.intellij.vcs.log.VcsLog;
-import com.intellij.vcs.log.VcsLogProvider;
 import org.intellij.images.editor.ImageFileEditor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -139,18 +138,6 @@ public class DvcsUtil {
                            repositoryManager.getRepositories()));
   }
 
-  /**
-   * Checks if there are hg roots in the VCS log.
-   */
-  public static boolean logHasRootForVcs(@NotNull VcsLog log, @Nullable final VcsKey vcsKey) {
-    return ContainerUtil.find(log.getLogProviders(), new Condition<VcsLogProvider>() {
-      @Override
-      public boolean value(VcsLogProvider logProvider) {
-        return logProvider.getSupportedVcs().equals(vcsKey);
-      }
-    }) != null;
-  }
-
   @Nullable
   public static String joinMessagesOrNull(@NotNull Collection<String> messages) {
     String joined = StringUtil.join(messages, "\n");
@@ -202,4 +189,15 @@ public class DvcsUtil {
   public static String getDateString(@NotNull TimedVcsCommit commit) {
     return DateFormatUtil.formatPrettyDateTime(commit.getTimestamp()) + " ";
   }
+
+  public static void workingTreeChangeStarted(@NotNull Project project) {
+    HeavyProcessLatch.INSTANCE.processStarted();
+    ApplicationManager.getApplication().getMessageBus().syncPublisher(BatchFileChangeListener.TOPIC).batchChangeStarted(project);
+  }
+
+  public static void workingTreeChangeFinished(@NotNull Project project) {
+    HeavyProcessLatch.INSTANCE.processFinished();
+    ApplicationManager.getApplication().getMessageBus().syncPublisher(BatchFileChangeListener.TOPIC).batchChangeCompleted(project);
+  }
+
 }

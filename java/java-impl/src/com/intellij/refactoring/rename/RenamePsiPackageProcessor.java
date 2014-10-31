@@ -16,13 +16,20 @@
 package com.intellij.refactoring.rename;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
+import com.intellij.openapi.roots.ProjectRootManager;
+import com.intellij.openapi.util.Comparing;
+import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiUtilCore;
 import com.intellij.refactoring.HelpID;
 import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.listeners.RefactoringElementListener;
+import com.intellij.refactoring.move.moveClassesOrPackages.MoveDirectoryWithClassesProcessor;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.containers.MultiMap;
@@ -36,10 +43,80 @@ import java.util.Map;
  * @author yole
  */
 public class RenamePsiPackageProcessor extends RenamePsiElementProcessor {
-  private final Logger LOG = Logger.getInstance("#com.intellij.refactoring.rename.RenamePsiPackageProcessor");
+  private static final Logger LOG = Logger.getInstance("#com.intellij.refactoring.rename.RenamePsiPackageProcessor");
 
   public boolean canProcessElement(@NotNull final PsiElement element) {
     return element instanceof PsiPackage;
+  }
+
+  @Override
+  public RenameDialog createRenameDialog(final Project project, final PsiElement element, PsiElement nameSuggestionContext, Editor editor) {
+
+    return new RenameDialog(project, element, nameSuggestionContext, editor) {
+      @Override
+      protected void createNewNameComponent() {
+        super.createNewNameComponent();
+        final String qualifiedName = ((PsiPackage)element).getQualifiedName();
+        final String packageName = StringUtil.getPackageName(qualifiedName);
+        preselectExtension(packageName.isEmpty() ? 0 : packageName.length() + 1, qualifiedName.length());
+      }
+
+      @Override
+      public String[] getSuggestedNames() {
+        return new String[]{((PsiPackage)element).getQualifiedName()};
+      }
+
+      @Override
+      public String getNewName() {
+        final PsiPackage psiPackage = (PsiPackage)element;
+        final String oldName = psiPackage.getQualifiedName();
+        final String newName = super.getNewName();
+        if (!Comparing.strEqual(StringUtil.getPackageName(oldName), StringUtil.getPackageName(newName))) {
+          return newName;
+        }
+        return StringUtil.getShortName(newName);
+      }
+
+      protected void doAction() {
+        final PsiPackage psiPackage = (PsiPackage)element;
+        final String oldName = psiPackage.getQualifiedName();
+        final String newName = super.getNewName();
+        if (!Comparing.strEqual(StringUtil.getPackageName(oldName), StringUtil.getPackageName(newName))) {
+          invokeRefactoring(createRenameMoveProcessor(newName, psiPackage, isSearchInComments(), isSearchInNonJavaFiles()));
+        } else {
+          super.doAction();
+        }
+      }
+    };
+  }
+
+  public static MoveDirectoryWithClassesProcessor createRenameMoveProcessor(final String newName,
+                                                                            final PsiPackage psiPackage,
+                                                                            final boolean searchInComments,
+                                                                            final boolean searchInNonJavaFiles) {
+    final Project project = psiPackage.getProject();
+    final ProjectFileIndex index = ProjectRootManager.getInstance(project).getFileIndex();
+    final PsiDirectory[] directories = psiPackage.getDirectories();
+
+    return new MoveDirectoryWithClassesProcessor(project, directories, null, searchInComments,
+                                                 searchInNonJavaFiles, false, null) {
+      @Override
+      public TargetDirectoryWrapper getTargetDirectory(final PsiDirectory dir) {
+        final VirtualFile sourceRoot = index.getSourceRootForFile(dir.getVirtualFile());
+        LOG.assertTrue(sourceRoot != null);
+        return new TargetDirectoryWrapper(dir.getManager().findDirectory(sourceRoot), newName.replaceAll("\\.", "\\/"));
+      }
+
+      @Override
+      protected String getTargetName() {
+        return newName;
+      }
+
+      @Override
+      protected String getCommandName() {
+        return "Rename package";
+      }
+    };
   }
 
   public void renameElement(final PsiElement element,
@@ -47,8 +124,9 @@ public class RenamePsiPackageProcessor extends RenamePsiElementProcessor {
                             final UsageInfo[] usages,
                             @Nullable RefactoringElementListener listener) throws IncorrectOperationException {
     final PsiPackage psiPackage = (PsiPackage)element;
-    psiPackage.handleQualifiedNameChange(PsiUtilCore.getQualifiedNameAfterRename(psiPackage.getQualifiedName(), newName));
-    RenameUtil.doRenameGenericNamedElement(element, newName, usages, listener);
+    final String shortName = StringUtil.getShortName(newName);
+    psiPackage.handleQualifiedNameChange(PsiUtilCore.getQualifiedNameAfterRename(psiPackage.getQualifiedName(), shortName));
+    RenameUtil.doRenameGenericNamedElement(element, shortName, usages, listener);
   }
 
   public String getQualifiedNameAfterRename(final PsiElement element, final String newName, final boolean nonJava) {
@@ -82,10 +160,11 @@ public class RenamePsiPackageProcessor extends RenamePsiElementProcessor {
   }
 
   public static void preparePackageRenaming(PsiPackage psiPackage, final String newName, Map<PsiElement, String> allRenames) {
+    final String newDirectoryName = StringUtil.getShortName(newName);
     final PsiDirectory[] directories = psiPackage.getDirectories();
     for (PsiDirectory directory : directories) {
       if (!JavaDirectoryService.getInstance().isSourceRoot(directory)) {
-        allRenames.put(directory, newName);
+        allRenames.put(directory, newDirectoryName);
       }
     }
   }

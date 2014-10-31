@@ -18,14 +18,15 @@ package org.jetbrains.idea.svn.commandLine;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.SystemInfo;
-import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.idea.svn.*;
+import org.jetbrains.idea.svn.SvnApplicationSettings;
+import org.jetbrains.idea.svn.SvnProgressCanceller;
+import org.jetbrains.idea.svn.SvnUtil;
+import org.jetbrains.idea.svn.SvnVcs;
 import org.jetbrains.idea.svn.auth.AuthenticationService;
-import org.jetbrains.idea.svn.auth.SvnAuthenticationManager;
 import org.tmatesoft.svn.core.SVNURL;
 
 import java.io.File;
@@ -51,6 +52,7 @@ public class CommandRuntime {
     myModules = ContainerUtil.newArrayList();
     myModules.add(new CommandParametersResolutionModule(this));
     myModules.add(new ProxyModule(this));
+    myModules.add(new SshTunnelRuntimeModule(this));
   }
 
   @NotNull
@@ -99,10 +101,10 @@ public class CommandRuntime {
     return repeat;
   }
 
-  private static void handleSuccess(CommandExecutor executor) {
+  private static void handleSuccess(@NotNull CommandExecutor executor) {
     // could be situations when exit code = 0, but there is info "warning" in error stream for instance, for "svn status"
     // on non-working copy folder
-    if (executor.getErrorOutput().length() > 0) {
+    if (!StringUtil.isEmptyOrSpaces(executor.getErrorOutput())) {
       // here exitCode == 0, but some warnings are in error stream
       LOG.info("Detected warning - " + executor.getErrorOutput());
     }
@@ -124,7 +126,7 @@ public class CommandRuntime {
 
   private boolean handleErrorText(CommandExecutor executor, Command command) throws SvnBindException {
     final String errText = executor.getErrorOutput().trim();
-    final AuthCallbackCase callback = executor instanceof TerminalExecutor ? null : createCallback(errText, command.getRepositoryUrl());
+    final AuthCallbackCase callback = createCallback(errText, command.getRepositoryUrl(), executor instanceof TerminalExecutor);
     // do not handle possible authentication errors if command was manually cancelled
     // force checking if command is cancelled and not just use corresponding value from executor - as there could be cases when command
     // finishes quickly but with some auth error - this way checkCancelled() is not called by executor itself and so command is repeated
@@ -164,15 +166,25 @@ public class CommandRuntime {
   }
 
   @Nullable
-  private AuthCallbackCase createCallback(@NotNull final String errText, @Nullable final SVNURL url) {
+  private AuthCallbackCase createCallback(@NotNull final String errText, @Nullable final SVNURL url, boolean isUnderTerminal) {
     List<AuthCallbackCase> authCases = ContainerUtil.newArrayList();
 
-    authCases.add(new CertificateCallbackCase(myAuthenticationService, url));
-    authCases.add(new CredentialsCallback(myAuthenticationService, url));
-    authCases.add(new PassphraseCallback(myAuthenticationService, url));
-    authCases.add(new ProxyCallback(myAuthenticationService, url));
-    authCases.add(new TwoWaySslCallback(myAuthenticationService, url));
-    authCases.add(new UsernamePasswordCallback(myAuthenticationService, url));
+    if (isUnderTerminal) {
+      // Subversion client does not prompt for proxy credentials (just fails with error) even in terminal mode. So we handle this case the
+      // same way as in non-terminal mode - repeat command with new credentials.
+      // NOTE: We could also try getting proxy credentials from user in advance (by issuing separate request and asking for credentials if
+      // NOTE: required) - not to execute same command several times like it is currently for all other cases in terminal mode. But such
+      // NOTE: behaviour is not mandatory for now - so we just use "repeat command" logic.
+      authCases.add(new ProxyCallback(myAuthenticationService, url));
+      // Same situation (described above) as with proxy settings is here.
+      authCases.add(new TwoWaySslCallback(myAuthenticationService, url));
+    }
+    else {
+      authCases.add(new CertificateCallbackCase(myAuthenticationService, url));
+      authCases.add(new ProxyCallback(myAuthenticationService, url));
+      authCases.add(new TwoWaySslCallback(myAuthenticationService, url));
+      authCases.add(new UsernamePasswordCallback(myAuthenticationService, url));
+    }
 
     return ContainerUtil.find(authCases, new Condition<AuthCallbackCase>() {
       @Override
@@ -204,7 +216,7 @@ public class CommandRuntime {
   private CommandExecutor newExecutor(@NotNull Command command) {
     final CommandExecutor executor;
 
-    if (!(Registry.is("svn.use.terminal") && isForSshRepository(command)) || isLocal(command)) {
+    if (!myVcs.getSvnConfiguration().isRunUnderTerminal() || isLocal(command)) {
       command.putIfNotPresent("--non-interactive");
       executor = new CommandExecutor(exePath, command);
     }
@@ -213,6 +225,8 @@ public class CommandRuntime {
       // running under terminal
       executor = newTerminalExecutor(command);
       ((TerminalExecutor)executor).addInteractiveListener(new TerminalSshModule(this, executor));
+      ((TerminalExecutor)executor).addInteractiveListener(new TerminalSslCertificateModule(this, executor));
+      ((TerminalExecutor)executor).addInteractiveListener(new TerminalUserNamePasswordModule(this, executor));
     }
 
     return executor;
@@ -223,7 +237,7 @@ public class CommandRuntime {
     return SystemInfo.isWindows ? new WinTerminalExecutor(exePath, command) : new TerminalExecutor(exePath, command);
   }
 
-  private static boolean isLocal(@NotNull Command command) {
+  public static boolean isLocal(@NotNull Command command) {
     return SvnCommandName.version.equals(command.getName()) ||
            SvnCommandName.cleanup.equals(command.getName()) ||
            SvnCommandName.add.equals(command.getName()) ||
@@ -234,12 +248,6 @@ public class CommandRuntime {
            SvnCommandName.upgrade.equals(command.getName()) ||
            SvnCommandName.changelist.equals(command.getName()) ||
            command.isLocalInfo() || command.isLocalStatus() || command.isLocalProperty() || command.isLocalCat();
-  }
-
-  private static boolean isForSshRepository(@NotNull Command command) {
-    SVNURL url = command.getRepositoryUrl();
-
-    return url != null && StringUtil.equalsIgnoreCase(SvnAuthenticationManager.SVN_SSH, url.getProtocol());
   }
 
   @NotNull

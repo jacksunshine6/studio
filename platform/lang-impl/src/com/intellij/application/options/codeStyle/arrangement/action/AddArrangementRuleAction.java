@@ -18,11 +18,10 @@ package com.intellij.application.options.codeStyle.arrangement.action;
 import com.intellij.application.options.codeStyle.arrangement.match.ArrangementMatchingRulesControl;
 import com.intellij.application.options.codeStyle.arrangement.match.ArrangementMatchingRulesModel;
 import com.intellij.application.options.codeStyle.arrangement.match.EmptyArrangementRuleComponent;
-import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationBundle;
 import com.intellij.openapi.project.DumbAware;
-import com.intellij.openapi.util.SystemInfoRt;
+import com.intellij.util.IconUtil;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NotNull;
 
@@ -35,16 +34,12 @@ public class AddArrangementRuleAction extends AbstractArrangementRuleAction impl
   public AddArrangementRuleAction() {
     getTemplatePresentation().setText(ApplicationBundle.message("arrangement.action.rule.add.text"));
     getTemplatePresentation().setDescription(ApplicationBundle.message("arrangement.action.rule.add.description"));
-  }
-
-  @Override
-  public void update(AnActionEvent e) {
-    e.getPresentation().setIcon(SystemInfoRt.isMac ? AllIcons.ToolbarDecorator.Mac.Add : AllIcons.ToolbarDecorator.Add);
+    getTemplatePresentation().setIcon(IconUtil.getAddIcon());
   }
 
   @Override
   public void actionPerformed(AnActionEvent e) {
-    ArrangementMatchingRulesControl control = ArrangementMatchingRulesControl.KEY.getData(e.getDataContext());
+    ArrangementMatchingRulesControl control = getRulesControl(e);
     if (control == null) {
       return;
     }

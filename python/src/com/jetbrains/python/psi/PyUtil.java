@@ -68,6 +68,7 @@ import com.jetbrains.python.magicLiteral.PyMagicLiteralTools;
 import com.jetbrains.python.psi.impl.PyBuiltinCache;
 import com.jetbrains.python.psi.impl.PyPsiUtils;
 import com.jetbrains.python.psi.impl.PythonLanguageLevelPusher;
+import com.jetbrains.python.psi.resolve.RatedResolveResult;
 import com.jetbrains.python.psi.types.*;
 import com.jetbrains.python.refactoring.classes.PyDependenciesComparator;
 import com.jetbrains.python.refactoring.classes.extractSuperclass.PyExtractSuperclassHelper;
@@ -750,6 +751,40 @@ public class PyUtil {
     return currentElement;
   }
 
+  @NotNull
+  public static List<PsiElement> multiResolveTopPriority(@NotNull PsiPolyVariantReference reference) {
+    return filterTopPriorityResults(reference.multiResolve(false));
+  }
+
+  @NotNull
+  private static List<PsiElement> filterTopPriorityResults(@NotNull ResolveResult[] resolveResults) {
+    if (resolveResults.length == 0) {
+      return Collections.emptyList();
+    }
+    final List<PsiElement> filtered = new ArrayList<PsiElement>();
+    final int maxRate = getMaxRate(resolveResults);
+    for (ResolveResult resolveResult : resolveResults) {
+      final int rate = resolveResult instanceof RatedResolveResult ? ((RatedResolveResult)resolveResult).getRate() : 0;
+      if (rate >= maxRate) {
+        filtered.add(resolveResult.getElement());
+      }
+    }
+    return filtered;
+  }
+
+  private static int getMaxRate(@NotNull ResolveResult[] resolveResults) {
+    int maxRate = Integer.MIN_VALUE;
+    for (ResolveResult resolveResult : resolveResults) {
+      if (resolveResult instanceof RatedResolveResult) {
+        final int rate = ((RatedResolveResult)resolveResult).getRate();
+        if (rate > maxRate) {
+          maxRate = rate;
+        }
+      }
+    }
+    return maxRate;
+  }
+
   /**
    * Gets class init method
    *
@@ -855,9 +890,10 @@ public class PyUtil {
 
   /**
    * Converts collection to list of certain type
-   * @param expression expression of collection type
+   *
+   * @param expression   expression of collection type
    * @param elementClass expected element type
-   * @param <T>  expected element type
+   * @param <T>          expected element type
    * @return list of elements of expected element type
    */
   @NotNull
@@ -1208,7 +1244,7 @@ public class PyUtil {
     if (isBaseException(pyClass.getQualifiedName())) {
       return true;
     }
-    for (PyClassLikeType type : pyClass.getAncestorTypes(TypeEvalContext.codeInsightFallback())) {
+    for (PyClassLikeType type : pyClass.getAncestorTypes(TypeEvalContext.codeInsightFallback(pyClass.getProject()))) {
       if (type != null && isBaseException(type.getClassQName())) {
         return true;
       }
@@ -1689,5 +1725,31 @@ public class PyUtil {
       }
       return false;
     }
+  }
+
+  /**
+   * Sometimes you do not know real FQN of some class, but you know class name and its package.
+   * I.e. <code>django.apps.conf.AppConfig</code> is not documented, but you know
+   * <code>AppConfig</code> and <code>django</code> package.
+   *
+   * @param symbol element to check (class or function)
+   * @param expectedPackage package like "django"
+   * @param expectedName expected name (i.e. AppConfig)
+   * @return true if element in package
+   */
+  public static boolean isSymbolInPackage(@NotNull final PyQualifiedNameOwner symbol,
+                                          @NotNull final String expectedPackage,
+                                          @NotNull final String expectedName) {
+    final String qualifiedNameString = symbol.getQualifiedName();
+    if (qualifiedNameString == null) {
+      return false;
+    }
+    final QualifiedName qualifiedName = QualifiedName.fromDottedString(qualifiedNameString);
+    final String aPackage = qualifiedName.getFirstComponent();
+    if (!(expectedPackage.equals(aPackage))) {
+      return false;
+    }
+    final String symboldName = qualifiedName.getLastComponent();
+    return expectedName.equals(symboldName);
   }
 }

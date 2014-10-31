@@ -25,6 +25,7 @@ import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.IdeFocusManager;
+import com.intellij.util.BitUtil;
 import com.intellij.xdebugger.*;
 import com.intellij.xdebugger.evaluation.EvaluationMode;
 import com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider;
@@ -60,7 +61,7 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
   private final XDebugSession mySession;
   private final XDebuggerEditorsProvider myEditorsProvider;
   private EvaluationMode myMode;
-  private final XSourcePosition mySourcePosition;
+  private XSourcePosition mySourcePosition;
   private final SwitchModeAction mySwitchModeAction;
   private final boolean myIsCodeFragmentEvaluationSupported;
 
@@ -108,6 +109,21 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
 
     mySwitchModeAction = new SwitchModeAction();
 
+    new AnAction(){
+      @Override
+      public void actionPerformed(AnActionEvent e) {
+        doOKAction();
+      }
+    }.registerCustomShortcutSet(new CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK)), getRootPane(), myDisposable);
+
+    new AnAction(){
+      @Override
+      public void actionPerformed(AnActionEvent e) {
+        doOKAction();
+        addToWatches();
+      }
+    }.registerCustomShortcutSet(new CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK)), getRootPane(), myDisposable);
+
     new AnAction() {
       @Override
       public void actionPerformed(AnActionEvent e) {
@@ -128,8 +144,8 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
     if (mode == EvaluationMode.CODE_FRAGMENT && !myIsCodeFragmentEvaluationSupported) {
       mode = EvaluationMode.EXPRESSION;
     }
-    if (mode == EvaluationMode.EXPRESSION) {
-      text = new XExpressionImpl(StringUtil.replace(text.getExpression(), "\n", " "), text.getLanguage(), text.getCustomInfo());
+    if (mode == EvaluationMode.EXPRESSION && text.getMode() == EvaluationMode.CODE_FRAGMENT && myIsCodeFragmentEvaluationSupported) {
+      mode = EvaluationMode.CODE_FRAGMENT;
     }
     switchToMode(mode, text);
     init();
@@ -139,7 +155,8 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
       public void run() {
-        getInputEditor().setSourcePosition(mySession.getCurrentPosition());
+        mySourcePosition = mySession.getCurrentPosition();
+        getInputEditor().setSourcePosition(mySourcePosition);
       }
     });
   }
@@ -156,19 +173,24 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
       @Override
       public void actionPerformed(ActionEvent e) {
         super.actionPerformed(e);
-        if (myMode == EvaluationMode.EXPRESSION && ((e.getModifiers() & InputEvent.CTRL_MASK) != 0)) {
-          // add to watches
-          XExpression expression = getInputEditor().getExpression();
-          if (!XDebuggerUtilImpl.isEmptyExpression(expression)) {
-            XDebugSessionTab tab = ((XDebugSessionImpl)mySession).getSessionTab();
-            if (tab != null) {
-              tab.getWatchesView().addWatchExpression(expression, -1, true);
-              requestFocusInEditor();
-            }
-          }
+        if (BitUtil.isSet(e.getModifiers(), InputEvent.SHIFT_MASK | InputEvent.CTRL_MASK)) {
+          addToWatches();
         }
       }
     };
+  }
+
+  private void addToWatches() {
+    if (myMode == EvaluationMode.EXPRESSION) {
+      XExpression expression = getInputEditor().getExpression();
+      if (!XDebuggerUtilImpl.isEmptyExpression(expression)) {
+        XDebugSessionTab tab = ((XDebugSessionImpl)mySession).getSessionTab();
+        if (tab != null) {
+          tab.getWatchesView().addWatchExpression(expression, -1, true);
+          requestFocusInEditor();
+        }
+      }
+    }
   }
 
   @NotNull
@@ -211,9 +233,11 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
   private void switchToMode(EvaluationMode mode, XExpression text) {
     if (myMode == mode) return;
 
-    XDebuggerSettingsManager.getInstanceImpl().getGeneralSettings().setEvaluationDialogMode(mode);
-
     myMode = mode;
+
+    if (mode == EvaluationMode.EXPRESSION) {
+      text = new XExpressionImpl(StringUtil.replace(text.getExpression(), "\n", " "), text.getLanguage(), text.getCustomInfo());
+    }
 
     myInputComponent = createInputComponent(mode, text);
     myMainPanel.removeAll();
@@ -299,6 +323,10 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
     }
   }
 
+  public void evaluationDone() {
+    mySession.rebuildViews();
+  }
+
   @Override
   public JComponent getPreferredFocusedComponent() {
     return getInputEditor().getPreferredFocusedComponent();
@@ -308,13 +336,10 @@ public class XDebuggerEvaluationDialog extends DialogWrapper {
     @Override
     public void actionPerformed(ActionEvent e) {
       XExpression text = getInputEditor().getExpression();
-      if (myMode == EvaluationMode.EXPRESSION) {
-        switchToMode(EvaluationMode.CODE_FRAGMENT, text);
-      }
-      else {
-        if (text.getExpression().indexOf('\n') != -1) text = XExpressionImpl.EMPTY_EXPRESSION;
-        switchToMode(EvaluationMode.EXPRESSION, text);
-      }
+      EvaluationMode newMode = (myMode == EvaluationMode.EXPRESSION) ? EvaluationMode.CODE_FRAGMENT : EvaluationMode.EXPRESSION;
+      // remember only on user selection
+      XDebuggerSettingsManager.getInstanceImpl().getGeneralSettings().setEvaluationDialogMode(newMode);
+      switchToMode(newMode, text);
     }
   }
 }

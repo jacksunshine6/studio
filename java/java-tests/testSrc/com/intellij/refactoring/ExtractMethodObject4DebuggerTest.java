@@ -21,15 +21,14 @@
 package com.intellij.refactoring;
 
 import com.intellij.JavaTestUtil;
-import com.intellij.idea.Bombed;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.projectRoots.Sdk;
-import com.intellij.psi.*;
+import com.intellij.psi.JavaCodeFragment;
+import com.intellij.psi.JavaCodeFragmentFactory;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiElement;
 import com.intellij.refactoring.extractMethodObject.ExtractLightMethodObjectHandler;
 import com.intellij.testFramework.IdeaTestUtil;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Calendar;
 
 public class ExtractMethodObject4DebuggerTest extends LightRefactoringTestCase {
   @NotNull
@@ -39,11 +38,19 @@ public class ExtractMethodObject4DebuggerTest extends LightRefactoringTestCase {
   }
 
   private void doTest(String evaluatedText, String expectedCallSite, String expectedClass) throws Exception {
+    doTest(evaluatedText, expectedCallSite, expectedClass, true);
+  }
+
+  private void doTest(String evaluatedText,
+                      String expectedCallSite,
+                      String expectedClass,
+                      boolean codeBlock) throws Exception {
     final String testName = getTestName(false);
     configureByFile("/refactoring/extractMethodObject4Debugger/" + testName + ".java");
     final int offset = getEditor().getCaretModel().getOffset();
     final PsiElement context = getFile().findElementAt(offset);
-    final JavaCodeFragment fragment = JavaCodeFragmentFactory.getInstance(getProject()).createCodeBlockCodeFragment(evaluatedText, context, false);
+    final JavaCodeFragmentFactory fragmentFactory = JavaCodeFragmentFactory.getInstance(getProject());
+    final JavaCodeFragment fragment = codeBlock ? fragmentFactory.createCodeBlockCodeFragment(evaluatedText, context, false) : fragmentFactory.createExpressionCodeFragment(evaluatedText, context, null, false);
     final ExtractLightMethodObjectHandler.ExtractedData extractedData =
       ExtractLightMethodObjectHandler.extractLightMethodObject(getProject(), getFile(), fragment, "test");
     assertNotNull(extractedData);
@@ -170,6 +177,28 @@ public class ExtractMethodObject4DebuggerTest extends LightRefactoringTestCase {
            "            return map.entrySet().stream().filter((a) -> (a.getKey() > 0));\n" +
            "        }\n" +
            "    }");
+  }
+
+  public void testHangingFunctionalExpressions() throws Exception {
+    doTest("() -> {}", "new Test().invoke();", "public class Test {\n" +
+                                               "        public void invoke() {\n" +
+                                               "            () -> {\n" +
+                                               "            };\n" +
+                                               "        }\n" +
+                                               "    }");
+  }
+
+  public void testArrayInitializer() throws Exception {
+    doTest("{new Runnable() {public void run(){} } }", 
+           "Runnable[] result = new Test().invoke();",
+           "public class Test {\n" +
+           "        public Runnable[] invoke() {\n" +
+           "            return new Runnable[]{new Runnable() {\n" +
+           "                public void run() {\n" +
+           "                }\n" +
+           "            }};\n" +
+           "        }\n" +
+           "    }", false);
   }
 
   @Override

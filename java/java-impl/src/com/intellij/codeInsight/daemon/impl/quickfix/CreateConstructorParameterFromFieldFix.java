@@ -144,7 +144,9 @@ public class CreateConstructorParameterFromFieldFix implements IntentionAction {
       }
 
       for (PsiMethodMember member : elements) {
-        if (!addParameterToConstructor(project, file, editor, member.getElement(), new PsiField[] {getField()}, cleanupElements)) break;
+        if (!addParameterToConstructor(project, file, editor, member.getElement(), new PsiField[] {getField()}, cleanupElements)) {
+          break;
+        }
       }
 
     } else if (!constrs.isEmpty()) {
@@ -317,16 +319,16 @@ public class CreateConstructorParameterFromFieldFix implements IntentionAction {
     assert constructor != null;
     PsiParameter[] newParameters = constructor.getParameterList().getParameters();
     if (newParameters == parameters) return false; //user must have canceled dialog
-    boolean created = false;
     // do not introduce assignment in chanined constructor
     if (JavaHighlightUtil.getChainedConstructors(constructor) == null) {
+      boolean created = false;
       for (PsiField field : fields.keySet()) {
         final String defaultParamName = fields.get(field);
         PsiParameter parameter = findParamByName(defaultParamName, field.getType(), newParameters, parameterInfos);
         if (parameter == null) {
           continue;
         }
-        notNull(project, field, parameter);
+        notNull(field, parameter);
         cleanupElements.add(parameter);
         final PsiElement assignmentStatement = AssignFieldFromParameterAction.addFieldAssignmentStatement(project, field, parameter, editor);
         if (assignmentStatement != null) {
@@ -334,15 +336,16 @@ public class CreateConstructorParameterFromFieldFix implements IntentionAction {
         }
         created = true;
       }
+      return created;
+    } else {
+      return true;
     }
-    return created;
   }
 
-  private static void notNull(Project project, PsiField field, PsiParameter parameter) {
-    final String notNull = NullableNotNullManager.getInstance(field.getProject()).getNotNull(field);
+  private static void notNull(PsiField field, PsiParameter parameter) {
+    final PsiAnnotation notNull = NullableNotNullManager.getInstance(field.getProject()).copyNotNullAnnotation(field);
     if (notNull != null) {
-      final PsiAnnotation annotation = JavaPsiFacade.getElementFactory(project).createAnnotationFromText("@" + notNull, field);
-      parameter.getModifierList().addBefore(annotation, null);
+      parameter.getModifierList().addBefore(notNull, null);
     }
   }
 

@@ -20,6 +20,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.Toggleable;
 import com.intellij.openapi.application.ApplicationBundle;
 import com.intellij.openapi.project.DumbAware;
+import com.intellij.util.IconUtil;
 import gnu.trove.TIntArrayList;
 
 /**
@@ -31,17 +32,18 @@ public class EditArrangementRuleAction extends AbstractArrangementRuleAction imp
   public EditArrangementRuleAction() {
     getTemplatePresentation().setText(ApplicationBundle.message("arrangement.action.rule.edit.text"));
     getTemplatePresentation().setDescription(ApplicationBundle.message("arrangement.action.rule.edit.description"));
+    getTemplatePresentation().setIcon(IconUtil.getEditIcon());
   }
 
   @Override
   public void update(AnActionEvent e) {
-    ArrangementMatchingRulesControl control = ArrangementMatchingRulesControl.KEY.getData(e.getDataContext());
+    ArrangementMatchingRulesControl control = getRulesControl(e);
     e.getPresentation().setEnabled(control != null && control.getSelectedModelRows().size() == 1);
   }
 
   @Override
   public void actionPerformed(AnActionEvent e) {
-    ArrangementMatchingRulesControl control = ArrangementMatchingRulesControl.KEY.getData(e.getDataContext());
+    ArrangementMatchingRulesControl control = getRulesControl(e);
     if (control == null) {
       return;
     }

@@ -30,16 +30,27 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 class JarLoader extends Loader {
-  private static final Logger LOG = Logger.getInstance(JarLoader.class);
-
   private final URL myURL;
   private final boolean myCanLockJar;
   private SoftReference<JarMemoryLoader> myMemoryLoader;
 
-  JarLoader(URL url, boolean canLockJar, int index) throws IOException {
+  JarLoader(URL url, boolean canLockJar, int index, boolean preloadJarContents) throws IOException {
     super(new URL(URLUtil.JAR_PROTOCOL, "", -1, url + "!/"), index);
     myURL = url;
     myCanLockJar = canLockJar;
+
+    ZipFile zipFile = acquireZipFile();
+    try {
+      if (preloadJarContents) {
+        JarMemoryLoader loader = JarMemoryLoader.load(zipFile, getBaseURL());
+        if (loader != null) {
+          myMemoryLoader = new SoftReference<JarMemoryLoader>(loader);
+        }
+      }
+    }
+    finally {
+      releaseZipFile(zipFile);
+    }
   }
 
   private ZipFile acquireZipFile() throws IOException {
@@ -57,43 +68,16 @@ class JarLoader extends Loader {
     }
   }
 
-  void preloadClasses() {
-    ZipFile zipFile;
-
-    try {
-      zipFile = acquireZipFile();
-    }
-    catch (Exception e) {
-      LOG.debug("url: " + myURL, e);
-      return;
-    }
-
-    try {
-      try {
-        JarMemoryLoader loader = JarMemoryLoader.load(zipFile, getBaseURL());
-        if (loader != null) {
-          myMemoryLoader = new SoftReference<JarMemoryLoader>(loader);
-        }
-      }
-      finally {
-        releaseZipFile(zipFile);
-      }
-    }
-    catch (Exception e) {
-      LOG.error(e);
-    }
-  }
-
   @Override
-  void buildCache(ClasspathCache cache) throws IOException {
+  void buildCache(ClasspathCache.LoaderData loaderData) throws IOException {
     ZipFile zipFile = acquireZipFile();
     try {
       Enumeration<? extends ZipEntry> entries = zipFile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry zipEntry = entries.nextElement();
         String name = zipEntry.getName();
-        cache.addResourceEntry(name, this);
-        cache.addNameEntry(name, this);
+        loaderData.addResourceEntry(name);
+        loaderData.addNameEntry(name);
       }
     }
     finally {
@@ -123,7 +107,7 @@ class JarLoader extends Loader {
       }
     }
     catch (Exception e) {
-      LOG.error(e);
+      Logger.getInstance(JarLoader.class).error("url: " + myURL, e);
     }
 
     return null;
