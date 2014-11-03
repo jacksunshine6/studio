@@ -183,14 +183,17 @@ public class PyOverrideImplementUtil {
   private static PyFunctionBuilder buildOverriddenFunction(PyClass pyClass, PyFunction baseFunction, boolean implement) {
     PyFunctionBuilder pyFunctionBuilder = new PyFunctionBuilder(baseFunction.getName());
     final PyDecoratorList decorators = baseFunction.getDecoratorList();
-    if (decorators != null && decorators.findDecorator(PyNames.CLASSMETHOD) != null) {
-      pyFunctionBuilder.decorate(PyNames.CLASSMETHOD);
+    if (decorators != null) {
+      if (decorators.findDecorator(PyNames.CLASSMETHOD) != null)
+        pyFunctionBuilder.decorate(PyNames.CLASSMETHOD);
+      else if (decorators.findDecorator(PyNames.STATICMETHOD) != null)
+        pyFunctionBuilder.decorate(PyNames.STATICMETHOD);
     }
     PyAnnotation anno = baseFunction.getAnnotation();
     if (anno != null) {
       pyFunctionBuilder.annotation(anno.getText());
     }
-    final TypeEvalContext context = TypeEvalContext.userInitiated(baseFunction.getContainingFile());
+    final TypeEvalContext context = TypeEvalContext.userInitiated(baseFunction.getProject(), baseFunction.getContainingFile());
     final List<PyParameter> baseParams = PyUtil.getParameters(baseFunction, context);
     for (PyParameter parameter : baseParams) {
       pyFunctionBuilder.parameter(parameter.getText());
@@ -278,7 +281,7 @@ public class PyOverrideImplementUtil {
   public static Collection<PyFunction> getAllSuperFunctions(@NotNull final PyClass pyClass) {
     final Map<String, PyFunction> superFunctions = new HashMap<String, PyFunction>();
     for (PyClass aClass : pyClass.getAncestorClasses()) {
-      for (PyFunction function : aClass.getMethods()) {
+      for (PyFunction function : aClass.getMethods(false)) {
         if (!superFunctions.containsKey(function.getName())) {
           superFunctions.put(function.getName(), function);
         }

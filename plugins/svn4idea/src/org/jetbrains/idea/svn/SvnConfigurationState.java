@@ -43,6 +43,8 @@ public class SvnConfigurationState {
   @Attribute("myUseAcceleration")
   public SvnConfiguration.UseAcceleration accelerationType = SvnConfiguration.UseAcceleration.commandLine;
 
+  public boolean runUnderTerminal;
+
   @Attribute("myAutoUpdateAfterCommit")
   public boolean autoUpdateAfterCommit;
 
@@ -61,6 +63,12 @@ public class SvnConfigurationState {
 
   @OptionTag("mySSHReadTimeout")
   public long sshReadTimeout = 30 * 1000;
+
+  public SvnConfiguration.SshConnectionType sshConnectionType = SvnConfiguration.SshConnectionType.SUBVERSION_CONFIG;
+  public String sshExecutablePath = "";
+  public String sshUserName = "";
+  public int sshPort = 22;
+  public String sshPrivateKeyPath = "";
 
   public boolean MERGE_DRY_RUN;
   public boolean MERGE_DIFF_USE_ANCESTRY = true;

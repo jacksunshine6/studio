@@ -194,7 +194,7 @@ public class IdeSettingsDialog extends DialogWrapper implements DataProvider {
   }
 
   @Override
-  protected void doOKAction() {
+  public void doOKAction() {
     myEditor.flushModifications();
 
     if (myEditor.canApply()) {
@@ -287,6 +287,7 @@ public class IdeSettingsDialog extends DialogWrapper implements DataProvider {
       myEditor.apply();
       myEditor.revalidate();
       myEditor.repaint();
+      updateStatus();
     }
   }
 }

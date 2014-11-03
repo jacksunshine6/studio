@@ -28,6 +28,8 @@ import java.io.*;
 
 public class StudyRefreshTaskFileAction extends DumbAwareAction {
   private static final Logger LOG = Logger.getInstance(StudyRefreshTaskFileAction.class.getName());
+  public static final String ACTION_ID = "RefreshTaskAction";
+  public static final String SHORTCUT = "ctrl shift pressed X";
 
   public static void refresh(final Project project) {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
@@ -60,6 +62,7 @@ public class StudyRefreshTaskFileAction extends DumbAwareAction {
     Task currentTask = selectedTaskFile.getTask();
     resetTaskFile(document, project, course, selectedTaskFile, openedFileName, currentTask);
     selectedTaskFile.drawAllWindows(editor);
+    selectedTaskFile.createGuardedBlocks(document, editor);
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
       public void run() {
@@ -67,7 +70,7 @@ public class StudyRefreshTaskFileAction extends DumbAwareAction {
       }
     });
     selectedTaskFile.navigateToFirstTaskWindow(editor);
-    showBaloon(project);
+    showBalloon(project);
   }
 
   public static void resetTaskFile(Document document, Project project, Course course, TaskFile taskFile, String name, Task task) {
@@ -78,7 +81,7 @@ public class StudyRefreshTaskFileAction extends DumbAwareAction {
     ProjectView.getInstance(project).refresh();
   }
 
-  private static void showBaloon(Project project) {
+  private static void showBalloon(Project project) {
     BalloonBuilder balloonBuilder =
       JBPopupFactory.getInstance().createHtmlTextBalloonBuilder("You can now start again", MessageType.INFO, null);
     final Balloon balloon = balloonBuilder.createBalloon();
@@ -102,7 +105,8 @@ public class StudyRefreshTaskFileAction extends DumbAwareAction {
   }
 
   @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
-  private static void resetDocument(Document document, Course course, String fileName, Task task) {
+  private static void resetDocument(final Document document, Course course, String fileName, Task task) {
+    StudyEditor.deleteGuardedBlocks(document);
     BufferedReader reader = null;
     StudyDocumentListener listener = StudyEditor.getListener(document);
     if (listener != null) {
@@ -123,10 +127,12 @@ public class StudyRefreshTaskFileAction extends DumbAwareAction {
         patternText.append("\n");
       }
       int patternLength = patternText.length();
-      if (patternText.charAt(patternLength - 1) == '\n') {
-        patternText.delete(patternLength - 1, patternLength);
+      if (patternLength != 0) {
+        if (patternText.charAt(patternLength - 1) == '\n') {
+          patternText.delete(patternLength - 1, patternLength);
+        }
+        document.setText(patternText);
       }
-      document.setText(patternText);
     }
     catch (FileNotFoundException e) {
       LOG.error(e);

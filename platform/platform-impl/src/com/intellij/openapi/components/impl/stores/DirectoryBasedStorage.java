@@ -16,336 +16,226 @@
 package com.intellij.openapi.components.impl.stores;
 
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.AccessToken;
+import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.components.*;
-import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.components.store.StateStorageBase;
 import com.intellij.openapi.fileTypes.FileTypeManager;
-import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.WriteExternalException;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.*;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileAdapter;
+import com.intellij.openapi.vfs.VirtualFileEvent;
 import com.intellij.openapi.vfs.tracker.VirtualFileTracker;
-import com.intellij.util.SmartList;
 import com.intellij.util.containers.SmartHashSet;
-import com.intellij.util.messages.MessageBus;
+import gnu.trove.TObjectObjectProcedure;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.picocontainer.PicoContainer;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Set;
 
 //todo: support missing plugins
 //todo: support storage data
-public class DirectoryBasedStorage implements StateStorage, Disposable {
-  private static final Logger LOG = Logger.getInstance("#com.intellij.openapi.components.impl.stores.DirectoryBasedStorage");
-
-  private final TrackingPathMacroSubstitutor myPathMacroSubstitutor;
+public class DirectoryBasedStorage extends StateStorageBase {
   private final File myDir;
   private final StateSplitter mySplitter;
-  private final FileTypeManager myFileTypeManager;
 
-  private Object mySession;
-  private DirectoryStorageData myStorageData = null;
+  private DirectoryStorageData myStorageData;
 
   public DirectoryBasedStorage(@Nullable TrackingPathMacroSubstitutor pathMacroSubstitutor,
                                @NotNull String dir,
                                @NotNull StateSplitter splitter,
                                @NotNull Disposable parentDisposable,
-                               @NotNull PicoContainer picoContainer) {
-    myPathMacroSubstitutor = pathMacroSubstitutor;
+                               @Nullable final Listener listener) {
+    super(pathMacroSubstitutor);
+
     myDir = new File(dir);
     mySplitter = splitter;
-    Disposer.register(parentDisposable, this);
 
-    VirtualFileTracker virtualFileTracker = (VirtualFileTracker)picoContainer.getComponentInstanceOfType(VirtualFileTracker.class);
-    MessageBus messageBus = (MessageBus)picoContainer.getComponentInstanceOfType(MessageBus.class);
-
-    if (virtualFileTracker != null && messageBus != null) {
-      final String path = myDir.getAbsolutePath();
-      final String fileUrl = LocalFileSystem.PROTOCOL_PREFIX + path.replace(File.separatorChar, '/');
-      final Listener listener = messageBus.syncPublisher(STORAGE_TOPIC);
-      virtualFileTracker.addTracker(fileUrl, new VirtualFileAdapter() {
+    VirtualFileTracker virtualFileTracker = ServiceManager.getService(VirtualFileTracker.class);
+    if (virtualFileTracker != null && listener != null) {
+      virtualFileTracker.addTracker(LocalFileSystem.PROTOCOL_PREFIX + myDir.getAbsolutePath().replace(File.separatorChar, '/'), new VirtualFileAdapter() {
         @Override
-        public void contentsChanged(@NotNull final VirtualFileEvent event) {
-          if (!StringUtil.endsWithIgnoreCase(event.getFile().getName(), ".xml")) return;
-          listener.storageFileChanged(event, DirectoryBasedStorage.this);
+        public void contentsChanged(@NotNull VirtualFileEvent event) {
+          notifyIfNeed(event);
         }
 
         @Override
-        public void fileDeleted(@NotNull final VirtualFileEvent event) {
-          if (!StringUtil.endsWithIgnoreCase(event.getFile().getName(), ".xml")) return;
-          listener.storageFileChanged(event, DirectoryBasedStorage.this);
+        public void fileDeleted(@NotNull VirtualFileEvent event) {
+          notifyIfNeed(event);
         }
 
         @Override
-        public void fileCreated(@NotNull final VirtualFileEvent event) {
-          if (!StringUtil.endsWithIgnoreCase(event.getFile().getName(), ".xml")) return;
-          listener.storageFileChanged(event, DirectoryBasedStorage.this);
+        public void fileCreated(@NotNull VirtualFileEvent event) {
+          notifyIfNeed(event);
         }
-      }, false, this);
+
+        private void notifyIfNeed(@NotNull VirtualFileEvent event) {
+          // storage directory will be removed if the only child was removed
+          if (event.getFile().isDirectory() || DirectoryStorageData.isStorageFile(event.getFile())) {
+            listener.storageFileChanged(event, DirectoryBasedStorage.this);
+          }
+        }
+      }, false, parentDisposable);
     }
+  }
 
-    myFileTypeManager = FileTypeManager.getInstance();
+  @Override
+  public void analyzeExternalChangesAndUpdateIfNeed(@NotNull Collection<VirtualFile> changedFiles, @NotNull Set<String> result) {
+    // todo reload only changed file, compute diff
+    DirectoryStorageData oldData = myStorageData;
+    DirectoryStorageData newData = loadState();
+    myStorageData = newData;
+    if (oldData == null) {
+      result.addAll(newData.getComponentNames());
+    }
+    else {
+      result.addAll(oldData.getComponentNames());
+      result.addAll(newData.getComponentNames());
+    }
   }
 
   @Override
   @Nullable
-  public <T> T getState(final Object component, @NotNull final String componentName, Class<T> stateClass, @Nullable T mergeInto)
-    throws StateStorageException {
-    if (myStorageData == null) myStorageData = loadState();
-
+  public <T> T getState(final Object component, @NotNull final String componentName, @NotNull Class<T> stateClass, @Nullable T mergeInto) {
+    if (myStorageData == null) {
+      myStorageData = loadState();
+    }
 
     if (!myStorageData.containsComponent(componentName)) {
       return DefaultStateSerializer.deserializeState(new Element(StorageData.COMPONENT), stateClass, mergeInto);
     }
-
     return myStorageData.getMergedState(componentName, stateClass, mySplitter, mergeInto);
   }
 
-  private DirectoryStorageData loadState() throws StateStorageException {
+  private DirectoryStorageData loadState() {
     DirectoryStorageData storageData = new DirectoryStorageData();
     storageData.loadFrom(LocalFileSystem.getInstance().findFileByIoFile(myDir), myPathMacroSubstitutor);
     return storageData;
   }
 
-
   @Override
-  public boolean hasState(final Object component, @NotNull String componentName, final Class<?> aClass, final boolean reloadData) throws StateStorageException {
-    if (!myDir.exists()) return false;
-    if (reloadData) myStorageData = null;
+  public boolean hasState(@Nullable Object component, @NotNull String componentName, Class<?> aClass, boolean reloadData) {
+    // dir could be deleted on VCS update: storage data is empty and dir doesn't exists - we must return true to reload component
+    if (myStorageData == null && !myDir.exists()) {
+      return false;
+    }
+    if (reloadData) {
+      myStorageData = null;
+    }
     return true;
   }
 
   @Override
-  @NotNull
+  @Nullable
   public ExternalizationSession startExternalization() {
-    if (myStorageData == null) {
-      try {
-        myStorageData = loadState();
-      }
-      catch (StateStorageException e) {
-        LOG.error(e);
-      }
-    }
-    final ExternalizationSession session = new MyExternalizationSession(myStorageData.clone());
-
-    mySession = session;
-    return session;
+    return checkIsSavingDisabled() ? null : new MySaveSession(this);
   }
 
+  @Nullable
   @Override
-  @NotNull
-  public SaveSession startSave(@NotNull final ExternalizationSession externalizationSession) {
-    assert mySession == externalizationSession;
-
-    final MySaveSession session =
-      new MySaveSession(((MyExternalizationSession)externalizationSession).myStorageData, myPathMacroSubstitutor);
-    mySession = session;
-    return session;
+  public SaveSession startSave(@NotNull ExternalizationSession externalizationSession) {
+    return checkIsSavingDisabled() ? null : (MySaveSession)externalizationSession;
   }
 
-  @Override
-  public void finishSave(@NotNull final SaveSession saveSession) {
-    try {
-      LOG.assertTrue(mySession == saveSession);
-    } finally {
-      mySession = null;
-    }
-  }
-
-  @Override
-  public void reload(@NotNull final Set<String> changedComponents) throws StateStorageException {
-    myStorageData = loadState();
-  }
-
-  @Override
-  public void dispose() {
-  }
-
-  private class MySaveSession implements SaveSession, SafeWriteRequestor {
-    private final DirectoryStorageData myStorageData;
-    private final TrackingPathMacroSubstitutor myPathMacroSubstitutor;
-
-    private MySaveSession(final DirectoryStorageData storageData, final TrackingPathMacroSubstitutor pathMacroSubstitutor) {
-      myStorageData = storageData;
-      myPathMacroSubstitutor = pathMacroSubstitutor;
-    }
-
-    @Override
-    public void save() throws StateStorageException {
-      assert mySession == this;
-      final Set<String> currentNames = new SmartHashSet<String>();
-      File[] children = myDir.listFiles();
-      if (children != null) {
-        for (File child : children) {
-          final String fileName = child.getName();
-          if (!myFileTypeManager.isFileIgnored(fileName) && StringUtil.endsWithIgnoreCase(fileName, ".xml")) {
-            currentNames.add(fileName);
-          }
-        }
-      }
-
-      myStorageData.process(new DirectoryStorageData.StorageDataProcessor() {
-        @Override
-        public void process(final String componentName, final File file, final Element element) {
-          currentNames.remove(file.getName());
-
-          if (myPathMacroSubstitutor != null) {
-            myPathMacroSubstitutor.collapsePaths(element);
-          }
-
-          if (file.lastModified() <= myStorageData.getLastTimeStamp()) {
-            StorageUtil.save(file, element, MySaveSession.this, false, null);
-            myStorageData.updateLastTimestamp(file);
-          }
-        }
-      });
-
-      if (myDir.exists() && !currentNames.isEmpty()) {
-      ApplicationManager.getApplication().runWriteAction(new Runnable() {
-        @Override
-        public void run() {
-          if (myDir.exists()) {
-            for (String name : currentNames) {
-              File child = new File(myDir, name);
-              if (child.lastModified() > myStorageData.getLastTimeStamp()) {
-                // do not touch new files during VC update (which aren't read yet)
-                // now got an opposite problem: file is recreated if was removed by VC during update.
-                return;
-              }
-
-              final VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByIoFile(child);
-              if (virtualFile != null) {
-                try {
-                  LOG.debug("Removing configuration file: " + virtualFile.getPresentableUrl());
-                  virtualFile.delete(MySaveSession.this);
-                }
-                catch (IOException e) {
-                  LOG.error(e);
-                }
-              }
-            }
-          }
-        }
-      });
-      }
-
-      myStorageData.clear();
-    }
-
-    @Override
-    @Nullable
-    public Set<String> analyzeExternalChanges(@NotNull final Set<Pair<VirtualFile, StateStorage>> changedFiles) {
-      boolean containsSelf = false;
-
-      for (Pair<VirtualFile, StateStorage> pair : changedFiles) {
-        if (pair.second == DirectoryBasedStorage.this) {
-          VirtualFile file = pair.first;
-          if ("xml".equalsIgnoreCase(file.getExtension())) {
-            containsSelf = true;
-            break;
-          }
-        }
-      }
-
-      if (!containsSelf) return Collections.emptySet();
-
-      if (myStorageData.getComponentNames().size() == 0) {
-        // no state yet, so try to initialize it now
-        final DirectoryStorageData storageData = loadState();
-        return new HashSet<String>(storageData.getComponentNames());
-      }
-
-      return new HashSet<String>(myStorageData.getComponentNames());
-    }
-
-    @Override
-    @NotNull
-    public Collection<File> getStorageFilesToSave() throws StateStorageException {
-      assert mySession == this;
-
-      if (!myDir.exists()) return getAllStorageFiles();
-      assert myDir.isDirectory() : myDir.getPath();
-
-      final List<File> filesToSave = new ArrayList<File>();
-      final Set<String> currentChildNames = new SmartHashSet<String>();
-      File[] children = myDir.listFiles();
-      if (children != null) {
-        for (File child : children) {
-          if (!myFileTypeManager.isFileIgnored(child.getName())) {
-            currentChildNames.add(child.getName());
-          }
-        }
-      }
-
-      myStorageData.process(new DirectoryStorageData.StorageDataProcessor() {
-        @Override
-        public void process(final String componentName, final File file, final Element element) {
-          if (currentChildNames.contains(file.getName())) {
-            currentChildNames.remove(file.getName());
-
-            if (myPathMacroSubstitutor != null) {
-              myPathMacroSubstitutor.collapsePaths(element);
-            }
-
-            VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByIoFile(file);
-            if (virtualFile == null || !StorageUtil.contentEquals(element, virtualFile)) {
-              filesToSave.add(file);
-            }
-          }
-        }
-      });
-
-      for (String childName : currentChildNames) {
-        filesToSave.add(new File(myDir, childName));
-      }
-
-      return filesToSave;
-    }
-
-    @Override
-    @NotNull
-    public List<File> getAllStorageFiles() {
-      return new SmartList<File>(myStorageData.getAllStorageFiles().keySet());
-    }
-  }
-
-  private class MyExternalizationSession implements ExternalizationSession {
+  private static class MySaveSession implements SaveSession, ExternalizationSession {
+    private final DirectoryBasedStorage myStorage;
     private final DirectoryStorageData myStorageData;
 
-    private MyExternalizationSession(final DirectoryStorageData storageData) {
-      myStorageData = storageData;
+    private MySaveSession(@NotNull DirectoryBasedStorage storage) {
+      myStorage = storage;
+      myStorageData = storage.myStorageData == null ? storage.loadState() : storage.myStorageData.clone();
     }
 
     @Override
-    public void setState(@NotNull final Object component, final String componentName, @NotNull final Object state, final Storage storageSpec) {
-      assert mySession == this;
-      setState(componentName, state, storageSpec);
-    }
-
-    private void setState(final String componentName, @NotNull Object state, final Storage storageSpec) {
+    public void setState(@NotNull Object component, @NotNull String componentName, @NotNull Object state, Storage storageSpec) {
+      Element element;
       try {
-        final Element element = DefaultStateSerializer.serializeState(state, storageSpec);
-        if (element != null) {
-          for (Pair<Element, String> pair : mySplitter.splitState(element)) {
-            Element e = pair.first;
-            String name = pair.second;
-
-            Element statePart = new Element(StorageData.COMPONENT);
-            statePart.setAttribute(StorageData.NAME, componentName);
-            statePart.addContent(e.detach());
-
-            myStorageData.put(componentName, new File(myDir, name), statePart, false);
-          }
-        }
+        element = DefaultStateSerializer.serializeState(state, storageSpec);
       }
       catch (WriteExternalException e) {
         throw new StateStorageException(e);
       }
+      catch (Throwable e) {
+        LOG.info("Unable to serialize component state!", e);
+        return;
+      }
+
+      if (element != null) {
+        for (Pair<Element, String> pair : myStorage.mySplitter.splitState(element)) {
+          Element e = pair.first;
+          String name = pair.second;
+
+          Element statePart = new Element(StorageData.COMPONENT);
+          statePart.setAttribute(StorageData.NAME, componentName);
+          statePart.addContent(e.detach());
+
+          myStorageData.put(componentName, new File(myStorage.myDir, name), statePart, false);
+        }
+      }
+    }
+
+    @Override
+    public void save() {
+      final VirtualFile dir = LocalFileSystem.getInstance().findFileByIoFile(myStorage.myDir);
+      final Set<String> existingFileNames = new SmartHashSet<String>();
+      for (String componentName : myStorageData.getComponentNames()) {
+        myStorageData.processComponent(componentName, new TObjectObjectProcedure<File, Element>() {
+          @Override
+          public boolean execute(File file, Element element) {
+            String fileName = file.getName();
+            existingFileNames.add(fileName);
+
+            if (myStorage.myPathMacroSubstitutor != null) {
+              myStorage.myPathMacroSubstitutor.collapsePaths(element);
+            }
+
+            if (file.lastModified() <= myStorageData.getLastTimeStamp()) {
+              StorageUtil.save(file, element, MySaveSession.this, false, dir == null ? null : dir.findChild(fileName));
+              myStorageData.updateLastTimestamp(file);
+            }
+
+            return true;
+          }
+        });
+      }
+
+      if (dir != null && dir.exists()) {
+        FileTypeManager fileTypeManager = FileTypeManager.getInstance();
+        AccessToken token = WriteAction.start();
+        try {
+          for (VirtualFile file : dir.getChildren()) {
+            String fileName = file.getName();
+            if (fileTypeManager.isFileIgnored(fileName) || !DirectoryStorageData.isStorageFile(file) || existingFileNames.contains(fileName)) {
+              continue;
+            }
+
+            if (file.getTimeStamp() > myStorageData.getLastTimeStamp()) {
+              // do not touch new files during VC update (which aren't read yet)
+              // now got an opposite problem: file is recreated if was removed by VC during update.
+              return;
+            }
+
+            try {
+              LOG.debug("Removing configuration file: " + file.getPresentableUrl());
+              file.delete(this);
+            }
+            catch (IOException e) {
+              LOG.error(e);
+            }
+          }
+        }
+        finally {
+          token.finish();
+        }
+      }
+
+      myStorage.myStorageData = myStorageData;
     }
   }
 }

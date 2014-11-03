@@ -762,6 +762,14 @@ public class GenericsHighlighting8Test extends LightDaemonAnalyzerTestCase {
 
   public void testIDEA78402() { doTest(); }
 
+  public void testUncheckedWarningInsideLambdaReturnStatement() throws Exception {
+    doTest(true);
+  }
+
+  public void testInferredParameterInBoundsInRecursiveGenerics() {
+    doTest(false);
+  }
+
   private void doTest() {
     doTest(false);
   }

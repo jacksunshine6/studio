@@ -15,6 +15,7 @@
  */
 package git4idea.actions;
 
+import com.intellij.dvcs.DvcsUtil;
 import com.intellij.history.Label;
 import com.intellij.history.LocalHistory;
 import com.intellij.openapi.components.ServiceManager;
@@ -24,6 +25,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vcs.VcsException;
 import com.intellij.openapi.vcs.update.ActionInfo;
+import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import git4idea.GitRevisionNumber;
 import git4idea.GitUtil;
@@ -84,7 +86,7 @@ abstract class GitMergeAction extends GitRepositoryAction {
         final GitUntrackedFilesOverwrittenByOperationDetector untrackedFilesDetector =
           new GitUntrackedFilesOverwrittenByOperationDetector(selectedRoot);
 
-        GitUtil.workingTreeChangeStarted(project);
+        DvcsUtil.workingTreeChangeStarted(project);
         try {
           GitCommandResult result = git.runCommand(new Computable<GitLineHandler>() {
             @Override
@@ -107,7 +109,7 @@ abstract class GitMergeAction extends GitRepositoryAction {
           handleResult(result, project, localChangesDetector, untrackedFilesDetector, repository, currentRev, affectedRoots, beforeLabel);
         }
         finally {
-          GitUtil.workingTreeChangeFinished(project);
+          DvcsUtil.workingTreeChangeFinished(project);
         }
       }
 
@@ -120,7 +122,7 @@ abstract class GitMergeAction extends GitRepositoryAction {
     GitRepositoryManager repositoryManager = GitUtil.getRepositoryManager(project);
     VirtualFile root = repository.getRoot();
     if (result.success()) {
-      root.refresh(false, true);
+      VfsUtil.markDirtyAndRefresh(false, true, false, root);
       List<VcsException> exceptions = new ArrayList<VcsException>();
       GitMergeUtil.showUpdates(this, project, exceptions, root, currentRev, beforeLabel, getActionName(), ActionInfo.UPDATE);
       repositoryManager.updateRepository(root);

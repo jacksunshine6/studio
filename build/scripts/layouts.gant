@@ -151,7 +151,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
       }
 
       jar("bootstrap.jar") { module("bootstrap") }
-      
+
       jar("jps-launcher.jar") { module("jps-launcher") }
 
       jar("resources.jar") {
@@ -371,7 +371,7 @@ public def layoutCommunityPlugins(String home) {
         module("git4idea-rt")
       }
       jar("remote-servers-git.jar") {
-        module("remote-servers-git")
+        moduleOptional("remote-servers-git")
       }
       fileset(dir: "$home/plugins/git4idea/lib") {
         include(name: "trilead-ssh2.jar")
@@ -569,7 +569,14 @@ public def layoutCommunityPlugins(String home) {
       }
     }
 
-    layoutPlugin("java-decompiler")
+    pluginDir("java-decompiler") {
+      dir("lib") {
+        jar("java-decompiler.jar") {
+          module("java-decompiler-engine")
+          module("java-decompiler-plugin")
+        }
+      }
+    }
   }
 }
 

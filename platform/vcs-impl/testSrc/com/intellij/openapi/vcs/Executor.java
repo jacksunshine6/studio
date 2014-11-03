@@ -69,6 +69,10 @@ public class Executor {
     cdAbs(ourCurrentDir + "/" + relativePath);
   }
 
+  public static void cd(@NotNull File dir) {
+    cdAbs(dir.getAbsolutePath());
+  }
+
   public static void cd(String relativeOrAbsolutePath) {
     if (relativeOrAbsolutePath.startsWith("/") || relativeOrAbsolutePath.charAt(1) == ':') {
       cdAbs(relativeOrAbsolutePath);
@@ -119,12 +123,20 @@ public class Executor {
     }
   }
 
+  public static void overwrite(@NotNull String fileName, @NotNull String content) throws IOException {
+    overwrite(child(fileName), content);
+  }
+
   public static void overwrite(@NotNull File file, @NotNull String content) throws IOException {
     FileUtil.writeToFile(file, content.getBytes(), false);
   }
 
   public static void append(@NotNull File file, @NotNull String content) throws IOException {
     FileUtil.writeToFile(file, content.getBytes(), true);
+  }
+
+  public static void append(@NotNull String fileName, @NotNull String content) throws IOException {
+    append(child(fileName), content);
   }
 
   @NotNull

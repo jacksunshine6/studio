@@ -280,7 +280,7 @@ public class JBTabsImpl extends JComponent
     new LazyUiDisposable<JBTabsImpl>(parent, this, this) {
       @Override
       protected void initialize(@NotNull Disposable parent, @NotNull JBTabsImpl child, @Nullable Project project) {
-        if (project != null) {
+        if (myProject == null && project != null) {
           myProject = project;
         }
 
@@ -343,6 +343,10 @@ public class JBTabsImpl extends JComponent
     }
 
     return this;
+  }
+
+  public int getActiveTabUnderlineHeight() {
+    return TabsUtil.ACTIVE_TAB_UNDERLINE_HEIGHT;
   }
 
   public boolean isEditorTabs() {

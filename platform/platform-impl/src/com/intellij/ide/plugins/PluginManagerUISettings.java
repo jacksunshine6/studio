@@ -20,10 +20,12 @@ import com.intellij.openapi.components.*;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
 import com.intellij.openapi.ui.SplitterProportionsData;
 import com.intellij.openapi.util.JDOMExternalizableStringList;
+import com.intellij.openapi.util.JDOMUtil;
 import com.intellij.util.xmlb.SkipDefaultValuesSerializationFilters;
 import com.intellij.util.xmlb.XmlSerializer;
 import org.jdom.Element;
 import org.jetbrains.annotations.NonNls;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
@@ -34,15 +36,21 @@ import javax.swing.*;
   name = "PluginManagerConfigurable",
   storages = {
   @Storage(
-    file = StoragePathMacros.APP_CONFIG + "/plugin_ui.xml")
+    file = StoragePathMacros.APP_CONFIG + "/plugin_ui.xml", roamingType = RoamingType.DISABLED)
   }
 )
 public class PluginManagerUISettings implements PersistentStateComponent<Element>, PerformInBackgroundOption {
-  private static final SkipDefaultValuesSerializationFilters FILTERS = new SkipDefaultValuesSerializationFilters();
+  private static final SkipDefaultValuesSerializationFilters FILTERS = new SkipDefaultValuesSerializationFilters() {
+    @Override
+    protected void configure(@NotNull Object o) {
+      if (o instanceof SplitterProportionsDataImpl) {
+        ((SplitterProportionsDataImpl)o).getProportions().add(0.5f);
+      }
+    }
+  };
 
   public int AVAILABLE_SORT_COLUMN_ORDER = SortOrder.ASCENDING.ordinal();
 
-  public int AVAILABLE_SORT_MODE = 1;
   public boolean AVAILABLE_SORT_BY_STATUS = false;
   public boolean INSTALLED_SORT_BY_STATUS = false;
   public boolean UPDATE_IN_BACKGROUND = false;
@@ -71,7 +79,9 @@ public class PluginManagerUISettings implements PersistentStateComponent<Element
 
     final Element availableProportions = new Element(AVAILABLE_PROPORTIONS);
     XmlSerializer.serializeInto(myAvailableSplitterProportionsData, availableProportions, FILTERS);
-    element.addContent(availableProportions);
+    if (!JDOMUtil.isEmpty(availableProportions)) {
+      element.addContent(availableProportions);
+    }
     return element;
   }
 

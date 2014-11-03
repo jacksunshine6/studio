@@ -82,12 +82,14 @@ public class StudyUtils {
   public static void updateAction(AnActionEvent e) {
     Presentation presentation = e.getPresentation();
     presentation.setEnabled(false);
+    presentation.setVisible(false);
     Project project = e.getProject();
     if (project != null) {
       FileEditor[] editors = FileEditorManager.getInstance(project).getAllEditors();
       for (FileEditor editor : editors) {
         if (editor instanceof StudyEditor) {
           presentation.setEnabled(true);
+          presentation.setVisible(true);
         }
       }
     }
@@ -136,11 +138,12 @@ public class StudyUtils {
         printWriter = new PrintWriter(new FileOutputStream(fileWindows.getPath()));
         for (TaskWindow taskWindow : taskFile.getTaskWindows()) {
           if (!taskWindow.isValid(document)) {
+            printWriter.println("#educational_plugin_window = ");
             continue;
           }
           int start = taskWindow.getRealStartOffset(document);
           String windowDescription = document.getText(new TextRange(start, start + taskWindow.getLength()));
-          printWriter.println("#study_plugin_window = " + windowDescription);
+          printWriter.println("#educational_plugin_window = " + windowDescription);
         }
         ApplicationManager.getApplication().runWriteAction(new Runnable() {
           @Override
