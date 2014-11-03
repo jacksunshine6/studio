@@ -15,6 +15,7 @@
  */
 package com.intellij.xdebugger.impl.evaluate.quick;
 
+import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintUtil;
 import com.intellij.execution.console.LanguageConsoleImpl;
 import com.intellij.execution.console.LanguageConsoleView;
@@ -24,6 +25,7 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.ShortcutSet;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -32,6 +34,7 @@ import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vcs.changes.issueLinks.LinkMouseListenerBase;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.SimpleColoredComponent;
@@ -127,11 +130,19 @@ public class XValueHint extends AbstractValueHint {
   }
 
   @Override
+  protected void onHintHidden() {
+    super.onHintHidden();
+    if (myDisposable != null) {
+      Disposer.dispose(myDisposable);
+      myDisposable = null;
+    }
+  }
+
+  @Override
   public void hideHint() {
     super.hideHint();
     if (myDisposable != null) {
       Disposer.dispose(myDisposable);
-
     }
   }
 
@@ -153,7 +164,7 @@ public class XValueHint extends AbstractValueHint {
             }
 
             SimpleColoredText text = new SimpleColoredText();
-            text.append(myValueName, XDebuggerUIConstants.VALUE_NAME_ATTRIBUTES);
+            text.append(StringUtil.trimMiddle(myValueName, 200), XDebuggerUIConstants.VALUE_NAME_ATTRIBUTES);
             XValueNodeImpl.buildText(valuePresenter, text);
 
             if (!hasChildren) {
@@ -170,8 +181,10 @@ public class XValueHint extends AbstractValueHint {
               }
               showHint(component);
             }
-            else if (getType() == ValueHintType.MOUSE_CLICK_HINT && !myShown) {
-              showTree(result);
+            else if (getType() == ValueHintType.MOUSE_CLICK_HINT) {
+              if (!myShown) {
+                showTree(result);
+              }
             }
             else {
               if (getType() == ValueHintType.MOUSE_OVER_HINT) {
@@ -204,6 +217,20 @@ public class XValueHint extends AbstractValueHint {
 
       @Override
       public void errorOccurred(@NotNull final String errorMessage) {
+        ApplicationManager.getApplication().invokeLater(new Runnable() {
+          @Override
+          public void run() {
+            int start = 0, end = 0;
+            if (getCurrentRange() != null) {
+              start = getCurrentRange().getStartOffset();
+              end = getCurrentRange().getEndOffset();
+            }
+            HintManager.getInstance().showErrorHint(getEditor(), errorMessage, start,
+                                                    end, HintManager.ABOVE,
+                                                    HintManager.HIDE_BY_ESCAPE | HintManager.HIDE_BY_TEXT_CHANGE,
+                                                    0);
+          }
+        });
         LOG.debug("Cannot evaluate '" + myExpression + "':" + errorMessage);
       }
     }, myExpressionPosition);

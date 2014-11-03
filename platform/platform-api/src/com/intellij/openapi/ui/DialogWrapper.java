@@ -37,14 +37,12 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.openapi.wm.IdeGlassPaneUtil;
 import com.intellij.openapi.wm.WindowManager;
-import com.intellij.ui.ColorUtil;
-import com.intellij.ui.IdeBorderFactory;
-import com.intellij.ui.JBColor;
-import com.intellij.ui.UIBundle;
+import com.intellij.ui.*;
 import com.intellij.ui.components.JBOptionButton;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.Alarm;
 import com.intellij.util.ArrayUtil;
+import com.intellij.util.TimeoutUtil;
 import com.intellij.util.ui.AwtVisitor;
 import com.intellij.util.ui.DialogUtil;
 import com.intellij.util.ui.UIUtil;
@@ -1656,6 +1654,20 @@ public abstract class DialogWrapper {
             }
             final StackingPopupDispatcher popupDispatcher = StackingPopupDispatcher.getInstance();
             if (popupDispatcher != null && !popupDispatcher.isPopupFocused()) {
+              Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+              
+              JTree tree = UIUtil.getParentOfType(JTree.class, focusOwner);
+              JTable table = UIUtil.getParentOfType(JTable.class, focusOwner);
+
+              if (tree != null && tree.isEditing()) {
+                tree.cancelEditing();
+                return;
+              }
+              if (table != null && table.isEditing()) {
+                TableUtil.stopEditing(table);
+                return;
+              }
+              
               doCancelAction(e);
             }
           }
@@ -1899,12 +1911,7 @@ public abstract class DialogWrapper {
         int w = (size.width - cur.width) / steps;
         while (step++ < steps) {
           setSize(cur.width + w * step, cur.height + h * step);
-          try {
-            //noinspection BusyWait
-            sleep(time / steps);
-          }
-          catch (InterruptedException ignore) {
-          }
+          TimeoutUtil.sleep(time / steps);
         }
         setSize(size.width, size.height);
         //repaint();
@@ -1918,6 +1925,7 @@ public abstract class DialogWrapper {
 
   private void updateHeightForErrorText() {
     Dimension errorSize = myErrorText.getPreferredSize();
+    myErrorText.setMinimumSize(new Dimension(0, errorSize.height));
     resizeWithAnimation(new Dimension(Math.max(myActualSize.width, errorSize.width + 40), myActualSize.height + errorSize.height + 10));
   }
 

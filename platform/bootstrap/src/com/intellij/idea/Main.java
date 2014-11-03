@@ -140,7 +140,9 @@ public class Main {
     // always delete previous patch copy
     File patchCopy = new File(tempDir, patchFileName + "_copy");
     File log4jCopy = new File(tempDir, "log4j.jar." + platform + "_copy");
-    if (!FileUtilRt.delete(patchCopy) || !FileUtilRt.delete(log4jCopy)) {
+    File jnaUtilsCopy = new File(tempDir, "jna-utils.jar." + platform + "_copy");
+    File jnaCopy = new File(tempDir, "jna.jar." + platform + "_copy");
+    if (!FileUtilRt.delete(patchCopy) || !FileUtilRt.delete(log4jCopy) || !FileUtilRt.delete(jnaUtilsCopy) || !FileUtilRt.delete(jnaCopy)) {
       appendLog("Cannot delete temporary files in " + tempDir);
       throw new IOException("Cannot delete temporary files in " + tempDir);
     }
@@ -149,13 +151,29 @@ public class Main {
     appendLog("[Patch] Original patch %s: %s\n", patch.exists() ? "exists" : "does not exist",
               patch.getAbsolutePath());
     if (!patch.exists()) return;
+
     File log4j = new File(PathManager.getLibPath(), "log4j.jar");
     if (!log4j.exists()) {
       appendLog("Log4J missing: " + log4j);
       throw new IOException("Log4J missing: " + log4j);
     }
+
+    File jnaUtils = new File(PathManager.getLibPath(), "jna-utils.jar");
+    if (!jnaUtils.exists()) {
+      appendLog("jna-utils.jar is missing: " + jnaUtils);
+      throw new IOException("jna-utils.jar is missing: " + jnaUtils);
+    }
+
+    File jna = new File(PathManager.getLibPath(), "jna.jar");
+    if (!jna.exists()) {
+      appendLog("jna is missing: " + jna);
+      throw new IOException("jna is missing: " + jna);
+    }
+
     copyFile(patch, patchCopy, true);
     copyFile(log4j, log4jCopy, false);
+    copyFile(jna, jnaCopy, false);
+    copyFile(jnaUtils, jnaUtilsCopy, false);
 
     int status = 0;
     if (Restarter.isSupported()) {
@@ -171,7 +189,7 @@ public class Main {
                          System.getProperty("java.home") + "/bin/java".replace('/', File.separatorChar),
                          "-Xmx500m",
                          "-classpath",
-                         patchCopy.getPath() + File.pathSeparator + log4jCopy.getPath(),
+                         patchCopy.getPath() + File.pathSeparator + log4jCopy.getPath() + File.pathSeparator + jnaCopy.getPath() + File.pathSeparator + jnaUtilsCopy.getPath(),
                          "-Djava.io.tmpdir=" + tempDir,
                          "-Didea.updater.log=" + PathManager.getLogPath(),
                          "-Dswing.defaultlaf=" + UIManager.getSystemLookAndFeelClassName(),

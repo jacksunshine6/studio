@@ -57,7 +57,7 @@ public class CommandExecutor {
   private boolean myNeedsDestroy;
   private volatile String myDestroyReason;
   private volatile boolean myWasCancelled;
-  protected final GeneralCommandLine myCommandLine;
+  @NotNull protected final GeneralCommandLine myCommandLine;
   protected Process myProcess;
   protected SvnProcessHandler myHandler;
   private OutputStreamWriter myProcessWriter;
@@ -75,14 +75,13 @@ public class CommandExecutor {
   public CommandExecutor(@NotNull @NonNls String exePath, @NotNull Command command) {
     myCommand = command;
     myResultBuilder = command.getResultBuilder();
-    if (myResultBuilder != null)
-    {
+    if (myResultBuilder != null) {
       myListeners.addListener(myResultBuilder);
       // cancel tracker should be executed after result builder
       myListeners.addListener(new CommandCancelTracker());
     }
     myLock = new Object();
-    myCommandLine = new GeneralCommandLine();
+    myCommandLine = createCommandLine();
     myCommandLine.setExePath(exePath);
     myCommandLine.setWorkDirectory(command.getWorkingDirectory());
     if (command.getConfigDir() != null) {
@@ -160,12 +159,13 @@ public class CommandExecutor {
 
   private void setupLocale() {
     String locale = Registry.stringValue("svn.executable.locale");
-    Map<String, String> environment = myCommandLine.getEnvironment();
 
-    // TODO: check if we need to set LC_ALL to configured locale or just clear it
-    environment.put("LC_ALL", "");
-    environment.put("LC_MESSAGES", locale);
-    environment.put("LANG", locale);
+    if (!StringUtil.isEmpty(locale)) {
+      Map<String, String> environment = myCommandLine.getEnvironment();
+
+      environment.put("LANGUAGE", "");
+      environment.put("LC_ALL", locale);
+    }
   }
 
   private void ensureMessageFile() throws SvnBindException {
@@ -225,6 +225,11 @@ public class CommandExecutor {
 
   protected boolean needsUtf8Output() {
     return myCommand.getParameters().contains("--xml");
+  }
+
+  @NotNull
+  protected GeneralCommandLine createCommandLine() {
+    return new GeneralCommandLine();
   }
 
   @NotNull
@@ -408,7 +413,7 @@ public class CommandExecutor {
    * @throws IllegalStateException if process has not been started
    */
   protected void checkStarted() {
-    if (! isStarted()) {
+    if (!isStarted()) {
       throw new IllegalStateException("The process is not started yet");
     }
   }

@@ -48,6 +48,7 @@ builtin
 bzip
 calc
 callee
+camelcase
 cancelable
 cancellable
 capath
@@ -76,6 +77,8 @@ codesign
 commandline
 committer
 commonjs
+concat
+cond
 conf
 config
 configs
@@ -111,6 +114,7 @@ dereference
 dereferences
 desc
 deserializable
+deserialize
 deserializer
 deserializers
 devkit
@@ -130,11 +134,14 @@ endregion
 enqueue
 enum
 enums
+eqeqeq
+eval
 evex
 exif
 expr
 facebook
 facelet
+fallthrough
 favicon
 filename
 fileset
@@ -167,8 +174,10 @@ getters
 giud
 globals
 google
-gzip
 gruntfile
+gulpfile
+gzip
+gzipped
 hamcrest
 hardcoded
 hardlink
@@ -186,6 +195,7 @@ html
 http
 https
 iconable
+iife
 impl
 inbox
 incrementer
@@ -204,6 +214,7 @@ insteadof
 intellij
 iphone
 iphoneos
+isnan
 isnull
 javabean
 javabeans
@@ -222,6 +233,7 @@ jnilib
 jpeg
 jpdl
 jquery
+jsdoc
 jsessionid
 jshint
 json
@@ -354,6 +366,7 @@ pageable
 param
 parameterizable
 params
+paren
 patcher
 patchers
 pathname
@@ -371,6 +384,7 @@ plist
 plsql
 plugin
 plugins
+plusplus
 pointcut
 pointcuts
 portlet
@@ -394,6 +408,7 @@ println
 processlist
 profiler
 progressbar
+proto
 proven
 proxool
 pycharm
@@ -405,6 +420,7 @@ rebase
 rebased
 rebasing
 rect
+redeclare
 redis
 redispatch
 redistributions
@@ -559,10 +575,13 @@ tuple
 twitter
 typedef
 typedefs
+typeof
+unary
 unboxing
 unbuffered
 uncomment
 uncommented
+undef
 underwave
 undoable
 undofile

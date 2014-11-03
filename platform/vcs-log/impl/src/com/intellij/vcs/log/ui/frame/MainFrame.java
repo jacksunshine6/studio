@@ -11,20 +11,20 @@ import com.intellij.openapi.ui.Splitter;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vcs.VcsDataKeys;
 import com.intellij.openapi.vcs.changes.Change;
+import com.intellij.openapi.vcs.changes.TextRevisionNumber;
 import com.intellij.openapi.vcs.changes.committed.RepositoryChangesBrowser;
 import com.intellij.openapi.vcs.changes.ui.ChangesBrowser;
+import com.intellij.openapi.vcs.history.VcsRevisionNumber;
 import com.intellij.ui.ScrollPaneFactory;
 import com.intellij.ui.components.JBLoadingPanel;
 import com.intellij.util.ArrayUtil;
+import com.intellij.util.Function;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.table.ComponentsListFocusTraversalPolicy;
-import com.intellij.vcs.log.VcsLog;
-import com.intellij.vcs.log.VcsLogDataKeys;
-import com.intellij.vcs.log.VcsLogFilterUi;
-import com.intellij.vcs.log.VcsLogSettings;
-import com.intellij.vcs.log.data.DataPack;
+import com.intellij.vcs.log.*;
 import com.intellij.vcs.log.data.VcsLogDataHolder;
 import com.intellij.vcs.log.data.VcsLogUiProperties;
+import com.intellij.vcs.log.data.VisiblePack;
 import com.intellij.vcs.log.graph.impl.facade.bek.BekSorter;
 import com.intellij.vcs.log.ui.VcsLogUiImpl;
 import com.intellij.vcs.log.ui.filter.VcsLogClassicFilterUi;
@@ -60,7 +60,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
 
   public MainFrame(@NotNull VcsLogDataHolder logDataHolder, @NotNull VcsLogUiImpl vcsLogUI, @NotNull Project project,
                    @NotNull VcsLogSettings settings, @NotNull VcsLogUiProperties uiProperties, @NotNull VcsLog log,
-                   @NotNull DataPack initialDataPack) {
+                   @NotNull VisiblePack initialDataPack) {
     // collect info
     myLogDataHolder = logDataHolder;
     myUI = vcsLogUI;
@@ -124,7 +124,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
    * Components may want to update their fields and/or rebuild.
    * @param dataPack new data pack.
    */
-  public void updateDataPack(@NotNull DataPack dataPack) {
+  public void updateDataPack(@NotNull VisiblePack dataPack) {
     myFilterUi.updateDataPack(dataPack);
     myDetailsPanel.updateDataPack(dataPack);
     myGraphTable.updateDataPack(dataPack);
@@ -232,7 +232,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
 
   @Override
   public void calcData(DataKey key, DataSink sink) {
-    if (VcsLogDataKeys.VSC_LOG == key) {
+    if (VcsLogDataKeys.VCS_LOG == key) {
       sink.put(key, myLog);
     }
     else if (VcsLogDataKeys.VCS_LOG_UI == key) {
@@ -246,6 +246,15 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
       if (selectedChanges != null) {
         sink.put(key, ArrayUtil.toObjectArray(selectedChanges, Change.class));
       }
+    }
+    else if (VcsDataKeys.VCS_REVISION_NUMBERS == key) {
+      List<Hash> hashes = myUI.getVcsLog().getSelectedCommits();
+      sink.put(key, ArrayUtil.toObjectArray(ContainerUtil.map(hashes, new Function<Hash, VcsRevisionNumber>() {
+        @Override
+        public VcsRevisionNumber fun(Hash hash) {
+          return new TextRevisionNumber(hash.asString(), hash.toShortString());
+        }
+      }), VcsRevisionNumber.class));
     }
   }
 
@@ -336,7 +345,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
 
     @Override
     public boolean isSelected(AnActionEvent e) {
-      return !myUI.areLongEdgesHidden();
+      return !myUI.getDataPack().getVisibleGraph().getActionController().areLongEdgesHidden();
     }
 
     @Override

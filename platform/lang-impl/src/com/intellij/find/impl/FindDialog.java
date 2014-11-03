@@ -99,6 +99,8 @@ public class FindDialog extends DialogWrapper {
   private JRadioButton myRbCustomScope;
   private ScopeChooserCombo myScopeCombo;
   protected JLabel myReplacePrompt;
+  private HideableTitledPanel myScopePanel;
+  private static boolean myPreviousResultsExpandedState;
 
   public FindDialog(@NotNull Project project, @NotNull FindModel model, @NotNull Consumer<FindModel> myOkHandler){
     super(project, true);
@@ -140,6 +142,7 @@ public class FindDialog extends DialogWrapper {
       e.getKey().removeDocumentListener(e.getValue());
     }
     myComboBoxListeners.clear();
+    if (myScopePanel != null) myPreviousResultsExpandedState = myScopePanel.isExpanded();
     super.dispose();
   }
 
@@ -388,11 +391,13 @@ public class FindDialog extends DialogWrapper {
     return optionsPanel;
   }
 
-  private static JPanel createResultsOptionPanel(JPanel optionsPanel, GridBagConstraints gbConstraints) {
+  private JPanel createResultsOptionPanel(JPanel optionsPanel, GridBagConstraints gbConstraints) {
     JPanel resultsOptionPanel = new JPanel();
     resultsOptionPanel.setLayout(new BoxLayout(resultsOptionPanel, BoxLayout.Y_AXIS));
 
-    optionsPanel.add(new HideableTitledPanel(FindBundle.message("results.options.group"), resultsOptionPanel, false), gbConstraints);
+    myScopePanel = new HideableTitledPanel(FindBundle.message("results.options.group"), resultsOptionPanel,
+                                           myPreviousResultsExpandedState);
+    optionsPanel.add(myScopePanel, gbConstraints);
     return resultsOptionPanel;
   }
 
@@ -615,7 +620,7 @@ public class FindDialog extends DialogWrapper {
 
     findOptionsPanel.add(regExPanel);
 
-    mySearchContext = new ComboBox(new Object[] {FindBundle.message("find.context.anywhere.scope.label", 200),
+    mySearchContext = new ComboBox(new Object[] {FindBundle.message("find.context.anywhere.scope.label"),
       FindBundle.message("find.context.in.comments.scope.label"), FindBundle.message("find.context.in.literals.scope.label"),
       FindBundle.message("find.context.except.comments.scope.label"),
       FindBundle.message("find.context.except.literals.scope.label"),
@@ -628,8 +633,11 @@ public class FindDialog extends DialogWrapper {
     JPanel panel = new JPanel();
     panel.setAlignmentX(Component.LEFT_ALIGNMENT);
     panel.add(searchContextLabel);
-    panel.add(mySearchContext);
     searchContextPanel.add(panel, BorderLayout.WEST);
+
+    panel = new JPanel(new BorderLayout());
+    panel.add(mySearchContext, BorderLayout.NORTH);
+    searchContextPanel.add(panel, BorderLayout.CENTER);
 
     if (FindManagerImpl.ourHasSearchInCommentsAndLiterals) {
       findOptionsPanel.add(searchContextPanel);

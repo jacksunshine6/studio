@@ -83,6 +83,7 @@ public final class IterationState {
 
   private final TextAttributes myMergedAttributes = new TextAttributes();
 
+  @Nullable
   private final HighlighterIterator myHighlighterIterator;
   private final HighlighterSweep myView;
   private final HighlighterSweep myDoc;
@@ -118,17 +119,23 @@ public final class IterationState {
   private final DocumentEx myDocument;
   private final EditorEx myEditor;
   private final Color myReadOnlyColor;
+  private final boolean myUseOnlyFullLineHighlighters;
 
   public IterationState(@NotNull EditorEx editor, int start, int end, boolean useCaretAndSelection) {
+    this(editor, start, end, useCaretAndSelection, false);
+  }
+
+  public IterationState(@NotNull EditorEx editor, int start, int end, boolean useCaretAndSelection, boolean useOnlyFullLineHighlighters) {
     ApplicationManager.getApplication().assertReadAccessAllowed();
     myDocument = editor.getDocument();
     myStartOffset = start;
 
     myEnd = end;
     myEditor = editor;
+    myUseOnlyFullLineHighlighters = useOnlyFullLineHighlighters;
 
     LOG.assertTrue(myStartOffset <= myEnd);
-    myHighlighterIterator = editor.getHighlighter().createIterator(start);
+    myHighlighterIterator = useOnlyFullLineHighlighters ? null : editor.getHighlighter().createIterator(start);
 
     boolean hasSelection = useCaretAndSelection && (editor.getCaretModel().supportsMultipleCarets() || editor.getSelectionModel().hasSelection() || editor.getSelectionModel().hasBlockSelection());
     if (!hasSelection) {
@@ -173,10 +180,10 @@ public final class IterationState {
     myCaretRowEnd = caretModel.getVisualLineEnd();
 
     MarkupModelEx editorMarkup = editor.getMarkupModel();
-    myView = new HighlighterSweep(editorMarkup, start, myEnd);
+    myView = new HighlighterSweep(editorMarkup, start, myEnd, useOnlyFullLineHighlighters);
 
     final MarkupModelEx docMarkup = (MarkupModelEx)DocumentMarkupModel.forDocument(editor.getDocument(), editor.getProject(), true);
-    myDoc = new HighlighterSweep(docMarkup, start, myEnd);
+    myDoc = new HighlighterSweep(docMarkup, start, myEnd, useOnlyFullLineHighlighters);
 
     myEndOffset = myStartOffset;
 
@@ -188,11 +195,16 @@ public final class IterationState {
     int i;
     private final RangeHighlighterEx[] highlighters;
 
-    private HighlighterSweep(@NotNull MarkupModelEx markupModel, int start, int end) {
+    private HighlighterSweep(@NotNull MarkupModelEx markupModel, int start, int end, final boolean onlyFullLine) {
       // we have to get all highlighters in advance and sort them by affected offsets
       // since these can be different from the real offsets the highlighters are sorted by in the tree.  (See LINES_IN_RANGE perverts)
       final List<RangeHighlighterEx> list = new ArrayList<RangeHighlighterEx>();
-      markupModel.processRangeHighlightersOverlappingWith(start, end, new CommonProcessors.CollectProcessor<RangeHighlighterEx>(list));
+      markupModel.processRangeHighlightersOverlappingWith(start, end, new CommonProcessors.CollectProcessor<RangeHighlighterEx>(list) {
+        @Override
+        protected boolean accept(RangeHighlighterEx ex) {
+          return !onlyFullLine || ex.getTargetArea() == HighlighterTargetArea.LINES_IN_RANGE;
+        }
+      });
       highlighters = list.isEmpty() ? RangeHighlighterEx.EMPTY_ARRAY : list.toArray(new RangeHighlighterEx[list.size()]);
       Arrays.sort(highlighters, RangeHighlighterEx.BY_AFFECTED_START_OFFSET);
 
@@ -256,7 +268,9 @@ public final class IterationState {
     advanceCurrentSelectionIndex();
     advanceCurrentVirtualSelectionIndex();
 
-    myCurrentFold = myFoldingModel.fetchOutermost(myStartOffset);
+    if (!myUseOnlyFullLineHighlighters) {
+      myCurrentFold = myFoldingModel.fetchOutermost(myStartOffset);
+    }
     if (myCurrentFold != null) {
       myEndOffset = myCurrentFold.getEndOffset();
     }
@@ -272,6 +286,9 @@ public final class IterationState {
   }
 
   private int getHighlighterEnd(int start) {
+    if (myHighlighterIterator == null) {
+      return myEnd;
+    }
     while (!myHighlighterIterator.atEnd()) {
       int end = myHighlighterIterator.getEnd();
       if (end > start) {
@@ -295,6 +312,9 @@ public final class IterationState {
   }
 
   private int getGuardedBlockEnd(int start) {
+    if (myUseOnlyFullLineHighlighters) {
+      return myEnd;
+    }
     List<RangeMarker> blocks = myDocument.getGuardedBlocks();
     int min = myEnd;
     //noinspection ForLoopReplaceableByForEach
@@ -350,6 +370,9 @@ public final class IterationState {
   }
 
   private int getFoldRangesEnd(int startOffset) {
+    if (myUseOnlyFullLineHighlighters) {
+      return myEnd;
+    }
     int end = myEnd;
     FoldRegion[] topLevelCollapsed = myFoldingModel.fetchTopLevel();
     if (topLevelCollapsed != null) {
@@ -392,15 +415,15 @@ public final class IterationState {
   }
 
   private void reinit() {
-    if (myHighlighterIterator.atEnd()) {
+    if (myHighlighterIterator != null && myHighlighterIterator.atEnd()) {
       return;
     }
 
     boolean isInSelection = isInSelection();
     boolean isInCaretRow = myStartOffset >= myCaretRowStart && myStartOffset < myCaretRowEnd;
-    boolean isInGuardedBlock = myDocument.getOffsetGuard(myStartOffset) != null;
+    boolean isInGuardedBlock = !myUseOnlyFullLineHighlighters && myDocument.getOffsetGuard(myStartOffset) != null;
 
-    TextAttributes syntax = myHighlighterIterator.getTextAttributes();
+    TextAttributes syntax = myHighlighterIterator == null ? null : myHighlighterIterator.getTextAttributes();
 
     TextAttributes selection = isInSelection ? mySelectionAttributes : null;
     TextAttributes caret = isInCaretRow ? myCaretRowAttributes : null;

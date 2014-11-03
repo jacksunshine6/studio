@@ -25,9 +25,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author Kirill Likhodedov
- */
 public class GitMockRepositoryManager implements RepositoryManager<GitRepository> {
   private final List<GitRepository> myRepositories = new ArrayList<GitRepository>();
 
@@ -63,6 +60,21 @@ public class GitMockRepositoryManager implements RepositoryManager<GitRepository
   }
 
   @Override
+  public void addExternalRepository(@NotNull VirtualFile root, @NotNull GitRepository repository) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void removeExternalRepository(@NotNull VirtualFile root) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean isExternal(@NotNull GitRepository repository) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public boolean moreThanOneRoot() {
     return myRepositories.size() > 1;
   }
@@ -81,4 +93,8 @@ public class GitMockRepositoryManager implements RepositoryManager<GitRepository
   public void waitUntilInitialized() {
   }
 
+  @Override
+  public boolean isSyncEnabled() {
+    return false;
+  }
 }

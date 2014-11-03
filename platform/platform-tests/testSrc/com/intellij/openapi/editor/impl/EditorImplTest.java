@@ -18,7 +18,9 @@ package com.intellij.openapi.editor.impl;
 import com.intellij.codeInsight.folding.CodeFoldingManager;
 import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.VisualPosition;
+import com.intellij.openapi.editor.ex.DocumentEx;
 import com.intellij.testFramework.EditorTestUtil;
 
 import java.io.IOException;
@@ -87,6 +89,27 @@ public class EditorImplTest extends AbstractEditorTest {
 
     executeAction(IdeActions.ACTION_EDITOR_TAB);
     checkResultByText(" \t<caret>space-indented line");
+  }
+
+  public void testNoExceptionDuringBulkModeDocumentUpdate() throws Exception {
+    init("something");
+    DocumentEx document = (DocumentEx)myEditor.getDocument();
+    document.setInBulkUpdate(true);
+    try {
+      document.setText("something\telse");
+    }
+    finally {
+      document.setInBulkUpdate(false);
+    }
+    checkResultByText("something\telse");
+  }
+
+  public void testPositionCalculationForOneCharacterFolds() throws Exception {
+    init("something");
+    addCollapsedFoldRegion(1, 2, "...");
+    addCollapsedFoldRegion(3, 4, "...");
+
+    assertEquals(new VisualPosition(0, 5), myEditor.logicalToVisualPosition(new LogicalPosition(0, 3)));
   }
 
   private void init(String text) throws IOException {

@@ -40,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.idea.svn.auth.SvnAuthenticationNotifier;
 import org.jetbrains.idea.svn.config.SvnConfigureProxiesDialog;
+import org.jetbrains.idea.svn.dialogs.SshSettingsPanel;
 import org.jetbrains.idea.svn.svnkit.SvnKitManager;
 
 import javax.swing.*;
@@ -50,6 +51,7 @@ import java.io.File;
 
 public class SvnConfigurable implements Configurable {
 
+  public static final String DISPLAY_NAME = SvnVcs.VCS_DISPLAY_NAME;
   private final Project myProject;
   private JCheckBox myUseDefaultCheckBox;
   private TextFieldWithBrowseButton myConfigurationDirectoryText;
@@ -65,6 +67,7 @@ public class SvnConfigurable implements Configurable {
   private JCheckBox myIgnoreWhitespaceDifferenciesInCheckBox;
   private JCheckBox myShowMergeSourceInAnnotate;
   private JBCheckBox myWithCommandLineClient;
+  private JBCheckBox myRunUnderTerminal;
   private JSpinner myNumRevsInAnnotations;
   private JCheckBox myMaximumNumberOfRevisionsCheckBox;
   private JSpinner mySSHConnectionTimeout;
@@ -75,12 +78,19 @@ public class SvnConfigurable implements Configurable {
   private JBRadioButton myTLSv1RadioButton;
   private JBRadioButton myAllRadioButton;
   private JLabel mySSLExplicitly;
+  private SshSettingsPanel mySshSettingsPanel;
 
   @NonNls private static final String HELP_ID = "project.propSubversion";
 
   public SvnConfigurable(Project project) {
     myProject = project;
 
+    myWithCommandLineClient.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        myRunUnderTerminal.setEnabled(myWithCommandLineClient.isSelected());
+      }
+    });
     myUseDefaultCheckBox.addActionListener(new ActionListener() {
       public void actionPerformed(final ActionEvent e) {
         boolean enabled = !myUseDefaultCheckBox.isSelected();
@@ -161,6 +171,8 @@ public class SvnConfigurable implements Configurable {
         mySSLExplicitly.setText("Setting 'All' value in this JDK version (" + version + ") is not recommended.");
       }
     }
+
+    mySshSettingsPanel.load(SvnConfiguration.getInstance(myProject));
   }
 
   public static void selectConfigurationDirectory(@NotNull String path,
@@ -190,7 +202,7 @@ public class SvnConfigurable implements Configurable {
   }
 
   public String getDisplayName() {
-    return SvnVcs.VCS_DISPLAY_NAME;
+    return DISPLAY_NAME;
   }
 
   public String getHelpTopic() {
@@ -228,6 +240,7 @@ public class SvnConfigurable implements Configurable {
       return true;
     }
     if (! configuration.getUseAcceleration().equals(acceleration())) return true;
+    if (configuration.isRunUnderTerminal() != myRunUnderTerminal.isSelected()) return true;
     final int annotateRevisions = configuration.getMaxAnnotateRevisions();
     final boolean useMaxInAnnot = annotateRevisions != -1;
     if (useMaxInAnnot != myMaximumNumberOfRevisionsCheckBox.isSelected()) {
@@ -250,7 +263,8 @@ public class SvnConfigurable implements Configurable {
     if (! getSelectedSSL().equals(configuration.getSslProtocols())) return true;
     final SvnApplicationSettings applicationSettings17 = SvnApplicationSettings.getInstance();
     if (! Comparing.equal(applicationSettings17.getCommandLinePath(), myCommandLineClient.getText().trim())) return true;
-    return !configuration.getConfigurationDirectory().equals(myConfigurationDirectoryText.getText().trim());
+    if (!configuration.getConfigurationDirectory().equals(myConfigurationDirectoryText.getText().trim())) return true;
+    return mySshSettingsPanel.isModified(configuration);
   }
 
   private SvnConfiguration.UseAcceleration acceleration() {
@@ -280,6 +294,7 @@ public class SvnConfigurable implements Configurable {
     boolean reloadWorkingCopies = !acceleration().equals(configuration.getUseAcceleration()) ||
                                   !StringUtil.equals(applicationSettings17.getCommandLinePath(), myCommandLineClient.getText().trim());
     configuration.setUseAcceleration(acceleration());
+    configuration.setRunUnderTerminal(myRunUnderTerminal.isSelected());
     configuration.setSslProtocols(getSelectedSSL());
     SvnVcs.getInstance(myProject).getSvnKitManager().refreshSSLProperty();
 
@@ -290,6 +305,8 @@ public class SvnConfigurable implements Configurable {
       VcsDirtyScopeManager.getInstance(myProject).markEverythingDirty();
     }
     configuration.setHttpTimeout(((SpinnerNumberModel) myHttpTimeout.getModel()).getNumber().longValue() * 1000);
+
+    mySshSettingsPanel.apply(configuration);
   }
 
   public void reset() {
@@ -324,6 +341,8 @@ public class SvnConfigurable implements Configurable {
     mySSHReadTimeout.setValue(Long.valueOf(configuration.getSshReadTimeout() / 1000));
     myHttpTimeout.setValue(Long.valueOf(configuration.getHttpTimeout() / 1000));
     myWithCommandLineClient.setSelected(configuration.isCommandLine());
+    myRunUnderTerminal.setSelected(configuration.isRunUnderTerminal());
+    myRunUnderTerminal.setEnabled(myWithCommandLineClient.isSelected());
     final SvnApplicationSettings applicationSettings17 = SvnApplicationSettings.getInstance();
     myCommandLineClient.setText(applicationSettings17.getCommandLinePath());
 
@@ -334,6 +353,8 @@ public class SvnConfigurable implements Configurable {
     } else {
       myAllRadioButton.setSelected(true);
     }
+
+    mySshSettingsPanel.reset(configuration);
   }
 
   public void disposeUIResources() {
