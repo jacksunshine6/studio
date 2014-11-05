@@ -212,6 +212,7 @@
       <with attribute="implementationClass" implements="com.intellij.refactoring.encapsulateFields.EncapsulateFieldHelper"/>
     </extensionPoint>
 
+    <extensionPoint name="methodConflictResolver" interface="com.intellij.psi.scope.PsiConflictResolver"/>
     <extensionPoint name="psi.classFileDecompiler" interface="com.intellij.psi.compiled.ClassFileDecompilers$Decompiler"/>
     <!-- deprecated API -->
     <!--suppress DeprecatedClassUsageInspection -->
