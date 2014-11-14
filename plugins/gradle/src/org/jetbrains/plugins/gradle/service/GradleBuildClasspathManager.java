@@ -20,6 +20,7 @@ import com.intellij.openapi.externalSystem.ExternalSystemManager;
 import com.intellij.openapi.externalSystem.model.project.ExternalModuleBuildClasspathPojo;
 import com.intellij.openapi.externalSystem.model.project.ExternalProjectBuildClasspathPojo;
 import com.intellij.openapi.externalSystem.settings.AbstractExternalSystemLocalSettings;
+import com.intellij.openapi.externalSystem.util.DisposeAwareProjectChange;
 import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.JarFileSystem;
@@ -27,6 +28,7 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.plugins.gradle.util.GradleConstants;
 
 import java.util.*;
@@ -49,7 +51,7 @@ public class GradleBuildClasspathManager {
 
   public GradleBuildClasspathManager(@NotNull Project project) {
     myProject = project;
-    reload();
+    allFilesCache = ContainerUtil.newArrayList();
   }
 
   @NotNull
@@ -66,24 +68,34 @@ public class GradleBuildClasspathManager {
 
     final LocalFileSystem localFileSystem = LocalFileSystem.getInstance();
     final JarFileSystem jarFileSystem = JarFileSystem.getInstance();
-    for (ExternalProjectBuildClasspathPojo projectBuildClasspathPojo : localSettings.getProjectBuildClasspath().values()) {
-      List<VirtualFile> projectBuildClasspath = ContainerUtil.newArrayList();
-      for (String path : projectBuildClasspathPojo.getProjectBuildClasspath()) {
-        final VirtualFile virtualFile = localFileSystem.refreshAndFindFileByPath(path);
-        if (virtualFile != null) {
-          ContainerUtil.addIfNotNull(
-            projectBuildClasspath, virtualFile.isDirectory() ? virtualFile : jarFileSystem.getJarRootForLocalFile(virtualFile));
-        }
-      }
-
-      for (ExternalModuleBuildClasspathPojo moduleBuildClasspathPojo : projectBuildClasspathPojo.getModulesBuildClasspath().values()) {
-        List<VirtualFile> moduleBuildClasspath = ContainerUtil.newArrayList(projectBuildClasspath);
-        for (String path : moduleBuildClasspathPojo.getEntries()) {
-          final VirtualFile virtualFile = localFileSystem.refreshAndFindFileByPath(path);
-          if (virtualFile != null) {
-            ContainerUtil.addIfNotNull(moduleBuildClasspath, jarFileSystem.getJarRootForLocalFile(virtualFile));
+    for (final ExternalProjectBuildClasspathPojo projectBuildClasspathPojo : localSettings.getProjectBuildClasspath().values()) {
+      final List<VirtualFile> projectBuildClasspath = ContainerUtil.newArrayList();
+      ExternalSystemApiUtil.executeProjectChangeAction(true, new DisposeAwareProjectChange(myProject) {
+        @Override
+        public void execute() {
+          for (String path : projectBuildClasspathPojo.getProjectBuildClasspath()) {
+            final VirtualFile virtualFile = localFileSystem.refreshAndFindFileByPath(path);
+            if (virtualFile != null) {
+              ContainerUtil.addIfNotNull(
+                projectBuildClasspath, virtualFile.isDirectory() ? virtualFile : jarFileSystem.getJarRootForLocalFile(virtualFile));
+            }
           }
         }
+      });
+
+      for (final ExternalModuleBuildClasspathPojo moduleBuildClasspathPojo : projectBuildClasspathPojo.getModulesBuildClasspath().values()) {
+        final List<VirtualFile> moduleBuildClasspath = ContainerUtil.newArrayList(projectBuildClasspath);
+        ExternalSystemApiUtil.executeProjectChangeAction(true, new DisposeAwareProjectChange(myProject) {
+          @Override
+          public void execute() {
+            for (String path : moduleBuildClasspathPojo.getEntries()) {
+              final VirtualFile virtualFile = localFileSystem.refreshAndFindFileByPath(path);
+              if (virtualFile != null) {
+                ContainerUtil.addIfNotNull(moduleBuildClasspath, jarFileSystem.getJarRootForLocalFile(virtualFile));
+              }
+            }
+          }
+        });
 
         map.put(moduleBuildClasspathPojo.getPath(), moduleBuildClasspath);
       }
@@ -100,12 +112,27 @@ public class GradleBuildClasspathManager {
 
   @NotNull
   public List<VirtualFile> getAllClasspathEntries() {
+    checkRootsValidity(allFilesCache);
     return allFilesCache;
   }
 
   @NotNull
   public List<VirtualFile> getModuleClasspathEntries(@NotNull String externalModulePath) {
+    checkRootsValidity(myClasspathMap.get().get(externalModulePath));
     List<VirtualFile> virtualFiles = myClasspathMap.get().get(externalModulePath);
     return virtualFiles == null ? Collections.<VirtualFile>emptyList() : virtualFiles;
+  }
+
+  private void checkRootsValidity(@Nullable List<VirtualFile> virtualFiles) {
+    if (virtualFiles == null) return;
+
+    if (!virtualFiles.isEmpty()) {
+      for (VirtualFile file : virtualFiles) {
+        if (!file.isValid()) {
+          reload();
+          break;
+        }
+      }
+    }
   }
 }
