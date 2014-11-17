@@ -35,6 +35,37 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   }
 
   @Test
+  public void testCreatingAndApplyingStrict() throws Exception {
+    myPatchSpec.setStrict(true);
+    Patch patch = createPatch();
+    assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
+  }
+
+  @Test
+  public void testCreatingAndApplyingOnADifferentRoot() throws Exception {
+    myPatchSpec.setRoot("bin/");
+    myPatchSpec.setStrict(true);
+
+    Patch patch = createPatch();
+
+    File target = new File(myOlderDir, "bin");
+    assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, target, TEST_UI));
+  }
+
+  @Test
+  public void testCreatingAndFailingOnADifferentRoot() throws Exception {
+    myPatchSpec.setRoot("bin/");
+    myPatchSpec.setStrict(true);
+
+    Patch patch = createPatch();
+
+    File target = new File(myOlderDir, "bin");
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, target, TEST_UI);
+    preparationResult.patch.getActions().add(new MyFailOnApplyPatchAction(patch));
+    assertNothingHasChanged(patch, preparationResult, new HashMap<String, ValidationResult.Option>());
+  }
+
+  @Test
   public void testReverting() throws Exception {
     Patch patch = createPatch();
 
@@ -149,6 +180,22 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     raf.close();
 
     assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI));
+  }
+
+  @Test
+  public void testApplyingWithModifiedCriticalFilesAndDifferentRoot() throws Exception {
+    myPatchSpec.setStrict(true);
+    myPatchSpec.setRoot("lib/");
+    myPatchSpec.setCriticalFiles(Arrays.asList("lib/annotations.jar"));
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+
+    RandomAccessFile raf = new RandomAccessFile(new File(myOlderDir, "lib/annotations.jar"), "rw");
+    raf.seek(20);
+    raf.write(42);
+    raf.close();
+
+    File toDir = new File(myOlderDir, "lib/");
+    assertAppliedAndRevertedCorrectly(patch, PatchFileCreator.prepareAndValidate(myFile, toDir, TEST_UI));
   }
 
   @Test
@@ -319,6 +366,23 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     UpdateAction update = (UpdateAction)action;
     assertTrue(update.isMove());
     assertEquals("a/deleted/file/that/is/a/copy/move.me", update.getSourcePath());
+
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
+    assertAppliedAndRevertedCorrectly(patch, preparationResult);
+  }
+
+  @Test
+  public void testMoveCriticalFileByContent() throws IOException, OperationCancelledException {
+    myPatchSpec.setStrict(true);
+    myPatchSpec.setCriticalFiles(Collections.singletonList("a/deleted/file/that/is/a/copy/move.me"));
+
+    FileUtil.writeToFile(new File(myOlderDir, "move/from/this/directory/move.me"), "oldcontent");
+    FileUtil.writeToFile(new File(myOlderDir, "a/deleted/file/that/is/a/copy/move.me"), "newcontent");
+    FileUtil.writeToFile(new File(myNewerDir, "move/to/this/directory/move.me"), "newcontent");
+
+    Patch patch = PatchFileCreator.create(myPatchSpec, myFile, TEST_UI);
+    PatchAction action = getAction(patch, "move/to/this/directory/move.me");
+    assertTrue(action instanceof CreateAction);
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertAppliedAndRevertedCorrectly(patch, preparationResult);

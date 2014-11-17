@@ -28,22 +28,29 @@ public class DiffCalculator {
       for (Map.Entry<String, Long> create : toCreate.entrySet()) {
         boolean isDir = create.getKey().endsWith("/");
         String source = byContent.get(create.getValue());
+        boolean found = false;
         if (source != null && !isDir) {
-          // Found a file with the same content use it.
-          result.filesToUpdate.put(create.getKey(), new Update(source, result.filesToDelete.get(source), true));
+          // Found a file with the same content use it, unless it's critical
+          if (!critical.contains(source)) {
+            result.filesToUpdate.put(create.getKey(), new Update(source, result.filesToDelete.get(source), true));
+            found = true;
+          }
         }
         else {
           File fileToCreate = new File(create.getKey());
           List<String> sameName = byName.get(fileToCreate.getName());
           if (sameName != null && !isDir) {
             String best = findBestCandidateForMove(sameName, create.getKey());
-            // Found a file with the same name, use it, worst case as big as a create.
-            result.filesToUpdate.put(create.getKey(), new Update(best, result.filesToDelete.get(best), false));
+            // Found a file with the same name, if it's not critical use it, worst case as big as a create.
+            if (!critical.contains(best)) {
+              result.filesToUpdate.put(create.getKey(), new Update(best, result.filesToDelete.get(best), false));
+              found = true;
+            }
           }
-          else {
-            // Fine, just create it.
-            result.filesToCreate.put(create.getKey(), create.getValue());
-          }
+        }
+        if (!found) {
+          // Fine, just create it.
+          result.filesToCreate.put(create.getKey(), create.getValue());
         }
       }
     } else {

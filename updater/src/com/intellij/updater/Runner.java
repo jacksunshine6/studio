@@ -38,16 +38,19 @@ public class Runner {
       boolean strict = Arrays.asList(args).contains("--strict");
       boolean normalized = Arrays.asList(args).contains("--normalized");
 
+      String root = getArgument(args, "root");
+      root = root == null ? "" : (root.endsWith("/") ? root : root + "/");
+
       List<String> ignoredFiles = extractArguments(args, "ignored");
       List<String> criticalFiles = extractArguments(args, "critical");
       List<String> optionalFiles = extractArguments(args, "optional");
       List<String> deleteFiles = extractArguments(args, "delete");
-
-      List<String> warnings = extractArguments(args, "warning");
+      Map<String, String> warnings = buildWarningMap(extractArguments(args, "warning"));
 
       PatchSpec spec = new PatchSpec()
         .setOldVersionDescription(oldVersionDesc)
         .setNewVersionDescription(newVersionDesc)
+        .setRoot(root)
         .setOldFolder(oldFolder)
         .setNewFolder(newFolder)
         .setPatchFile(patchFile)
@@ -59,7 +62,7 @@ public class Runner {
         .setCriticalFiles(criticalFiles)
         .setOptionalFiles(optionalFiles)
         .setDeleteFiles(deleteFiles)
-        .setWarnings(buildWarningMap(warnings));
+        .setWarnings(warnings);
 
       create(spec);
     }
@@ -184,6 +187,9 @@ public class Runner {
       "              patch will only be applied if it is guaranteed that the patched version will match exactly\n" +
       "              the source of the patch. This means that unexpected files will be deleted and all existing files\n" +
       "              will be validated\n" +
+      "    --root=<dir>: Sets dir as the root directory of the patch. The root directory is the directory where the patch should be" +
+      "                  applied to. For example on Mac, you can diff the two .app folders and set Contents as the root." +
+      "                  The root directory is relative to <old_folder> and uses forwards-slashes as separators." +
       "    --normalized: This creates a normalized patch. This flag only makes sense in addition to --zip_as_binary\n" +
       "                  A normalized patch must be used to move from an installation that was patched\n" +
       "                  in a non-binary way to a fully binary patch. This will yield a larger patch, but the\n" +

@@ -11,6 +11,7 @@ public class Patch {
   private boolean myIsNormalized;
   private String myOldBuild;
   private String myNewBuild;
+  private String myRoot;
   private Map<String, String> myWarnings;
   private List<String> myDeleteFiles;
 
@@ -28,6 +29,7 @@ public class Patch {
     myNewBuild = spec.getNewVersionDescription();
     myWarnings = spec.getWarnings();
     myDeleteFiles = spec.getDeleteFiles();
+    myRoot = spec.getRoot();
 
     calculateActions(spec, ui);
   }
@@ -100,6 +102,7 @@ public class Patch {
     try {
       dataOut.writeUTF(myOldBuild);
       dataOut.writeUTF(myNewBuild);
+      dataOut.writeUTF(myRoot);
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
       dataOut.writeBoolean(myIsNormalized);
@@ -127,7 +130,7 @@ public class Patch {
     }
   }
 
-  public void writeActions(DataOutputStream dataOut, List<PatchAction> actions) throws IOException {
+  private void writeActions(DataOutputStream dataOut, List<PatchAction> actions) throws IOException {
     dataOut.writeInt(actions.size());
 
     for (PatchAction each : actions) {
@@ -163,6 +166,7 @@ public class Patch {
 
     myOldBuild = in.readUTF();
     myNewBuild = in.readUTF();
+    myRoot = in.readUTF();
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
     myIsNormalized = in.readBoolean();
@@ -190,7 +194,7 @@ public class Patch {
     return map;
   }
 
-  public List<PatchAction> readActions(DataInputStream in) throws IOException {
+  private List<PatchAction> readActions(DataInputStream in) throws IOException {
     List<PatchAction> actions = new ArrayList<PatchAction>();
     int size = in.readInt();
     while (size-- > 0) {
@@ -220,8 +224,18 @@ public class Patch {
     return actions;
   }
 
-  public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
+  private File toBaseDir(File toDir) throws IOException {
+    // This removes myRoot from the end of toDir. myRoot is expressed with '/' so converting to URI to normalize separators.
+    String path = toDir.toURI().getPath();
+    if (!path.endsWith(myRoot)) {
+      throw new IOException("The patch must be applied to the root folder " + myRoot);
+    }
+    return new File(path.substring(0, path.length() - myRoot.length()));
+  }
+
+  public List<ValidationResult> validate(final File rootDir, UpdaterUI ui) throws IOException, OperationCancelledException {
     LinkedHashSet<String> files = null;
+    final File toDir = toBaseDir(rootDir);
     boolean checkWarnings = true;
     while (checkWarnings) {
       files = Utils.collectRelativePaths(toDir, myIsStrict);
@@ -263,11 +277,12 @@ public class Patch {
   }
 
   public ApplicationResult apply(final ZipFile patchFile,
-                                 final File toDir,
+                                 final File rootDir,
                                  final File backupDir,
                                  final Map<String, ValidationResult.Option> options,
                                  UpdaterUI ui) throws IOException, OperationCancelledException {
 
+    final File toDir = toBaseDir(rootDir);
     List<PatchAction> actionsToProcess = new ArrayList<PatchAction>();
     for (PatchAction each : myActions) {
       if (each.shouldApply(toDir, options)) actionsToProcess.add(each);
@@ -306,7 +321,7 @@ public class Patch {
     }
 
     if (shouldRevert) {
-      revert(appliedActions, backupDir, toDir, ui);
+      revert(appliedActions, backupDir, rootDir, ui);
       appliedActions.clear();
 
       if (cancelled) throw new OperationCancelledException();
@@ -318,9 +333,10 @@ public class Patch {
     return new ApplicationResult(appliedActions);
   }
 
-  public void revert(List<PatchAction> actions, final File backupDir, final File toDir, UpdaterUI ui)
+  public void revert(List<PatchAction> actions, final File backupDir, final File rootDir, UpdaterUI ui)
     throws OperationCancelledException, IOException {
     Collections.reverse(actions);
+    final File toDir = toBaseDir(rootDir);
     forEach(actions, "Reverting...", ui, false,
             new ActionsProcessor() {
               @Override
