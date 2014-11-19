@@ -34,6 +34,7 @@ public class PatchSpec {
   private boolean myIsNormalized;
   private Map<String, String> myWarnings = Collections.emptyMap();
   private List<String> myDeleteFiles = Collections.emptyList();
+  private String myRoot = "";
 
   public String getOldVersionDescription() {
     return myOldVersionDescription;
@@ -159,5 +160,14 @@ public class PatchSpec {
 
   public List<String> getDeleteFiles() {
     return myDeleteFiles;
+  }
+
+  public PatchSpec setRoot(String root) {
+    myRoot = root;
+    return this;
+  }
+
+  public String getRoot() {
+    return myRoot;
   }
 }
