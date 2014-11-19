@@ -352,7 +352,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertTrue(action instanceof UpdateAction);
     UpdateAction update = (UpdateAction)action;
     assertTrue(update.isMove());
-    assertEquals("/a/deleted/file/that/is/a/copy/move.me", update.getSource(new File("/")).getAbsolutePath());
+    assertEquals("a/deleted/file/that/is/a/copy/move.me", update.getSourcePath());
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
@@ -404,7 +404,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertTrue(action instanceof UpdateAction);
     UpdateAction update = (UpdateAction)action;
     assertTrue(!update.isMove());
-    assertEquals("/move/from/this/directory/move.me", update.getSource(new File("/")).getAbsolutePath());
+    assertEquals("move/from/this/directory/move.me", update.getSourcePath());
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
