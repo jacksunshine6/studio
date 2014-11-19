@@ -33,6 +33,10 @@ public abstract class BaseUpdateAction extends PatchAction {
     return new File(toDir, mySource);
   }
 
+  public String getSourcePath() {
+    return mySource;
+  }
+
   @Override
   protected boolean doShouldApply(File toDir) {
     // if the file is optional in may not exist
