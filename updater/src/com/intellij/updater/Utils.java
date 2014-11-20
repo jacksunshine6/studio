@@ -209,9 +209,8 @@ public class Utils {
   }
 
   public static InputStream newFileInputStream(File file, boolean normalize) throws IOException {
-    FileInputStream inputStream = new FileInputStream(file);
     if (!normalize || !isZipFile(file.getName())) {
-      return inputStream;
+      return new FileInputStream(file);
     }
     return new NormalizedZipInputStream(file);
   }
