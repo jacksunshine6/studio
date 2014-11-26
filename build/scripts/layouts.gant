@@ -51,6 +51,12 @@ String patchAppDescriptor(String targetDirectory) {
 }
 
 def layoutFull(String home, String targetDirectory, String patchedDescriptorDir = null) {
+  buildSearchableOptions("${projectBuilder.moduleOutput(findModule("resources-en"))}/search", [], {
+    projectBuilder.moduleRuntimeClasspath(findModule("community-main"), false).each {
+      ant.pathelement(location: it)
+    }
+  }, "-Didea.platform.prefix=AndroidStudio -Didea.no.jre.check=true")
+
   projectBuilder.stage("layout to $targetDirectory")
 
   List<String> openapiModules = [platformApiModules,
@@ -209,25 +215,26 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
     layoutCommunityPlugins(home)
 
-    dir("plugins") {
-      dir("javaFX") {
-        dir("lib") {
-          jar("javaFX.jar") {
-            noResources("javaFX")
-            noResources("javaFX-CE")
-          }
-          resources(["javaFX", "javaFX-CE"])
-          jar("javaFX-jps-plugin.jar") {
-            module("javaFX-jps-plugin")
-          }
-          jar("common-javaFX-plugin.jar") {
-            module("common-javaFX-plugin")
-          }
-        }
-
-        fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
-      }
-    }
+    // javaFX not needed in AS
+    //dir("plugins") {
+    //  dir("javaFX") {
+    //    dir("lib") {
+    //      jar("javaFX.jar") {
+    //        noResources("javaFX")
+    //        noResources("javaFX-CE")
+    //      }
+    //      resources(["javaFX", "javaFX-CE"])
+    //      jar("javaFX-jps-plugin.jar") {
+    //        module("javaFX-jps-plugin")
+    //      }
+    //      jar("common-javaFX-plugin.jar") {
+    //        module("common-javaFX-plugin")
+    //      }
+    //    }
+    //
+    //    fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
+    //  }
+    //}
 
     dir("plugins") {
       dir("IntelliLang") {

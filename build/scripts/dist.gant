@@ -35,6 +35,8 @@ class Paths {
   final artifacts
   final artifacts_core
   final artifacts_jps
+  final ideaSystem
+  final ideaConfig
 
   def Paths(String out) {
     sandbox = out
@@ -45,6 +47,8 @@ class Paths {
     artifacts = "$sandbox/artifacts"
     artifacts_core = "$artifacts/core"
     artifacts_jps = "$artifacts/jps"
+    ideaSystem = "$sandbox/system"
+    ideaConfig = "$sandbox/config"
   }
 }
 
