@@ -219,6 +219,10 @@ NSString *getExecutable() {
     return getJVMProperty(@"idea.executable");
 }
 
+NSString *getBundleName() {
+    return [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+}
+
 NSString *getPreferencesFolderPath() {
     return [NSString stringWithFormat:@"%@/Library/Preferences/%@", NSHomeDirectory(), getSelector()];
 }
@@ -358,13 +362,21 @@ NSString *getOverridePropertiesPath() {
     }
 }
 
+- (void)alert:(NSArray *)values {
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [alert setMessageText:[values objectAtIndex:0]];
+    [alert setInformativeText:[values objectAtIndex:1]];
+    [alert runModal];
+}
+
 - (void)launch {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     NSBundle *vm = findMatchingVm();
     if (vm == nil) {
-        NSString *old_launcher = [self expandMacros:@"$APP_PACKAGE/Contents/MacOS/idea_appLauncher"];
-        execv([old_launcher fileSystemRepresentation], self->argv);
+        NSString *title = @"Java not found";
+        NSString *message = [getBundleName() stringByAppendingString:@" was unable to find a valid JVM."];
+        [self performSelectorOnMainThread:@selector(alert:) withObject:@[title, message] waitUntilDone:true];
 
         NSLog(@"Cannot find matching VM, aborting");
         exit(-1);
