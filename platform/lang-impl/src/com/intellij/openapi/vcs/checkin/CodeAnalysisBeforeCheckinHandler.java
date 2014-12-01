@@ -19,6 +19,7 @@ package com.intellij.openapi.vcs.checkin;
 import com.intellij.CommonBundle;
 import com.intellij.codeInsight.CodeSmellInfo;
 import com.intellij.lang.annotation.HighlightSeverity;
+import com.intellij.openapi.application.ApplicationNamesInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.DumbService;
@@ -138,7 +139,8 @@ public class CodeAnalysisBeforeCheckinHandler extends CheckinHandler {
     if (getSettings().CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT) {
       if (DumbService.getInstance(myProject).isDumb()) {
         if (Messages.showOkCancelDialog(myProject,
-                                "Code analysis can't be performed while IntelliJ IDEA updates the indices in background.\n" +
+                                "Code analysis can't be performed while " + ApplicationNamesInfo.getInstance().getFullProductName()  +
+                                "updates the indices in background.\n" +
                                 "You can commit the changes without running inspections, or you can wait until indices are built.",
                                 "Code analysis is not possible right now",
                                 "&Wait", "&Commit", null) == Messages.OK) {
