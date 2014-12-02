@@ -176,12 +176,8 @@ private layoutWin(Map _args, String home, Paths paths) {
   // The 0.1.1 win launcher.
   ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-Win32/studio.exe",
            tofile: "$target/bin/studio.exe")
-  ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-Win32/studio.exe.manifest",
-           tofile: "$target/bin/studio.exe.manifest")
   ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-x64/studio64.exe",
            tofile: "$target/bin/studio64.exe")
-  ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-x64/studio64.exe.manifest",
-           tofile: "$target/bin/studio64.exe.manifest")
 
   winScripts(target, home, "studio.bat", args)
   winVMOptions(target, args, "studio.exe", "studio64.exe")
