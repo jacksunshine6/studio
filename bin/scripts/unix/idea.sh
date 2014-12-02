@@ -133,22 +133,20 @@ if [ -z "$MAIN_CLASS_NAME" ]; then
   MAIN_CLASS_NAME="com.intellij.idea.Main"
 fi
 
-VM_OPTIONS_FILES=$IDE_BIN_HOME/@@vm_options@@$BITS.vmoptions$'\n'
-VM_OPTIONS_FILES+=$HOME/.@@system_selector@@/@@vm_options@@$BITS.vmoptions$'\n'
-VM_OPTIONS_FILES+=$@@product_uc@@_VM_OPTIONS$'\n'
+VM_OPTIONS_FILES[0]=$IDE_BIN_HOME/@@vm_options@@$BITS.vmoptions
+VM_OPTIONS_FILES[1]=$HOME/.@@system_selector@@/@@vm_options@@$BITS.vmoptions
+VM_OPTIONS_FILES[2]=$@@product_uc@@_VM_OPTIONS
 
 VM_OPTIONS=""
 VM_OPTIONS_FILES_USED=""
-OLDIFS=$IFS
-IFS=$'\n'
-for VM_OPTIONS_FILE in $VM_OPTIONS_FILES; do
+for ((i = 0; i < ${#VM_OPTIONS_FILES[@]}; i++)); do
+  VM_OPTIONS_FILE="${VM_OPTIONS_FILES[$i]}"
   if [ -r "$VM_OPTIONS_FILE" ]; then
     VM_OPTIONS+=`"$CAT" "$VM_OPTIONS_FILE" | "$GREP" -v "^#.*" | "$TR" '\n' ' '`
     if [ -n "$VM_OPTIONS_FILES_USED" ]; then VM_OPTIONS_FILES_USED+=","; fi
     VM_OPTIONS_FILES_USED+=$VM_OPTIONS_FILE
   fi
 done
-IFS=$OLDIFS
 VM_OPTIONS="$VM_OPTIONS -Djb.vmOptionsFile=\"$VM_OPTIONS_FILES_USED\""
 
 IS_EAP="@@isEap@@"
