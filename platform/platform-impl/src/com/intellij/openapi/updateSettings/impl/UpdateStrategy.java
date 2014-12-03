@@ -87,8 +87,11 @@ public class UpdateStrategy {
     List<UpdateChannel> channels = product.getChannels();
     List<UpdateChannel> result = new ArrayList<UpdateChannel>();
     for (UpdateChannel channel : channels) {
+      /* Android Studio: We want to offer upgrades to new major versions from all channels.
       if ((channel.getMajorVersion() == myMajorVersion && channel.getStatus().compareTo(myChannelStatus) >= 0) ||
           (channel.getMajorVersion() > myMajorVersion && channel.getStatus() == ChannelStatus.EAP && myChannelStatus == ChannelStatus.EAP)) {
+      */
+      if (channel.getMajorVersion() >= myMajorVersion && channel.getStatus().compareTo(myChannelStatus) >= 0) {
         result.add(channel);
       }
     }
