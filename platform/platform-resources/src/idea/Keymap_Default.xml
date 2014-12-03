@@ -331,7 +331,7 @@
   <action id="EditorLeftWithSelection">
     <keyboard-shortcut first-keystroke="shift LEFT"/>
   </action>
-  <action id="Compile">
+  <action id="MakeModule">
     <keyboard-shortcut first-keystroke="control shift F9"/>
   </action>
   <action id="RunAPT">
