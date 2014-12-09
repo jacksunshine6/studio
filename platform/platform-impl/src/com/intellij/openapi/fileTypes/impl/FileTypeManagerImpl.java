@@ -127,7 +127,7 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
   private final AtomicInteger counterAutoDetect = new AtomicInteger();
   private final AtomicLong elapsedAutoDetect = new AtomicLong();
 
-  private void initStandardFileTypes() {
+  public void initStandardFileTypes() {
     final FileTypeConsumer consumer = new FileTypeConsumer() {
       @Override
       public void consume(@NotNull FileType fileType) {
@@ -168,6 +168,9 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
       catch (Throwable t) {
         PluginManager.handleComponentError(t, factory.getClass().getName(), null);
       }
+    }
+    for (final StandardFileType pair : myStandardFileTypes.values()) {
+      registerFileTypeWithoutNotification(pair.fileType, pair.matchers);
     }
   }
 
@@ -260,6 +263,9 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
         }
       }
     });
+
+    // this should be done BEFORE reading state
+    initStandardFileTypes();
   }
 
   private final TransferToPooledThreadQueue<Collection<VirtualFile>> reDetectQueue = new TransferToPooledThreadQueue<Collection<VirtualFile>>("File type re-detect", Conditions.alwaysFalse(), -1, new Processor<Collection<VirtualFile>>() {
@@ -353,13 +359,10 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
 
   @Override
   public void initComponent() {
-    initStandardFileTypes();
-
-    for (final StandardFileType pair : myStandardFileTypes.values()) {
-      registerFileTypeWithoutNotification(pair.fileType, pair.matchers);
-    }
-    for (StandardFileType pair : myStandardFileTypes.values()) {
-      registerReDetectedMappings(pair);
+    if (!myUnresolvedMappings.isEmpty()) {
+      for (StandardFileType pair : myStandardFileTypes.values()) {
+        registerReDetectedMappings(pair);
+      }
     }
     // Resolve unresolved mappings initialized before certain plugin initialized.
     for (final StandardFileType pair : myStandardFileTypes.values()) {
@@ -864,11 +867,18 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
 
     for (Pair<FileNameMatcher, String> association : associations) {
       FileType type = getFileTypeByName(association.getSecond());
+      FileNameMatcher matcher = association.getFirst();
       if (type != null) {
-        associate(type, association.getFirst(), false);
+        if (PlainTextFileType.INSTANCE == type) {
+          FileType newFileType = myPatternsTable.findAssociatedFileType(matcher);
+          if (newFileType != null && newFileType != PlainTextFileType.INSTANCE && newFileType != UnknownFileType.INSTANCE) {
+            myRemovedMappings.put(matcher, Pair.create(newFileType, false));
+          }
+        }
+        associate(type, matcher, false);
       }
       else {
-        myUnresolvedMappings.put(association.getFirst(), association.getSecond());
+        myUnresolvedMappings.put(matcher, association.getSecond());
       }
     }
 
@@ -1297,15 +1307,24 @@ public class FileTypeManagerImpl extends FileTypeManagerEx implements NamedJDOME
     FileType fileType = pair.fileType;
     if (fileType == PlainTextFileType.INSTANCE) return;
     for (FileNameMatcher matcher : pair.matchers) {
-      String typeName = myUnresolvedMappings.get(matcher);
-      if (typeName != null && !typeName.equals(fileType.getName())) {
-        Trinity<String, String, Boolean> trinity = myUnresolvedRemovedMappings.get(matcher);
-        myRemovedMappings.put(matcher, Pair.create(fileType, trinity != null && trinity.third));
+      registerReDetectedMapping(fileType, matcher);
+      if (matcher instanceof ExtensionFileNameMatcher) {
+        // also check exact file name matcher
+        ExtensionFileNameMatcher extMatcher = (ExtensionFileNameMatcher)matcher;
+        registerReDetectedMapping(fileType, new ExactFileNameMatcher("." + extMatcher.getExtension()));
       }
     }
   }
 
-  Map<FileNameMatcher, Pair<FileType, Boolean>> getRemovedMappings() {
+  private void registerReDetectedMapping(@NotNull FileType fileType, @NotNull FileNameMatcher matcher) {
+    String typeName = myUnresolvedMappings.get(matcher);
+    if (typeName != null && !typeName.equals(fileType.getName())) {
+      Trinity<String, String, Boolean> trinity = myUnresolvedRemovedMappings.get(matcher);
+      myRemovedMappings.put(matcher, Pair.create(fileType, trinity != null && trinity.third));
+    }
+  }
+
+  public Map<FileNameMatcher, Pair<FileType, Boolean>> getRemovedMappings() {
     return myRemovedMappings;
   }
 

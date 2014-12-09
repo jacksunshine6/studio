@@ -74,7 +74,6 @@ import com.intellij.ui.*;
 import com.intellij.ui.components.JBLayeredPane;
 import com.intellij.ui.components.JBScrollBar;
 import com.intellij.ui.components.JBScrollPane;
-import com.intellij.ui.components.OrphanGuardian;
 import com.intellij.util.*;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.ContainerUtilRt;
@@ -491,16 +490,17 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     myVerticalScrollBar = (MyScrollBar)myScrollPane.getVerticalScrollBar();
     myPanel = new JPanel();
 
-    myPanel.putClientProperty(OrphanGuardian.CLIENT_PROPERTY_KEY, new OrphanGuardian() {
-
-      @Override
-      public void iterateOrphans(Consumer<JComponent> consumer) {
-        JComponent component = getPermanentHeaderComponent();
-        if (component != null && !component.isValid()) {
-          consumer.consume(component);
+    UIUtil.putClientProperty(
+      myPanel, JBSwingUtilities.NOT_IN_HIERARCHY_COMPONENTS, new Iterable<JComponent>() {
+        @Override
+        public Iterator<JComponent> iterator() {
+          JComponent component = getPermanentHeaderComponent();
+          if (component != null && !component.isValid()) {
+            return Collections.singleton(component).iterator();
+          }
+          return ContainerUtil.emptyIterator();
         }
-      }
-    });
+      });
 
     myHeaderPanel = new MyHeaderPanel();
     myGutterComponent = new EditorGutterComponentImpl(this);
@@ -687,12 +687,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
   @Override
   public void reinitSettings() {
     assertIsDispatchThread();
-    myCharHeight = -1;
-    myLineHeight = -1;
-    myDescent = -1;
-    myPlainFontMetrics = null;
-
-    clearTextWidthCache();
+    clearSettingsCache();
 
     reinitDocumentIndentOptions();
 
@@ -749,6 +744,15 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     }
   }
 
+  private void clearSettingsCache() {
+    myCharHeight = -1;
+    myLineHeight = -1;
+    myDescent = -1;
+    myPlainFontMetrics = null;
+
+    clearTextWidthCache();
+  }
+
   private void reinitDocumentIndentOptions() {
     if (myProject != null && !myProject.isDisposed()) {
       CodeStyleSettingsManager.updateDocumentIndentOptions(myProject, myDocument);
@@ -780,17 +784,12 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     myTraceableDisposable.kill(null);
 
     isReleased = true;
+    clearSettingsCache();
 
     myFoldingModel.dispose();
-
     mySoftWrapModel.release();
-
     myMarkupModel.dispose();
 
-    myLineHeight = -1;
-    myCharHeight = -1;
-    myDescent = -1;
-    myPlainFontMetrics = null;
     myScrollingModel.dispose();
     myGutterComponent.dispose();
     myMousePressedEvent = null;
@@ -1962,7 +1961,10 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     LogicalPosition clipEndPosition = xyToLogicalPosition(new Point(0, clip.y + clip.height + getLineHeight()));
     int clipEndOffset = logicalPositionToOffset(clipEndPosition);
     paintBackgrounds(g, clip, clipStartPosition, clipStartVisualPos, clipStartOffset, clipEndOffset);
-    if (paintPlaceholderText(g, clip)) return;
+    if (paintPlaceholderText(g, clip)) {
+      paintCaretCursor(g);
+      return;
+    }
 
     paintRectangularSelection(g);
     paintRightMargin(g, clip);
@@ -2223,8 +2225,10 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
                                 @NotNull VisualPosition clipStartVisualPos,
                                 int clipStartOffset, int clipEndOffset) {
     Color defaultBackground = getBackgroundColor();
-    g.setColor(defaultBackground);
-    g.fillRect(clip.x, clip.y, clip.width, clip.height);
+    if (myEditorComponent.isOpaque()) {
+      g.setColor(defaultBackground);
+      g.fillRect(clip.x, clip.y, clip.width, clip.height);
+    }
 
     int lineHeight = getLineHeight();
 
@@ -2893,7 +2897,8 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       return false;
     }
 
-    if (KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner() == myEditorComponent) {
+    if (KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner() == myEditorComponent &&
+      !Boolean.TRUE.equals(SHOW_PLACEHOLDER_WHEN_FOCUSED.get(this))) {
       // There is a possible case that placeholder text was painted and the editor gets focus now. We want to over-paint previously
       // used placeholder text then.
       myLastBackgroundColor = getBackgroundColor();
@@ -2903,6 +2908,8 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       return false;
     }
     else {
+      hintText = SwingUtilities.layoutCompoundLabel(g.getFontMetrics(), hintText.toString(), null, 0, 0, 0, 0,
+                                                    myEditorComponent.getBounds(), new Rectangle(), new Rectangle(), 0);
       myLastPaintedPlaceholderWidth = drawString(
         g, hintText, 0, hintText.length(), new Point(0, 0), clip, null, null, Font.PLAIN,
         myFoldingModel.getPlaceholderAttributes().getForegroundColor(), PAINT_NO_WHITESPACE
@@ -4571,7 +4578,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     }
 
     private void paint(@NotNull Graphics g) {
-      if (!isEnabled() || !myIsShown || !IJSwingUtilities.hasFocus(getContentComponent()) || isRendererMode()) return;
+      if (!isEnabled() || !myIsShown || isRendererMode() || !IJSwingUtilities.hasFocus(getContentComponent())) return;
 
       if (myCaretModel.supportsMultipleCarets()) {
         for (CaretRectangle location : myLocations) {
@@ -5999,16 +6006,22 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       updateGlobalScheme();
     }
 
-    private EditorColorsScheme getGlobal() {
-      return getDelegate();
-    }
-
-    protected void initFonts() {
+    private void reinitFonts() {
       String editorFontName = getEditorFontName();
       int editorFontSize = getEditorFontSize();
 
       myFontPreferences.clear();
       myFontPreferences.register(editorFontName, editorFontSize);
+
+      EditorColorsScheme delegate = getDelegate();
+      List<String> secondaryFonts = delegate != null ? delegate.getFontPreferences().getRealFontFamilies() : ContainerUtil.<String>emptyList();
+      boolean first = true; //skip delegate's primary font
+      for (String font : secondaryFonts) {
+        if (!first) {
+          myFontPreferences.register(font, editorFontSize);
+        }
+        first = false;
+      }
 
       myFontsMap = new EnumMap<EditorFontType, Font>(EditorFontType.class);
 
@@ -6021,14 +6034,17 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
       myFontsMap.put(EditorFontType.BOLD, boldFont);
       myFontsMap.put(EditorFontType.ITALIC, italicFont);
       myFontsMap.put(EditorFontType.BOLD_ITALIC, boldItalicFont);
+    }
 
+    protected void reinitFontsAndSettings() {
+      reinitFonts();
       reinitSettings();
     }
 
     @Override
     public TextAttributes getAttributes(TextAttributesKey key) {
       if (myOwnAttributes.containsKey(key)) return myOwnAttributes.get(key);
-      return getGlobal().getAttributes(key);
+      return getDelegate().getAttributes(key);
     }
 
     @Override
@@ -6039,7 +6055,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     @Override
     public Color getColor(ColorKey key) {
       if (myOwnColors.containsKey(key)) return myOwnColors.get(key);
-      return getGlobal().getColor(key);
+      return getDelegate().getColor(key);
     }
 
     @Override
@@ -6055,7 +6071,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     @Override
     public int getEditorFontSize() {
       if (myFontSize == -1) {
-        return getGlobal().getEditorFontSize();
+        return getDelegate().getEditorFontSize();
       }
       return myFontSize;
     }
@@ -6064,34 +6080,37 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     public void setEditorFontSize(int fontSize) {
       if (fontSize < MIN_FONT_SIZE) fontSize = MIN_FONT_SIZE;
       if (fontSize > myMaxFontSize) fontSize = myMaxFontSize;
+      if (fontSize == myFontSize) return;
       myFontSize = fontSize;
-      initFonts();
+      reinitFontsAndSettings();
     }
 
     @NotNull
     @Override
     public FontPreferences getFontPreferences() {
-      return myFontPreferences.getEffectiveFontFamilies().isEmpty() ? getGlobal().getFontPreferences() : myFontPreferences;
+      return myFontPreferences.getEffectiveFontFamilies().isEmpty() ? getDelegate().getFontPreferences() : myFontPreferences;
     }
 
     @Override
     public void setFontPreferences(@NotNull FontPreferences preferences) {
+      if (Comparing.equal(preferences, myFontPreferences)) return;
       preferences.copyTo(myFontPreferences);
-      initFonts();
+      reinitFontsAndSettings();
     }
 
     @Override
     public String getEditorFontName() {
       if (myFaceName == null) {
-        return getGlobal().getEditorFontName();
+        return getDelegate().getEditorFontName();
       }
       return myFaceName;
     }
 
     @Override
     public void setEditorFontName(String fontName) {
+      if (Comparing.equal(fontName, myFaceName)) return;
       myFaceName = fontName;
-      initFonts();
+      reinitFontsAndSettings();
     }
 
     @Override
@@ -6100,13 +6119,13 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
         Font font = myFontsMap.get(key);
         if (font != null) return font;
       }
-      return getGlobal().getFont(key);
+      return getDelegate().getFont(key);
     }
 
     @Override
     public void setFont(EditorFontType key, Font font) {
       if (myFontsMap == null) {
-        initFonts();
+        reinitFontsAndSettings();
       }
       myFontsMap.put(key, font);
       reinitSettings();
@@ -6125,13 +6144,15 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     @Override
     public void setDelegate(@NotNull EditorColorsScheme delegate) {
       super.setDelegate(delegate);
-      int globalFontSize = getGlobal().getEditorFontSize();
+      int globalFontSize = getDelegate().getEditorFontSize();
       myMaxFontSize = Math.max(OptionsConstants.MAX_EDITOR_FONT_SIZE, globalFontSize);
+      reinitFonts();
+      clearSettingsCache();
     }
 
     @Override
     public void setConsoleFontSize(int fontSize) {
-      getGlobal().setConsoleFontSize(fontSize);
+      getDelegate().setConsoleFontSize(fontSize);
       reinitSettings();
     }
   }
@@ -6872,15 +6893,20 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
 
   // Strategy, controlled by current editor settings. Usable only for the current line.
   private class LineWhitespacePaintingStrategy implements WhitespacePaintingStrategy {
+    private final boolean myWhitespaceShown = mySettings.isWhitespacesShown();
+    private final boolean myLeadingWhitespaceShown = mySettings.isLeadingWhitespaceShown();
+    private final boolean myInnerWhitespaceShown = mySettings.isInnerWhitespaceShown();
+    private final boolean myTrailingWhitespaceShown = mySettings.isTrailingWhitespaceShown();
+
     // Offsets on current line where leading whitespace ends and trailing whitespace starts correspondingly.
     private int currentLeadingEdge;
     private int currentTrailingEdge;
 
     // Updates the state, to be used for the line, iterator is currently at.
     private void update(CharSequence chars, LineIterator iterator) {
-      if (mySettings.isWhitespacesShown()
-          && (mySettings.isLeadingWhitespaceShown() || mySettings.isInnerWhitespaceShown() || mySettings.isTrailingWhitespaceShown())
-          && !(mySettings.isLeadingWhitespaceShown() && mySettings.isInnerWhitespaceShown() && mySettings.isTrailingWhitespaceShown())) {
+      if (myWhitespaceShown
+          && (myLeadingWhitespaceShown || myInnerWhitespaceShown || myTrailingWhitespaceShown)
+          && !(myLeadingWhitespaceShown && myInnerWhitespaceShown && myTrailingWhitespaceShown)) {
         int lineStart = iterator.getStart();
         int lineEnd = iterator.getEnd() - iterator.getSeparatorLength();
         currentTrailingEdge = CharArrayUtil.shiftBackward(chars, lineStart, lineEnd - 1, WHITESPACE_CHARS) + 1;
@@ -6890,10 +6916,10 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
 
     @Override
     public boolean showWhitespaceAtOffset(int offset) {
-      return mySettings.isWhitespacesShown()
-             && (offset < currentLeadingEdge ? mySettings.isLeadingWhitespaceShown() :
-                 offset >= currentTrailingEdge ? mySettings.isTrailingWhitespaceShown() :
-                 mySettings.isInnerWhitespaceShown());
+      return myWhitespaceShown
+             && (offset < currentLeadingEdge ? myLeadingWhitespaceShown :
+                 offset >= currentTrailingEdge ? myTrailingWhitespaceShown :
+                 myInnerWhitespaceShown);
     }
   }
 }
