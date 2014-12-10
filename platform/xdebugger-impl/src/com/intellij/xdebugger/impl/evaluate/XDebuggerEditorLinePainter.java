@@ -26,7 +26,10 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.*;
+import com.intellij.ui.ColorUtil;
+import com.intellij.ui.JBColor;
+import com.intellij.ui.SimpleColoredText;
+import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.util.NotNullProducer;
 import com.intellij.xdebugger.XDebugSession;
 import com.intellij.xdebugger.XSourcePosition;
@@ -71,7 +74,7 @@ public class XDebuggerEditorLinePainter extends EditorLinePainter {
     }
     Set<XValueNodeImpl> values = map.get(Pair.create(file, lineNumber));
     if (values != null && !values.isEmpty()) {
-      final int bpLine = getCurrentBreakPointLine(values);
+      final int bpLine = getCurrentBreakPointLineInFile(values, file);
       ArrayList<VariableText> result = new ArrayList<VariableText>();
       for (XValueNodeImpl value : values) {
         SimpleColoredText text = new SimpleColoredText();
@@ -95,7 +98,7 @@ public class XDebuggerEditorLinePainter extends EditorLinePainter {
         catch (Exception e) {
           continue;
         }
-        final Color color = bpLine == lineNumber ? new JBColor(Gray._180, new Color(147, 217, 186)) : getForeground();
+        final Color color = bpLine == lineNumber ? new JBColor(new Color(0, 255, 86), new Color(255, 235, 9)) : getForeground();
 
         final String name = value.getName();
         if (StringUtil.isEmpty(text.toString())) {
@@ -141,13 +144,13 @@ public class XDebuggerEditorLinePainter extends EditorLinePainter {
     return null;
   }
 
-  private static int getCurrentBreakPointLine(Set<XValueNodeImpl> values) {
+  private static int getCurrentBreakPointLineInFile(Set<XValueNodeImpl> values, VirtualFile file) {
     try {
       final XValueNodeImpl node = values.iterator().next();
       final XDebugSession session = XDebugView.getSession(node.getTree());
       if (session != null) {
         final XSourcePosition position = session.getCurrentPosition();
-        if (position != null) {
+        if (position != null && position.getFile().equals(file)) {
           return position.getLine();
         }
       }

@@ -23,7 +23,6 @@ import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.progress.util.ProgressIndicatorBase;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.BuildNumber;
 import com.intellij.openapi.util.io.FileUtil;
@@ -31,18 +30,17 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.openapi.vfs.VirtualFileSystem;
+import com.intellij.util.Consumer;
+import com.intellij.util.HttpRequests;
 import com.intellij.util.PathUtil;
-import com.intellij.util.io.UrlConnectionUtil;
+import com.intellij.util.ThrowableConvertor;
 import com.intellij.util.io.ZipUtil;
-import com.intellij.util.net.HttpConfigurable;
 import com.intellij.util.net.NetUtils;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLConnection;
 import java.util.List;
 
@@ -89,17 +87,11 @@ public class PluginDownloader {
     myBuildNumber = buildNumber;
   }
 
-  @SuppressWarnings("UnusedDeclaration")
-  @Deprecated
-  public boolean prepareToInstall() throws IOException {
-    return prepareToInstall(new ProgressIndicatorBase());
+  public boolean prepareToInstall(@NotNull ProgressIndicator progressIndicator) throws IOException {
+    return prepareToInstall(progressIndicator, myBuildNumber);
   }
 
-  public boolean prepareToInstall(ProgressIndicator pi) throws IOException {
-    return prepareToInstall(pi, myBuildNumber);
-  }
-
-  public boolean prepareToInstall(@Nullable ProgressIndicator pi, @Nullable BuildNumber forBuildNumber) throws IOException {
+  public boolean prepareToInstall(@NotNull ProgressIndicator progressIndicator, @Nullable BuildNumber forBuildNumber) throws IOException {
     if (myFile != null) {
       return true;
     }
@@ -119,7 +111,7 @@ public class PluginDownloader {
     // download plugin
     String errorMessage = IdeBundle.message("unknown.error");
     try {
-      myFile = downloadPlugin(pi);
+      myFile = downloadPlugin(progressIndicator);
     }
     catch (IOException ex) {
       myFile = null;
@@ -176,11 +168,7 @@ public class PluginDownloader {
       if (file.getName().endsWith(".zip")) {
         final File outputDir = FileUtil.createTempDirectory("plugin", "");
         try {
-          ZipUtil.extract(file, outputDir, new FilenameFilter() {
-            public boolean accept(final File dir, final String name) {
-              return true;
-            }
-          });
+          ZipUtil.extract(file, outputDir, null);
           final File[] files = outputDir.listFiles();
           if (files != null && files.length == 1) {
             descriptor = PluginManagerCore.loadDescriptor(files[0], PluginManagerCore.PLUGIN_XML);
@@ -237,96 +225,54 @@ public class PluginDownloader {
     }
   }
 
-  private File downloadPlugin(@Nullable final ProgressIndicator pi) throws IOException {
-    final File pluginsTemp = new File(PathManager.getPluginTempPath());
+  @NotNull
+  private File downloadPlugin(@NotNull final ProgressIndicator progressIndicator) throws IOException {
+    File pluginsTemp = new File(PathManager.getPluginTempPath());
     if (!pluginsTemp.exists() && !pluginsTemp.mkdirs()) {
       throw new IOException(IdeBundle.message("error.cannot.create.temp.dir", pluginsTemp));
     }
     final File file = FileUtil.createTempFile(pluginsTemp, "plugin_", "_download", true, false);
 
-    if (pi != null) {
-      pi.setText(IdeBundle.message("progress.connecting"));
-    }
+    progressIndicator.checkCanceled();
+    progressIndicator.setText(IdeBundle.message("progress.downloading.plugin", getPluginName()));
 
-    URLConnection connection = null;
-    try {
-      connection = openConnection(myPluginUrl);
-
-      final InputStream is = (ApplicationManager.getApplication() != null)
-                              ? UrlConnectionUtil.getConnectionInputStream(connection, pi)
-                              : connection.getInputStream();
-      if (is == null) {
-        throw new IOException("Failed to open connection");
+    return HttpRequests.request(myPluginUrl).supportGzip(false).effectiveUrlConsumer(new Consumer<String>() {
+      @Override
+      public void consume(String url) {
+        myPluginUrl = url;
       }
+    }).get(new ThrowableConvertor<URLConnection, File, IOException>() {
+      @Override
+      public File convert(URLConnection connection) throws IOException {
+        progressIndicator.checkCanceled();
 
-      if (ApplicationManager.getApplication() != null && pi != null) {
-        pi.setText(IdeBundle.message("progress.downloading.plugin", getPluginName()));
-      }
-      final int contentLength = connection.getContentLength();
-      if (pi != null) {
-        pi.setIndeterminate(contentLength == -1);
-      }
-
-      try {
-        final OutputStream fos = new BufferedOutputStream(new FileOutputStream(file, false));
+        InputStream input = HttpRequests.getInputStream(connection);
         try {
-          NetUtils.copyStreamContent(pi, is, fos, contentLength);
+          OutputStream fileOut = new FileOutputStream(file);
+          try {
+            NetUtils.copyStreamContent(progressIndicator, input, fileOut, connection.getContentLength());
+          }
+          finally {
+            fileOut.close();
+          }
         }
         finally {
-          fos.close();
+          input.close();
         }
-      }
-      finally {
-        is.close();
-      }
 
-      if (myFileName == null) {
-        myFileName = guessFileName(connection, file);
-      }
+        if (myFileName == null) {
+          myFileName = guessFileName(connection, file);
+        }
 
-      final File newFile = new File(file.getParentFile(), myFileName);
-      FileUtil.rename(file, newFile);
-      return newFile;
-    }
-    finally {
-      if (connection instanceof HttpURLConnection) {
-        ((HttpURLConnection)connection).disconnect();
+        File newFile = new File(file.getParentFile(), myFileName);
+        FileUtil.rename(file, newFile);
+        return newFile;
       }
-    }
-  }
-
-  private URLConnection openConnection(final String url) throws IOException {
-    final URLConnection connection;
-    if (ApplicationManager.getApplication() != null) {
-      connection = HttpConfigurable.getInstance().openConnection(url);
-    }
-    else {
-      connection = new URL(url).openConnection();
-      connection.setConnectTimeout(HttpConfigurable.CONNECTION_TIMEOUT);
-      connection.setReadTimeout(HttpConfigurable.CONNECTION_TIMEOUT);
-    }
-    if (connection instanceof HttpURLConnection) {
-      final int responseCode = ((HttpURLConnection)connection).getResponseCode();
-      if (responseCode != HttpURLConnection.HTTP_OK) {
-        String location = null;
-        if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP) {
-          location = connection.getHeaderField("Location");
-        }
-        if (location == null) {
-          throw new IOException(IdeBundle.message("error.connection.failed.with.http.code.N", responseCode));
-        }
-        else {
-          myPluginUrl = location;
-          ((HttpURLConnection)connection).disconnect();
-          return openConnection(location);
-        }
-      }
-    }
-    return connection;
+    });
   }
 
   @NotNull
-  private String guessFileName(final URLConnection connection, final File file) throws IOException {
+  private String guessFileName(@NotNull URLConnection connection, @NotNull File file) throws IOException {
     String fileName = null;
 
     final String contentDisposition = connection.getHeaderField("Content-Disposition");
