@@ -61,8 +61,8 @@ public abstract class ZenCodingGenerator {
 
   public static List<ZenCodingGenerator> getInstances() {
     List<ZenCodingGenerator> generators = new ArrayList<ZenCodingGenerator>();
-    generators.add(XmlZenCodingGeneratorImpl.INSTANCE);
     Collections.addAll(generators, EP_NAME.getExtensions());
+    generators.add(XmlZenCodingGeneratorImpl.INSTANCE);
     return generators;
   }
 
@@ -132,7 +132,7 @@ public abstract class ZenCodingGenerator {
            : null;
   }
 
-  private static boolean isAllowedChar(char c) {
+  protected boolean isAllowedChar(char c) {
     return (Character.isDigit(c) || Character.isLetter(c) || StringUtil.containsChar("/>+^[](){}#.*:$-_!@|%", c));
   }
 

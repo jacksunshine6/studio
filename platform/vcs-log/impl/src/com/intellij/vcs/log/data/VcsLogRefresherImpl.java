@@ -21,12 +21,10 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.progress.impl.ProgressManagerImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vcs.VcsException;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.Consumer;
 import com.intellij.util.Function;
-import com.intellij.util.NotNullFunction;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.UIUtil;
 import com.intellij.vcs.log.*;
@@ -99,7 +97,9 @@ public class VcsLogRefresherImpl implements VcsLogRefresher {
       LogInfo data = loadRecentData(new CommitCountRequirements(myRecentCommitCount).asMap(myProviders.keySet()));
       Collection<List<GraphCommit<Integer>>> commits = data.getCommits();
       Map<VirtualFile, Set<VcsRef>> refs = data.getRefs();
-      DataPack dataPack = DataPack.build(multiRepoJoin(commits), refs, myProviders, myHashMap, false);
+      List<GraphCommit<Integer>> compoundList = multiRepoJoin(commits);
+      compoundList = compoundList.subList(0, Math.min(myRecentCommitCount, compoundList.size()));
+      DataPack dataPack = DataPack.build(compoundList, refs, myProviders, myHashMap, false);
       mySingleTaskController.request(RefreshRequest.RELOAD_ALL); // build/rebuild the full log in background
       return dataPack;
     }
@@ -311,10 +311,12 @@ public class VcsLogRefresherImpl implements VcsLogRefresher {
         return commits;
       }
       catch (VcsLogRefreshNotEnoughDataException e) {
+        // valid case: e.g. another developer merged a long-developed branch, or we just didn't pull for a long time
         LOG.info(e);
       }
       catch (IllegalStateException e) {
-        LOG.error(e);
+        // it happens from time to time, but we don't know why, and can hardly debug it.
+        LOG.info(e);
       }
       return null;
     }
