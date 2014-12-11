@@ -482,7 +482,9 @@ public class NavBarPanel extends JPanel implements DataProvider, PopupOwner, Dis
     else if (object instanceof Module) {
       final ProjectView projectView = ProjectView.getInstance(myProject);
       final AbstractProjectViewPane projectViewPane = projectView.getProjectViewPaneById(projectView.getCurrentViewId());
-      projectViewPane.selectModule((Module)object, true);
+      if (projectViewPane != null) {
+        projectViewPane.selectModule((Module)object, true);
+      }
     }
     else if (object instanceof Project) {
       return;
