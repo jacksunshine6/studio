@@ -54,7 +54,7 @@ public class UpdateSettings implements PersistentStateComponent<Element>, UserUp
   public boolean CHECK_NEEDED = true;
   public long LAST_TIME_CHECKED = 0;
   public String LAST_BUILD_CHECKED = "";
-  public String UPDATE_CHANNEL_TYPE = ChannelStatus.BETA_CODE;
+  public String UPDATE_CHANNEL_TYPE = ChannelStatus.RELEASE_CODE;
 
   public static UpdateSettings getInstance() {
     return ServiceManager.getService(UpdateSettings.class);
