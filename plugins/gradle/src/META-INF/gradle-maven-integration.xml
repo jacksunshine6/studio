@@ -18,9 +18,14 @@
   </actions>
 
   <extensions defaultExtensionNs="com.intellij">
+    <!-- In Android Studio, we decided to disable Maven central indexing because:
+         - it is unreasonably large (it's 1.2 G out of 1.5 G in the entire user data)
+         - it's also not kept up to date (or at least wasn't at some point)
+         - it's not really reliable as a way to query for up to date versions
     <postStartupActivity implementation="org.jetbrains.plugins.gradle.integrations.maven.GradleProjectStartupActivity"/>
     <externalSystemTaskNotificationListener
         implementation="org.jetbrains.plugins.gradle.integrations.maven.GradleMavenProjectImportNotificationListener"/>
+    -->
     <externalProjectDataService implementation="com.intellij.openapi.externalSystem.service.project.manage.ModuleDataService"/>
     <completion.contributor language="Groovy" order="first"
                             implementationClass="org.jetbrains.plugins.gradle.integrations.maven.codeInsight.completion.MavenDependenciesGradleCompletionContributor"/>
