@@ -1,5 +1,6 @@
 package com.intellij.dvcs.repo;
 
+import com.intellij.dvcs.DvcsUtil;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.AbstractProjectComponent;
 import com.intellij.openapi.diagnostic.Logger;
@@ -153,7 +154,7 @@ public abstract class AbstractRepositoryManager<T extends Repository> extends Ab
   public List<T> getRepositories() {
     try {
       REPO_LOCK.readLock().lock();
-      return RepositoryUtil.sortRepositories(myRepositories.values());
+      return DvcsUtil.sortRepositories(myRepositories.values());
     }
     finally {
       REPO_LOCK.readLock().unlock();
@@ -215,7 +216,7 @@ public abstract class AbstractRepositoryManager<T extends Repository> extends Ab
             T repository = createRepository(root);
             repositories.put(root, repository);
           }
-          catch (RepoStateException e) {
+          catch (IllegalStateException e) {
             LOG.error("Couldn't initialize Repository in " + root.getPresentableUrl(), e);
           }
         }

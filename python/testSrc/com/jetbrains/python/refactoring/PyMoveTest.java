@@ -179,6 +179,39 @@ public class PyMoveTest extends PyTestCase {
     });
   }
 
+  // PY-14384
+  public void testRelativeImportInsideNamespacePackage() {
+    runWithLanguageLevel(LanguageLevel.PYTHON33, new Runnable() {
+      @Override
+      public void run() {
+        doMoveFileTest("nspkg/nssubpkg", "");
+      }
+    });
+  }
+
+  // PY-14384
+  public void testRelativeImportInsideNormalPackage() {
+    doMoveFileTest("nspkg/nssubpkg", "");
+  }
+
+  // PY-14432
+  public void testRelativeImportsInsideMovedModule() {
+    doMoveFileTest("pkg1/subpkg1", "");
+  }
+
+  // PY-14595
+  public void testNamespacePackageUsedInMovedFunction() {
+    runWithLanguageLevel(LanguageLevel.PYTHON33, new Runnable() {
+      @Override
+      public void run() {
+        doMoveSymbolTest("func", "b.py");
+      }
+    });
+  }
+
+  public void testRelativeImportOfNameFromInitPy() {
+    doMoveFileTest("pkg/subpkg2", "");
+  }
 
   private void doMoveFileTest(String fileName, String toDirName)  {
     Project project = myFixture.getProject();

@@ -245,7 +245,7 @@ public final class PyClassRefactoringUtil {
     final String asName = node.getCopyableUserData(ENCODED_IMPORT_AS);
     final Boolean useFromImport = node.getCopyableUserData(ENCODED_USE_FROM_IMPORT);
     if (target instanceof PsiDirectory) {
-      target = (PsiNamedElement)PyUtil.turnDirIntoInit(target);
+      target = (PsiNamedElement)PyUtil.turnDirIntoPackageElement((PsiDirectory)target, node);
     }
     if (target instanceof PyFunction) {
       final PyFunction f = (PyFunction)target;
@@ -256,7 +256,7 @@ public final class PyClassRefactoringUtil {
     }
     if (target == null) return;
     if (PsiTreeUtil.isAncestor(node.getContainingFile(), target, false)) return;
-    if (target instanceof PyFile) {
+    if (target instanceof PyFile || target instanceof PsiDirectory) {
       insertImport(node, target, asName, useFromImport != null ? useFromImport : true);
     }
     else {
@@ -289,26 +289,29 @@ public final class PyClassRefactoringUtil {
     return true;
   }
 
-  public static boolean insertImport(PsiElement anchor, PsiNamedElement element) {
+  public static boolean insertImport(@NotNull PsiElement anchor, @NotNull PsiNamedElement element) {
     return insertImport(anchor, element, null);
   }
 
-  public static boolean insertImport(PsiElement anchor, PsiNamedElement element, @Nullable String asName) {
+  public static boolean insertImport(@NotNull PsiElement anchor, @NotNull PsiNamedElement element, @Nullable String asName) {
     return insertImport(anchor, element, asName, PyCodeInsightSettings.getInstance().PREFER_FROM_IMPORT);
   }
 
-  public static boolean insertImport(PsiElement anchor, PsiNamedElement element, @Nullable String asName, boolean preferFromImport) {
+  public static boolean insertImport(@NotNull PsiElement anchor,
+                                     @NotNull PsiNamedElement element,
+                                     @Nullable String asName,
+                                     boolean preferFromImport) {
     if (PyBuiltinCache.getInstance(element).isBuiltin(element)) return false;
-    final PsiFile newFile = element.getContainingFile();
+    final PsiFileSystemItem elementSource = element instanceof PsiDirectory? (PsiFileSystemItem)element : element.getContainingFile();
     final PsiFile file = anchor.getContainingFile();
-    if (newFile == file) return false;
+    if (elementSource == file) return false;
     final QualifiedName qname = QualifiedNameFinder.findCanonicalImportPath(element, anchor);
     if (qname == null || !isValidQualifiedName(qname)) {
       return false;
     }
     final QualifiedName containingQName;
     final String importedName;
-    if (element instanceof PyFile) {
+    if (element instanceof PyFile || element instanceof PsiDirectory) {
       containingQName = qname.removeLastComponent();
       importedName = qname.getLastComponent();
     }
@@ -316,9 +319,9 @@ public final class PyClassRefactoringUtil {
       containingQName = qname;
       importedName = getOriginalName(element);
     }
-    final AddImportHelper.ImportPriority priority = AddImportHelper.getImportPriority(anchor, newFile);
+    final AddImportHelper.ImportPriority priority = AddImportHelper.getImportPriority(anchor, elementSource);
     if (preferFromImport && !containingQName.getComponents().isEmpty()) {
-      return AddImportHelper.addImportFrom(file, null, containingQName.toString(), importedName, asName, priority, anchor);
+      return AddImportHelper.addOrUpdateFromImportStatement(file, containingQName.toString(), importedName, asName, priority, anchor);
     }
     else {
       return AddImportHelper.addImportStatement(file, containingQName.append(importedName).toString(), asName, priority, anchor);
