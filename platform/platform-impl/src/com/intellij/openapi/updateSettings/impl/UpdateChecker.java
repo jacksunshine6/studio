@@ -37,10 +37,14 @@ import com.intellij.openapi.util.*;
 import com.intellij.openapi.util.io.BufferExposingByteArrayOutputStream;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.openapi.vfs.StandardFileSystems;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.util.*;
+import com.intellij.util.Function;
+import com.intellij.util.PlatformUtils;
+import com.intellij.util.SmartList;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.io.HttpRequests;
 import com.intellij.util.io.UrlConnectionUtil;
 import com.intellij.util.net.HttpConfigurable;
 import com.intellij.util.net.NetUtils;
@@ -362,24 +366,18 @@ public final class UpdateChecker {
       url = host + (host.contains("?") ? '&' : '?') + "build=" + ApplicationInfo.getInstance().getBuild().asString();
     }
 
-    BufferExposingByteArrayOutputStream bytes = HttpRequests.request(url)
-      .get(new ThrowableConvertor<URLConnection, BufferExposingByteArrayOutputStream, Exception>() {
+    BufferExposingByteArrayOutputStream bytes = HttpRequests.request(url).connect(
+      new HttpRequests.RequestProcessor<BufferExposingByteArrayOutputStream>() {
         @Override
-        public BufferExposingByteArrayOutputStream convert(URLConnection connection) throws Exception {
-          InputStream input = HttpRequests.getInputStream(connection);
+        public BufferExposingByteArrayOutputStream process(@NotNull HttpRequests.Request request) throws IOException {
+          BufferExposingByteArrayOutputStream output = new BufferExposingByteArrayOutputStream();
           try {
-            BufferExposingByteArrayOutputStream output = new BufferExposingByteArrayOutputStream();
-            try {
-              NetUtils.copyStreamContent(indicator, input, output, connection.getContentLength());
-            }
-            finally {
-              output.close();
-            }
-            return output;
+            NetUtils.copyStreamContent(indicator, request.getInputStream(), output, request.getConnection().getContentLength());
           }
           finally {
-            input.close();
+            output.close();
           }
+          return output;
         }
       });
 
@@ -502,24 +500,23 @@ public final class UpdateChecker {
       return null;
     }
 
-    return HttpRequests.request(updateUrl.startsWith("file:") ? updateUrl : updateUrl + '?' + prepareUpdateCheckArgs())
-      .get(new ThrowableConvertor<URLConnection, UpdatesInfo, Exception>() {
-        @Override
-        public UpdatesInfo convert(URLConnection connection) throws Exception {
-          InputStream inputStream = HttpRequests.getInputStream(connection);
-          try {
-            return new UpdatesInfo(JDOMUtil.loadDocument(inputStream).getRootElement());
-          }
-          catch (JDOMException e) {
-            // Broken xml downloaded. Don't bother telling user.
-            LOG.info(e);
-            return null;
-          }
-          finally {
-            inputStream.close();
-          }
+    if (!updateUrl.startsWith("file:")) {
+      updateUrl = updateUrl + '?' + prepareUpdateCheckArgs();
+    }
+    return HttpRequests.request(updateUrl).connect(new HttpRequests.RequestProcessor<UpdatesInfo>() {
+      @Override
+      public UpdatesInfo process(@NotNull HttpRequests.Request request) throws IOException {
+        try {
+          Document document = JDOMUtil.loadDocument(request.getInputStream());
+          return new UpdatesInfo(document.detachRootElement());
         }
-      });
+        catch (JDOMException e) {
+          // corrupted content, don't bother telling user
+          LOG.info(e);
+          return null;
+        }
+      }
+    });
   }
 
   @NotNull
@@ -656,11 +653,11 @@ public final class UpdateChecker {
           args.append('&');
         }
 
-        args.append(URLEncoder.encode(name, "UTF-8"));
+        args.append(URLEncoder.encode(name, CharsetToolkit.UTF8));
 
         String value = ourAdditionalRequestOptions.get(name);
         if (!StringUtil.isEmpty(value)) {
-          args.append('=').append(URLEncoder.encode(value, "UTF-8"));
+          args.append('=').append(URLEncoder.encode(value, CharsetToolkit.UTF8));
         }
       }
 

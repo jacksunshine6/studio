@@ -92,7 +92,7 @@ public class ModuleImpl extends PlatformComponentManagerImpl implements ModuleEx
   @NotNull
   public synchronized IModuleStore getStateStore() {
     if (myComponentStore == null) {
-      myComponentStore = (IModuleStore)getPicoContainer().getComponentInstance(IComponentStore.class);
+      myComponentStore = (ModuleStoreImpl)getPicoContainer().getComponentInstance(IComponentStore.class);
     }
     return myComponentStore;
   }

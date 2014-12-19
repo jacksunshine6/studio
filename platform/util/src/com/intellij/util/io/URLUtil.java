@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -169,7 +168,7 @@ public class URLUtil {
           for (int j = 0; j < bytes.size(); j++) {
             bytesArray[j] = (byte)bytes.getQuick(j);
           }
-          decoded.append(new String(bytesArray, Charset.forName("UTF-8")));
+          decoded.append(new String(bytesArray, CharsetToolkit.UTF8_CHARSET));
           continue;
         }
       }
@@ -219,4 +218,33 @@ public class URLUtil {
     }
     return null;
   }
+
+  @NotNull
+  public static String parseHostFromSshUrl(@NotNull String sshUrl) {
+    // [ssh://]git@github.com:user/project.git
+    String host = sshUrl;
+    int at = host.lastIndexOf('@');
+    if (at > 0) {
+      host = host.substring(at + 1);
+    }
+    else {
+      int firstColon = host.indexOf(':');
+      if (firstColon > 0) {
+        host = host.substring(firstColon + 3);
+      }
+    }
+
+    int colon = host.indexOf(':');
+    if (colon > 0) {
+      host = host.substring(0, colon);
+    }
+    else {
+      int slash = host.indexOf('/');
+      if (slash > 0) {
+        host = host.substring(0, slash);
+      }
+    }
+    return host;
+  }
+
 }
