@@ -255,13 +255,7 @@ public class FileBasedIndexImpl extends FileBasedIndex {
   }
 
   public static boolean isProjectOrWorkspaceFile(@NotNull VirtualFile file, @Nullable FileType fileType) {
-    if (fileType instanceof InternalFileType) return true;
-    VirtualFile parent = file.isDirectory() ? file: file.getParent();
-    while (parent != null) {
-      if (Comparing.equal(parent.getNameSequence(), ProjectCoreUtil.DIRECTORY_BASED_PROJECT_DIR, SystemInfoRt.isFileSystemCaseSensitive)) return true;
-      parent = parent.getParent();
-    }
-    return false;
+    return ProjectCoreUtil.isProjectOrWorkspaceFile(file, fileType);
   }
 
   @Override
@@ -2539,12 +2533,12 @@ public class FileBasedIndexImpl extends FileBasedIndex {
       }
       for (VirtualFile root : IndexableSetContributor.getRootsToIndex(provider)) {
         if (visitedRoots.add(root)) {
-          iterateRecursively(root, processor, indicator, visitedRoots);
+          iterateRecursively(root, processor, indicator, visitedRoots, null);
         }
       }
       for (VirtualFile root : IndexableSetContributor.getProjectRootsToIndex(provider, project)) {
         if (visitedRoots.add(root)) {
-          iterateRecursively(root, processor, indicator, visitedRoots);
+          iterateRecursively(root, processor, indicator, visitedRoots, null);
         }
       }
     }
@@ -2567,7 +2561,7 @@ public class FileBasedIndexImpl extends FileBasedIndex {
             for (VirtualFile[] roots : new VirtualFile[][]{libSources, libClasses}) {
               for (VirtualFile root : roots) {
                 if (visitedRoots.add(root)) {
-                  iterateRecursively(root, processor, indicator, null);
+                  iterateRecursively(root, processor, indicator, null, projectFileIndex);
                 }
               }
             }
@@ -2580,8 +2574,8 @@ public class FileBasedIndexImpl extends FileBasedIndex {
   private static void iterateRecursively(@Nullable final VirtualFile root,
                                          @NotNull final ContentIterator processor,
                                          @Nullable final ProgressIndicator indicator,
-                                         @Nullable final Set<VirtualFile> visitedRoots
-                                         ) {
+                                         @Nullable final Set<VirtualFile> visitedRoots,
+                                         @Nullable final ProjectFileIndex projectFileIndex) {
     if (root == null) {
       return;
     }
@@ -2591,6 +2585,9 @@ public class FileBasedIndexImpl extends FileBasedIndex {
       public boolean visitFile(@NotNull VirtualFile file) {
         if (visitedRoots != null && !root.equals(file) && file.isDirectory() && !visitedRoots.add(file)) {
           return false; // avoid visiting files more than once, e.g. additional indexed roots intersect sometimes
+        }
+        if (projectFileIndex != null && projectFileIndex.isExcluded(file)) {
+          return false;
         }
         if (indicator != null) indicator.checkCanceled();
 

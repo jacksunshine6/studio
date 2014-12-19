@@ -38,7 +38,6 @@ import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.popup.Balloon;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.openapi.util.text.StringUtil;
@@ -77,6 +76,7 @@ import com.jetbrains.python.refactoring.classes.PyDependenciesComparator;
 import com.jetbrains.python.refactoring.classes.extractSuperclass.PyExtractSuperclassHelper;
 import com.jetbrains.python.refactoring.classes.membersManager.PyMemberInfo;
 import com.jetbrains.python.sdk.PythonSdkType;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -93,8 +93,6 @@ import static com.jetbrains.python.psi.PyFunction.Modifier.CLASSMETHOD;
 import static com.jetbrains.python.psi.PyFunction.Modifier.STATICMETHOD;
 
 public class PyUtil {
-
-  private static final Object[] EMPTY_OBJECTS = new Object[0];
 
   private PyUtil() {
   }
@@ -697,11 +695,11 @@ public class PyUtil {
   }
 
   public static boolean hasCustomDecorators(@NotNull PyDecoratable decoratable) {
-    return PyKnownDecoratorUtil.hasNonBuiltinDecorator(decoratable, null);
+    return PyKnownDecoratorUtil.hasNonBuiltinDecorator(decoratable, TypeEvalContext.codeInsightFallback(null));
   }
 
   public static boolean isDecoratedAsAbstract(@NotNull final PyDecoratable decoratable) {
-    return PyKnownDecoratorUtil.hasAbstractDecorator(decoratable, null);
+    return PyKnownDecoratorUtil.hasAbstractDecorator(decoratable, TypeEvalContext.codeInsightFallback(null));
   }
 
   public static ASTNode createNewName(PyElement element, String name) {
@@ -969,8 +967,35 @@ public class PyUtil {
     } // don't touch non-dirs
   }
 
+  /**
+   * If target is a PsiDirectory, that is also a valid Python package, return PsiFile that points to __init__.py,
+   * if such file exists, or directory itself (i.e. namespace package). Otherwise, return {@code null}.
+   * Unlike {@link #turnDirIntoInit(com.intellij.psi.PsiElement)} this function handles namespace packages and
+   * accepts only PsiDirectories as target.
+   *
+   * @param target directory to check
+   * @param anchor optional PSI element to determine language level as for {@link #isPackage(com.intellij.psi.PsiDirectory, com.intellij.psi.PsiElement)}
+   * @return PsiFile or PsiDirectory, if target is a Python package and {@code null} null otherwise
+   */
   @Nullable
-  public static PsiElement turnInitIntoDir(PsiElement target) {
+  public static PsiElement turnDirIntoPackageElement(@NotNull PsiDirectory target, @Nullable PsiElement anchor) {
+    if (isPackage(target, anchor)) {
+      final PsiFile file = target.findFile(PyNames.INIT_DOT_PY);
+      return file != null ? file : target;
+    }
+    else {
+      return null;
+    }
+  }
+
+  /**
+   * If target is a Python module named __init__.py file, return its directory. Otherwise return target unchanged.
+   * @param target PSI element to check
+   * @return PsiDirectory or target unchanged
+   */
+  @Contract("null -> null; !null -> !null")
+  @Nullable
+  public static PsiElement turnInitIntoDir(@Nullable PsiElement target) {
     if (target instanceof PyFile && isPackage((PsiFile)target)) {
       return ((PsiFile)target).getContainingDirectory();
     }
@@ -978,7 +1003,7 @@ public class PyUtil {
   }
 
   public static boolean isPackage(@NotNull PsiDirectory directory, @Nullable PsiElement anchor) {
-    if (turnDirIntoInit(directory) != null) {
+    if (directory.findFile(PyNames.INIT_DOT_PY) != null) {
       return true;
     }
     final LanguageLevel level = anchor != null ?
@@ -1205,23 +1230,6 @@ public class PyUtil {
       if (what.equals(s)) return true;
     }
     return false;
-  }
-
-  public static class UnderscoreFilter implements Condition<String> {
-    private int myAllowed; // how many starting underscores is allowed: 0 is none, 1 is only one, 2 is two and more.
-
-    public UnderscoreFilter(int allowed) {
-      myAllowed = allowed;
-    }
-
-    public boolean value(String name) {
-      if (name == null) return false;
-      if (name.length() < 1) return false; // empty strings make no sense
-      int have_underscores = 0;
-      if (name.charAt(0) == '_') have_underscores = 1;
-      if (have_underscores != 0 && name.length() > 1 && name.charAt(1) == '_') have_underscores = 2;
-      return myAllowed >= have_underscores;
-    }
   }
 
   @Nullable
