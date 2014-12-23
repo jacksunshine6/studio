@@ -11,6 +11,7 @@ public class Patch {
   private boolean myIsNormalized;
   private String myOldBuild;
   private String myNewBuild;
+  private Map<String, String> myWarnings;
   private List<String> myDeleteFiles;
 
   private static final int CREATE_ACTION_KEY = 1;
@@ -25,6 +26,7 @@ public class Patch {
     myIsNormalized = spec.isNormalized();
     myOldBuild = spec.getOldVersionDescription();
     myNewBuild = spec.getNewVersionDescription();
+    myWarnings = spec.getWarnings();
     myDeleteFiles = spec.getDeleteFiles();
 
     calculateActions(spec, ui);
@@ -101,6 +103,7 @@ public class Patch {
       dataOut.writeBoolean(myIsBinary);
       dataOut.writeBoolean(myIsStrict);
       dataOut.writeBoolean(myIsNormalized);
+      writeMap(dataOut, myWarnings);
       writeList(dataOut, myDeleteFiles);
       writeActions(dataOut, myActions);
     }
@@ -113,6 +116,14 @@ public class Patch {
     dataOut.writeInt(list.size());
     for (String string : list) {
       dataOut.writeUTF(string);
+    }
+  }
+
+  private static void writeMap(DataOutputStream dataOut, Map<String, String> map) throws IOException {
+    dataOut.writeInt(map.size());
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+      dataOut.writeUTF(entry.getKey());
+      dataOut.writeUTF(entry.getValue());
     }
   }
 
@@ -155,8 +166,28 @@ public class Patch {
     myIsBinary = in.readBoolean();
     myIsStrict = in.readBoolean();
     myIsNormalized = in.readBoolean();
+    myWarnings = readMap(in);
     myDeleteFiles = readList(in);
     myActions = readActions(in);
+  }
+
+  private static List<String> readList(DataInputStream in) throws IOException {
+    int size = in.readInt();
+    List<String> list = new ArrayList<String>(size);
+    for (int i = 0; i < size; i++) {
+      list.add(in.readUTF());
+    }
+    return list;
+  }
+
+  private static Map<String, String> readMap(DataInputStream in) throws IOException {
+    int size = in.readInt();
+    Map<String, String> map = new HashMap<String, String>();
+    for (int i = 0; i < size; i++) {
+      String key = in.readUTF();
+      map.put(key, in.readUTF());
+    }
+    return map;
   }
 
   public List<PatchAction> readActions(DataInputStream in) throws IOException {
@@ -189,17 +220,24 @@ public class Patch {
     return actions;
   }
 
-  private static List<String> readList(DataInputStream in) throws IOException {
-    int size = in.readInt();
-    List<String> list = new ArrayList<String>(size);
-    for (int i = 0; i < size; i++) {
-      list.add(in.readUTF());
-    }
-    return list;
-  }
-
   public List<ValidationResult> validate(final File toDir, UpdaterUI ui) throws IOException, OperationCancelledException {
-    final LinkedHashSet<String> files = Utils.collectRelativePaths(toDir, myIsStrict);
+    LinkedHashSet<String> files = null;
+    boolean checkWarnings = true;
+    while (checkWarnings) {
+      files = Utils.collectRelativePaths(toDir, myIsStrict);
+      checkWarnings = false;
+      for (String file : files) {
+        String warning = myWarnings.get(file);
+        if (warning != null) {
+          if (!ui.showWarning(warning)) {
+            throw new OperationCancelledException();
+          }
+          checkWarnings = true;
+          break;
+        }
+      }
+    }
+
     final List<ValidationResult> result = new ArrayList<ValidationResult>();
 
     if (myIsStrict) {

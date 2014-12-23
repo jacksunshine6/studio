@@ -130,6 +130,13 @@ public class SwingUpdaterUI implements UpdaterUI {
     myProcessTitle.setText("<html>Updating " + oldBuildDesc + " to " + newBuildDesc + "...");
   }
 
+  @Override
+  public boolean showWarning(String message) {
+    Object[] choices = new Object[] { "Retry", "Exit" };
+    int choice = JOptionPane.showOptionDialog(null, message, "Warning", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+    return choice == 0;
+  }
+
   private void startRequestDispatching() {
     new Thread(new Runnable() {
       public void run() {
