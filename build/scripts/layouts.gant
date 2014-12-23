@@ -267,7 +267,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
       }
     }
   }
-  ant.unzip(src: "${home}/../external/gradle/gradle-2.2-bin.zip", dest: "${targetDirectory}/gradle")
+  ant.unzip(src: "${home}/../external/gradle/gradle-2.2.1-bin.zip", dest: "${targetDirectory}/gradle")
 
   printUnusedModules(info.usedModules)
 
