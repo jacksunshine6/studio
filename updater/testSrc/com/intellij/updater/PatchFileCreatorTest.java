@@ -53,6 +53,19 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   }
 
   @Test
+  public void testCreatingAndFailingOnADifferentRoot() throws Exception {
+    myPatchSpec.setRoot("bin/");
+    myPatchSpec.setStrict(true);
+
+    Patch patch = createPatch();
+
+    File target = new File(myOlderDir, "bin");
+    PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, target, TEST_UI);
+    preparationResult.patch.getActions().add(new MyFailOnApplyPatchAction(patch));
+    assertNothingHasChanged(patch, preparationResult, new HashMap<String, ValidationResult.Option>());
+  }
+
+  @Test
   public void testReverting() throws Exception {
     Patch patch = createPatch();
 
