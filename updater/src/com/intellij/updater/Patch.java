@@ -41,7 +41,7 @@ public class Patch {
     File newerDir = new File(spec.getNewFolder());
     DiffCalculator.Result diff;
     diff = DiffCalculator.calculate(digestFiles(olderDir, spec.getIgnoredFiles(), ui), digestFiles(newerDir, spec.getIgnoredFiles(), ui),
-                                    true);
+                                    spec.getCriticalFiles(), true);
 
     List<PatchAction> tempActions = new ArrayList<PatchAction>();
 

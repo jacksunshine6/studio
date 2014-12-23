@@ -93,7 +93,7 @@ public abstract class BaseUpdateAction extends PatchAction {
     byte[] newerFileBuffer = JBDiff.bsdiff(olderFileIn, newerFileIn, diffOutput);
     diffOutput.close();
 
-    if (diffOutput.size() < newerFileBuffer.length) {
+    if (!isCritical() && diffOutput.size() < newerFileBuffer.length) {
       patchOutput.write(1);
       Utils.copyBytesToStream(diffOutput, patchOutput);
     }

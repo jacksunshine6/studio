@@ -4,12 +4,12 @@ import java.io.File;
 import java.util.*;
 
 public class DiffCalculator {
-  public static Result calculate(Map<String, Long> oldChecksums, Map<String, Long> newChecksums, boolean move) {
+  public static Result calculate(Map<String, Long> oldChecksums, Map<String, Long> newChecksums, List<String> critical, boolean move) {
     Result result = new Result();
-    result.commonFiles = collect(oldChecksums, newChecksums, true);
+    result.commonFiles = collect(oldChecksums, newChecksums, critical, true);
     result.filesToDelete = withAllRemoved(oldChecksums, newChecksums);
 
-    Map<String, Long> toUpdate = collect(oldChecksums, newChecksums, false);
+    Map<String, Long> toUpdate = collect(oldChecksums, newChecksums, critical, false);
     Map<String, Long> toCreate = withAllRemoved(newChecksums, oldChecksums);
 
     // Some creates become updates if found in different directories.
@@ -105,14 +105,16 @@ public class DiffCalculator {
     return result;
   }
 
-  private static Map<String, Long> collect(Map<String, Long> older, Map<String, Long> newer, boolean equal) {
+  private static Map<String, Long> collect(Map<String, Long> older, Map<String, Long> newer, List<String> critical, boolean equal) {
     Map<String, Long> result = new LinkedHashMap<String, Long>();
     for (Map.Entry<String, Long> each : newer.entrySet()) {
       String file = each.getKey();
       Long oldChecksum = older.get(file);
       Long newChecksum = newer.get(file);
-      if (oldChecksum != null && newChecksum != null && oldChecksum.equals(newChecksum) == equal) {
-        result.put(file, oldChecksum);
+      if (oldChecksum != null && newChecksum != null) {
+        if ((oldChecksum.equals(newChecksum) && !critical.contains(file)) == equal) {
+          result.put(file, oldChecksum);
+        }
       }
     }
     return result;
