@@ -146,36 +146,51 @@ public class Utils {
   }
 
   public static InputStream getEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
-    InputStream result = findEntryInputStream(zipFile, entryPath);
-    if (result == null) throw new IOException("Entry " + entryPath + " not found");
-    Runner.logger.info("entryPath: " + entryPath);
-    return result;
+    ZipEntry entry = getZipEntry(zipFile, entryPath);
+    return findEntryInputStreamForEntry(zipFile, entry);
   }
 
   public static InputStream findEntryInputStream(ZipFile zipFile, String entryPath) throws IOException {
     ZipEntry entry = zipFile.getEntry(entryPath);
-    if (entry == null || entry.isDirectory()) return null;
+    if (entry == null) return null;
+    return findEntryInputStreamForEntry(zipFile, entry);
+  }
 
-    // if isDirectory check failed, check presence of 'file/' manually
-    if (!entryPath.endsWith("/") && zipFile.getEntry(entryPath + "/") != null) return null;
+  public static ZipEntry getZipEntry(ZipFile zipFile, String entryPath) throws IOException {
+    ZipEntry entry = zipFile.getEntry(entryPath);
+    if (entry == null) throw new IOException("Entry " + entryPath + " not found");
+    Runner.logger.info("entryPath: " + entryPath);
+    return entry;
+  }
+
+  public static InputStream findEntryInputStreamForEntry(ZipFile zipFile, ZipEntry entry) throws IOException {
+    if (entry.isDirectory()) return null;
+    // There is a bug in some JVM implementations where for a directory "X/" in a zipfile, if we do
+    // "zip.getEntry("X/").isDirectory()" returns true, but if we do "zip.getEntry("X").isDirectory()" is false.
+    // getEntry for "name" falls back to finding "X/", so here we make sure that didn't happen.
+    if (zipFile.getEntry(entry.getName() + "/") != null) return null;
 
     return new BufferedInputStream(zipFile.getInputStream(entry));
   }
 
-  public static LinkedHashSet<String> collectRelativePaths(File dir) {
+  public static LinkedHashSet<String> collectRelativePaths(File dir, boolean includeDirectories) {
     LinkedHashSet<String> result = new LinkedHashSet<String>();
-    collectRelativePaths(dir, result, null);
+    collectRelativePaths(dir, result, null, includeDirectories);
     return result;
   }
 
-  private static void collectRelativePaths(File dir, LinkedHashSet<String> result, String parentPath) {
+  private static void collectRelativePaths(File dir, LinkedHashSet<String> result, String parentPath, boolean includeDirectories) {
     File[] children = dir.listFiles();
     if (children == null) return;
 
     for (File each : children) {
       String relativePath = (parentPath == null ? "" : parentPath + "/") + each.getName();
       if (each.isDirectory()) {
-        collectRelativePaths(each, result, relativePath);
+        if (includeDirectories) {
+          // The trailing slash is very important, as it's used by zip to determine whether it is a directory.
+          result.add(relativePath + "/");
+        }
+        collectRelativePaths(each, result, relativePath, includeDirectories);
       }
       else {
         result.add(relativePath);

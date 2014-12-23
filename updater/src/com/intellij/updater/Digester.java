@@ -8,7 +8,14 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 public class Digester {
+  // CRC32 will only use the lower 32bits of long, never returning negative values.
+  public static long INVALID = -1;
+  public static long DIRECTORY = -2;
+
   public static long digestRegularFile(File file) throws IOException {
+    if (file.isDirectory()) {
+      return DIRECTORY;
+    }
     InputStream in = new BufferedInputStream(new FileInputStream(file));
     try {
       return digestStream(in);
