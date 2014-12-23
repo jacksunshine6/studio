@@ -18,6 +18,10 @@ public abstract class UpdaterTestCase {
     @Override
     public void setStatus(String status) {
     }
+
+    @Override
+    public void setDescription(String oldBuildDesc, String newBuildDesc) {
+    }
   };
 
   protected CheckSums CHECKSUMS;
@@ -54,6 +58,7 @@ public abstract class UpdaterTestCase {
     public final long IDEA_BAT;
     public final long ANNOTATIONS_JAR;
     public final long BOOTSTRAP_JAR;
+    public final long BOOTSTRAP_JAR_BINARY;
     public final long FOCUSKILLER_DLL;
 
     public CheckSums(boolean windowsLineEnds) {
@@ -68,6 +73,7 @@ public abstract class UpdaterTestCase {
       ANNOTATIONS_JAR = 2119442657L;
       BOOTSTRAP_JAR = 2082851308L;
       FOCUSKILLER_DLL = 1991212227L;
+      BOOTSTRAP_JAR_BINARY = 2745721972L;
     }
   }
 }
