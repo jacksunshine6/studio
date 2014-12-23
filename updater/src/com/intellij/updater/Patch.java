@@ -321,7 +321,7 @@ public class Patch {
     }
 
     if (shouldRevert) {
-      revert(appliedActions, backupDir, toDir, ui);
+      revert(appliedActions, backupDir, rootDir, ui);
       appliedActions.clear();
 
       if (cancelled) throw new OperationCancelledException();
