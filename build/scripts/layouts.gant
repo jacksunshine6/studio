@@ -260,7 +260,14 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         }
       }
     }
+
+    dir("gradle") {
+      dir("m2repository") {
+        fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
+      }
+    }
   }
+  ant.unzip(src: "${home}/../external/gradle/gradle-2.2-bin.zip", dest: "${targetDirectory}/gradle")
 
   printUnusedModules(info.usedModules)
 
