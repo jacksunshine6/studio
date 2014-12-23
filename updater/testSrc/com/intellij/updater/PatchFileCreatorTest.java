@@ -59,12 +59,12 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
 
       PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
 
-      Map<String, Long> original = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
+      Map<String, Long> original = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
 
       File backup = getTempFile("backup");
       PatchFileCreator.apply(preparationResult, new HashMap<String, ValidationResult.Option>(), backup, TEST_UI);
 
-      assertEquals(original, patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI));
+      assertEquals(original, patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI));
     }
     finally {
       raf.close();
@@ -318,7 +318,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertTrue(action instanceof UpdateAction);
     UpdateAction update = (UpdateAction)action;
     assertTrue(update.isMove());
-    assertEquals("/a/deleted/file/that/is/a/copy/move.me", update.getSource(new File("/")).getAbsolutePath());
+    assertEquals("a/deleted/file/that/is/a/copy/move.me", update.getSourcePath());
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
@@ -353,7 +353,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertTrue(action instanceof UpdateAction);
     UpdateAction update = (UpdateAction)action;
     assertTrue(!update.isMove());
-    assertEquals("/move/from/this/directory/move.me", update.getSource(new File("/")).getAbsolutePath());
+    assertEquals("move/from/this/directory/move.me", update.getSourcePath());
 
     PatchFileCreator.PreparationResult preparationResult = PatchFileCreator.prepareAndValidate(myFile, myOlderDir, TEST_UI);
     assertAppliedAndRevertedCorrectly(patch, preparationResult);
@@ -376,9 +376,9 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
 
   private void assertNothingHasChanged(Patch patch, PatchFileCreator.PreparationResult preparationResult, Map<String, ValidationResult.Option> options)
     throws Exception {
-    Map<String, Long> before = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> before = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
     PatchFileCreator.apply(preparationResult, options, TEST_UI);
-    Map<String, Long> after = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> after = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
 
     DiffCalculator.Result diff = DiffCalculator.calculate(before, after, new LinkedList<String>(), false);
     assertTrue(diff.filesToCreate.isEmpty());
@@ -389,8 +389,8 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
   private void assertAppliedAndRevertedCorrectly(Patch patch, PatchFileCreator.PreparationResult preparationResult)
     throws IOException, OperationCancelledException {
 
-    Map<String, Long> original = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
-    Map<String, Long> target = patch.digestFiles(myNewerDir, Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> original = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
+    Map<String, Long> target = patch.digestFiles(myNewerDir, Collections.<String>emptyList(), false, TEST_UI);
     File backup = getTempFile("backup");
 
     HashMap<String, ValidationResult.Option> options = new HashMap<String, ValidationResult.Option>();
@@ -406,7 +406,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
 
     List<PatchAction> appliedActions =
       PatchFileCreator.apply(preparationResult, options, backup, TEST_UI).appliedActions;
-    Map<String, Long> patched = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> patched = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
 
     if (patch.isStrict()) {
       assertEquals(patched, target);
@@ -417,7 +417,7 @@ public abstract class PatchFileCreatorTest extends PatchTestCase {
     assertNotEquals(original, patched);
 
     PatchFileCreator.revert(preparationResult, appliedActions, backup, TEST_UI);
-    Map<String, Long> reverted = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), TEST_UI);
+    Map<String, Long> reverted = patch.digestFiles(myOlderDir, Collections.<String>emptyList(), false, TEST_UI);
     assertEquals(original, reverted);
   }
 

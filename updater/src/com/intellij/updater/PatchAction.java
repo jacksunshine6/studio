@@ -177,7 +177,7 @@ public abstract class PatchAction {
   }
 
   protected boolean isModified(File toFile) throws IOException {
-    return myChecksum == -1 || myChecksum != myPatch.digestFile(toFile);
+    return myChecksum == Digester.INVALID || myChecksum != myPatch.digestFile(toFile, myPatch.isNormalized());
   }
 
   public void apply(ZipFile patchFile, File backupDir, File toDir) throws IOException {

@@ -39,7 +39,7 @@ public class UpdateAction extends BaseUpdateAction {
 
       OutputStream out = new BufferedOutputStream(new FileOutputStream(updated));
       try {
-        InputStream oldFileIn = new FileInputStream(source);
+        InputStream oldFileIn = Utils.newFileInputStream(source, myPatch.isNormalized());
         try {
           applyDiff(in, oldFileIn, out);
         }
