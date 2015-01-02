@@ -16,6 +16,9 @@
 #define IDC_WINLAUNCHER                 109
 #define IDS_COMMAND_LINE_PROCESSOR_CLASS 110
 #define IDS_BOOTCLASSPATH_LIBS          111
+#define IDS_PROPS_ENV_VAR               112
+#define IDS_VM_OPTIONS_ENV_VAR          113
+#define IDS_ERROR_LAUNCHING_APP         114
 #define IDR_MAINFRAME                   128
 #define IDS_VM_OPTIONS                  129
 #define IDB_BITMAP1                     130
