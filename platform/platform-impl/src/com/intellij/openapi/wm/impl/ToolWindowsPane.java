@@ -33,6 +33,7 @@ import com.intellij.ui.ScreenUtil;
 import com.intellij.ui.components.JBLayeredPane;
 import com.intellij.util.containers.HashMap;
 import com.intellij.util.ui.FadeInFadeOut;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
@@ -326,6 +327,7 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
     return myLayeredPane;
   }
 
+  @Nullable
   private StripeButton getButtonById(final String id) {
     return myId2Button.get(id);
   }
@@ -437,7 +439,13 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
     }
   }
 
+  @Nullable
   Stripe getStripeFor(String id) {
+    ToolWindow window = myManager.getToolWindow(id);
+    if (window == null) {
+      return null;
+    }
+
     final ToolWindowAnchor anchor = myManager.getToolWindow(id).getAnchor();
     if (ToolWindowAnchor.TOP == anchor) {
       return myTopStripe;
@@ -455,6 +463,7 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
     throw new IllegalArgumentException("Anchor=" + anchor);
   }
 
+  @Nullable
   Stripe getStripeFor(final Rectangle screenRec, Stripe preferred) {
     if (preferred.containsScreen(screenRec)) {
       return myStripes.get(myStripes.indexOf(preferred));
@@ -794,32 +803,37 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
             }
           });
         }
-        InternalDecorator oldComponent = (InternalDecorator)getComponentAt(anchor);
-        if (myInfo.isSplit()) {
-          splitter.setFirstComponent(oldComponent);
-          splitter.setSecondComponent(myNewComponent);
-          float proportion = getPreferredSplitProportion(oldComponent.getWindowInfo().getId(),
-                                                         normalizeWeigh(oldComponent.getWindowInfo().getSideWeight() /
-                                                                        (oldComponent.getWindowInfo().getSideWeight() +
-                                                                         myInfo.getSideWeight())));
-          splitter.setProportion(proportion);
-          if (!anchor.isHorizontal() && !anchor.isSplitVertically()) {
-            newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight() + myInfo.getWeight());
+        JComponent c = getComponentAt(anchor);
+        if (c instanceof InternalDecorator) {
+          InternalDecorator oldComponent = (InternalDecorator)c;
+          if (myInfo.isSplit()) {
+            splitter.setFirstComponent(oldComponent);
+            splitter.setSecondComponent(myNewComponent);
+            float proportion = getPreferredSplitProportion(oldComponent.getWindowInfo().getId(),
+                                                           normalizeWeigh(oldComponent.getWindowInfo().getSideWeight() /
+                                                                          (oldComponent.getWindowInfo().getSideWeight() +
+                                                                           myInfo.getSideWeight())));
+            splitter.setProportion(proportion);
+            if (!anchor.isHorizontal() && !anchor.isSplitVertically()) {
+              newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight() + myInfo.getWeight());
+            }
+            else {
+              newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight());
+            }
           }
           else {
-            newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight());
+            splitter.setFirstComponent(myNewComponent);
+            splitter.setSecondComponent(oldComponent);
+            splitter.setProportion(normalizeWeigh(myInfo.getSideWeight()));
+            if (!anchor.isHorizontal() && !anchor.isSplitVertically()) {
+              newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight() + myInfo.getWeight());
+            }
+            else {
+              newWeight = normalizeWeigh(myInfo.getWeight());
+            }
           }
-        }
-        else {
-          splitter.setFirstComponent(myNewComponent);
-          splitter.setSecondComponent(oldComponent);
-          splitter.setProportion(normalizeWeigh(myInfo.getSideWeight()));
-          if (!anchor.isHorizontal() && !anchor.isSplitVertically()) {
-            newWeight = normalizeWeigh(oldComponent.getWindowInfo().getWeight() + myInfo.getWeight());
-          }
-          else {
-            newWeight = normalizeWeigh(myInfo.getWeight());
-          }
+        } else {
+          newWeight = normalizeWeigh(myInfo.getWeight());
         }
         setComponent(splitter, anchor, newWeight);
 
@@ -1000,16 +1014,20 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
 
     public void run() {
       try {
-        Splitter splitter = (Splitter)getComponentAt(myInfo.getAnchor());
-
-        if (myInfo.isSplit()) {
-          InternalDecorator component = (InternalDecorator)splitter.getFirstComponent();
-          myId2SplitProportion.put(component.getWindowInfo().getId(), splitter.getProportion());
-          setComponent(component, myInfo.getAnchor(), component.getWindowInfo().getWeight());
-        }
-        else {
-          InternalDecorator component = (InternalDecorator)splitter.getSecondComponent();
-          setComponent(component, myInfo.getAnchor(), component.getWindowInfo().getWeight());
+        JComponent c = getComponentAt(myInfo.getAnchor());
+        if (c instanceof Splitter) {
+          Splitter splitter = (Splitter)c;
+          if (myInfo.isSplit()) {
+            InternalDecorator component = (InternalDecorator)splitter.getFirstComponent();
+            myId2SplitProportion.put(component.getWindowInfo().getId(), splitter.getProportion());
+            setComponent(component, myInfo.getAnchor(), component.getWindowInfo().getWeight());
+          }
+          else {
+            InternalDecorator component = (InternalDecorator)splitter.getSecondComponent();
+            setComponent(component, myInfo.getAnchor(), component.getWindowInfo().getWeight());
+          }
+        } else {
+          setComponent(null, myInfo.getAnchor(), 0);
         }
         if (!myDirtyMode) {
           myLayeredPane.validate();
@@ -1092,7 +1110,12 @@ public final class ToolWindowsPane extends JBLayeredPane implements Disposable {
 
     public void run() {
       try {
-        WindowInfoImpl info = getButtonById(myId).getWindowInfo();
+        StripeButton stripeButton = getButtonById(myId);
+        if (stripeButton == null) {
+          return;
+        }
+
+        WindowInfoImpl info = stripeButton.getWindowInfo();
         ToolWindowAnchor anchor = info.getAnchor();
 
         if (ToolWindowAnchor.TOP == anchor) {
