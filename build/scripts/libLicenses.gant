@@ -267,7 +267,7 @@ libraryLicense(name: "pty4j", libraryName: "pty4j", version: "0.2", license: "Ec
 libraryLicense(name: "JediTerm", libraryName: "jediterm-pty", version: "0.2", license: "LGPL 2", url: "https://github.com/traff/jediterm", licenseUrl: "https://github.com/traff/jediterm/blob/master/COPYING")
 libraryLicense(name: "bouncy-castle", version: "1.48", license: "MIT License", url: "http://bouncycastle.org", licenseUrl: "http://bouncycastle.org/licence.html")
 libraryLicense(name: "kXML2", libraryName: "kxml2", version: "2.3.0", license: "BSD", url: "http://sourceforge.net/projects/kxml/")
-libraryLicense(name: "Lombok AST", libraryName: "lombok-ast", version: "0.2.1", license: "MIT", url: "http://projectlombok.org/", licenseUrl: "http://opensource.org/licenses/mit-license.php")
+libraryLicense(name: "Lombok AST", libraryName: "lombok-ast", version: "0.2.3", license: "MIT", url: "http://projectlombok.org/", licenseUrl: "http://opensource.org/licenses/mit-license.php")
 libraryLicense(name: "json-path", libraryName: "json-path-0.8.0.jar", version: "0.8.0", license: "Apache 2.0", url: "http://code.google.com/p/json-path/", licenseUrl: "http://apache.org/licenses/LICENSE-2.0")
 libraryLicense(name: "json-smart", libraryName: "json-smart-1.1.1.jar", version: "1.1.1", license: "Apache 2.0", url: "http://code.google.com/p/json-smart/", licenseUrl: "http://apache.org/licenses/LICENSE-2.0")
 libraryLicense(name: "fxg-utils", libraryName: "fxg-utils", version: "4.9.1", license: "Apache 2.0", url: "http://flex.apache.org", licenseUrl: "http://www.apache.org/licenses/LICENSE-2.0")
