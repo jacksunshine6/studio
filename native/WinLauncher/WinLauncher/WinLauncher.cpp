@@ -20,7 +20,7 @@
 typedef JNIIMPORT jint(JNICALL *JNI_createJavaVM)(JavaVM **pvm, JNIEnv **env, void *args);
 
 HINSTANCE hInst; // Current instance.
-char jvmPath[_MAX_PATH];
+char jvmPath[_MAX_PATH] = "";
 JavaVMOption* vmOptions = NULL;
 int vmOptionCount = 0;
 bool bServerJVM = false;
@@ -37,24 +37,27 @@ const int FILE_MAPPING_SIZE = 16000;
 
 #ifdef _M_X64
 bool need64BitJRE = true;
+#define BITS_STR "64-bit"
 #else
 bool need64BitJRE = false;
+#define BITS_STR "32-bit"
 #endif
+
+std::string EncodeWideACP(const std::wstring &str)
+{
+  int cbANSI = WideCharToMultiByte(CP_ACP, 0, str.c_str(), str.size(), NULL, 0, NULL, NULL);
+  char* ansiBuf = new char[cbANSI];
+  WideCharToMultiByte(CP_ACP, 0, str.c_str(), str.size(), ansiBuf, cbANSI, NULL, NULL);
+  std::string result(ansiBuf, cbANSI);
+  delete[] ansiBuf;
+  return result;
+}
 
 std::string LoadStdString(int id)
 {
   wchar_t *buf = NULL;
   int len = LoadStringW(hInst, id, reinterpret_cast<LPWSTR>(&buf), 0);
-  if (len)
-  {
-    int cbANSI = WideCharToMultiByte(CP_ACP, 0, buf, len, NULL, 0, NULL, NULL);
-    char* ansiBuf = new char[cbANSI];
-    WideCharToMultiByte(CP_ACP, 0, buf, len, ansiBuf, cbANSI, NULL, NULL);
-    std::string result(ansiBuf, cbANSI);
-    delete[] ansiBuf;
-    return result;
-  }
-  return std::string();
+  return len ? EncodeWideACP(std::wstring(buf, len)) : "";
 }
 
 bool FileExists(const std::string& path)
@@ -130,7 +133,8 @@ bool FindJVMInEnvVar(const char* envVarName, bool& result)
       char buf[_MAX_PATH];
       sprintf_s(buf, "The environment variable %s (with the value of %s) does not point to a valid JVM installation.",
         envVarName, envVarValue);
-      MessageBoxA(NULL, buf, "Error Launching IntelliJ Platform", MB_OK);
+      std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+      MessageBoxA(NULL, buf, error.c_str(), MB_OK);
       result = false;
     }
     return true;
@@ -186,6 +190,31 @@ bool FindJVMInRegistry()
   return false;
 }
 
+// The following code is taken from http://msdn.microsoft.com/en-us/library/ms684139(v=vs.85).aspx
+// and provides a backwards compatible way to check if this application is a 32-bit process running
+// on a 64-bit OS
+typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+
+LPFN_ISWOW64PROCESS fnIsWow64Process;
+
+BOOL IsWow64()
+{
+  BOOL bIsWow64 = FALSE;
+
+  //IsWow64Process is not available on all supported versions of Windows.
+  //Use GetModuleHandle to get a handle to the DLL that contains the function
+  //and GetProcAddress to get a pointer to the function if available.
+
+  fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(
+      GetModuleHandle(TEXT("kernel32")), "IsWow64Process");
+
+  if (NULL != fnIsWow64Process)
+  {
+    fnIsWow64Process(GetCurrentProcess(), &bIsWow64);
+  }
+  return bIsWow64;
+}
+
 bool LocateJVM()
 {
   bool result;
@@ -214,7 +243,23 @@ bool LocateJVM()
     return result;
   }
 
-  MessageBoxA(NULL, "No JVM installation found. Please reinstall the product or install a JDK.", "Error Launching IntelliJ Platform", MB_OK);
+  std::string jvmError;
+  jvmError = "No JVM installation found. Please install a " BITS_STR " JDK.\n"
+    "If you already have a JDK installed, define a JAVA_HOME variable in\n"
+    "Computer > System Properties > System Settings > Environment Variables.";
+
+  if (IsWow64())
+  {
+    // If WoW64, this means we are running a 32-bit program on 64-bit Windows. This may explain
+    // why we couldn't locate the JVM.
+    jvmError += "\n\nNOTE: We have detected that you are running a 64-bit version of the "
+        "Windows operating system but are running the 32-bit executable. This "
+        "can prevent you from finding a 64-bit installation of Java. Consider running "
+        "the 64-bit version instead, if this is the problem you're encountering.";
+  }
+
+  std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+  MessageBoxA(NULL, jvmError.c_str(),  error.c_str(), MB_OK);
   return false;
 }
 
@@ -237,7 +282,7 @@ bool LoadVMOptionsFile(const TCHAR* path, std::vector<std::string>& vmOptionLine
   if (!f) return false;
 
   char line[_MAX_PATH];
-  while (fgets(line, _MAX_PATH - 1, f))
+  while (fgets(line, _MAX_PATH, f))
   {
     TrimLine(line);
     if (line[0] == '#') continue;
@@ -341,46 +386,74 @@ void AddPredefinedVMOptions(std::vector<std::string>& vmOptionLines)
     vmOptions = vmOptions.substr(pos);
   }
 
-  char ideaProperties[_MAX_PATH];
-  if (GetEnvironmentVariableA("IDEA_PROPERTIES", ideaProperties, _MAX_PATH - 1))
+  char propertiesFile[_MAX_PATH];
+  if (GetEnvironmentVariableA(LoadStdString(IDS_PROPS_ENV_VAR).c_str(), propertiesFile, _MAX_PATH))
   {
-    vmOptionLines.push_back(std::string("-Didea.properties.file=") + ideaProperties);
+    vmOptionLines.push_back(std::string("-Didea.properties.file=") + propertiesFile);
   }
 }
 
 bool LoadVMOptions()
 {
-  TCHAR optionsFileName[_MAX_PATH];
-  if (LoadString(hInst, IDS_VM_OPTIONS_PATH, optionsFileName, _MAX_PATH - 1))
+  TCHAR buffer[_MAX_PATH];
+  TCHAR copy[_MAX_PATH];
+
+  std::vector<std::wstring> files;
+
+  GetModuleFileName(NULL, buffer, _MAX_PATH);
+  std::wstring module(buffer);
+
+  files.push_back(module + L".vmoptions");
+
+
+  if (LoadString(hInst, IDS_VM_OPTIONS_PATH, buffer, _MAX_PATH))
   {
-    TCHAR fullOptionsFileName[_MAX_PATH];
-    ExpandEnvironmentStrings(optionsFileName, fullOptionsFileName, _MAX_PATH - 1);
+    ExpandEnvironmentStrings(buffer, copy, _MAX_PATH - 1);
+    std::wstring selector(copy);
+    files.push_back(selector + module.substr(module.find_last_of('\\')) + L".vmoptions");
+  }
 
-    if (GetFileAttributes(fullOptionsFileName) == INVALID_FILE_ATTRIBUTES)
-    {
-      GetModuleFileName(NULL, fullOptionsFileName, _MAX_PATH - 1);
-      _tcscat_s(fullOptionsFileName, _T(".vmoptions"));
-    }
-
-    std::vector<std::string> vmOptionLines;
-    if (LoadVMOptionsFile(fullOptionsFileName, vmOptionLines))
-    {
-      if (!AddClassPathOptions(vmOptionLines)) return false;
-      AddPredefinedVMOptions(vmOptionLines);
-
-      vmOptionCount = vmOptionLines.size();
-      vmOptions = (JavaVMOption*)malloc(vmOptionCount * sizeof(JavaVMOption));
-      for (int i = 0; i < vmOptionLines.size(); i++)
-      {
-        vmOptions[i].optionString = _strdup(vmOptionLines[i].c_str());
-        vmOptions[i].extraInfo = 0;
-      }
-
-      return true;
+  if (LoadString(hInst, IDS_VM_OPTIONS_ENV_VAR, buffer, _MAX_PATH))
+  {
+    if (GetEnvironmentVariableW(buffer, copy, _MAX_PATH)) {
+    ExpandEnvironmentStrings(copy, buffer, _MAX_PATH);
+    files.push_back(std::wstring(buffer));
     }
   }
-  MessageBox(NULL, _T("Cannot find VM options file"), _T("Error launching IntelliJ Platform"), MB_OK);
-  return false;
+
+  if (files.size() == 0) {
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, "Cannot find VM options file", error.c_str(), MB_OK);
+    return false;
+  }
+
+  std::wstring used;
+  std::vector<std::string> vmOptionLines;
+  for (int i = 0; i < files.size(); i++)
+  {
+    if (GetFileAttributes(files[i].c_str()) != INVALID_FILE_ATTRIBUTES)
+    {
+      if (LoadVMOptionsFile(files[i].c_str(), vmOptionLines))
+      {
+        used += (used.size() ? L"," : L"") + files[i];
+      }
+    }
+  }
+
+  vmOptionLines.push_back(std::string("-Djb.vmOptions=") + EncodeWideACP(used));
+
+  if (!AddClassPathOptions(vmOptionLines)) return false;
+  AddPredefinedVMOptions(vmOptionLines);
+
+  vmOptionCount = vmOptionLines.size();
+  vmOptions = (JavaVMOption*)malloc(vmOptionCount * sizeof(JavaVMOption));
+  for (int i = 0; i < vmOptionLines.size(); i++)
+  {
+    vmOptions[i].optionString = _strdup(vmOptionLines[i].c_str());
+    vmOptions[i].extraInfo = 0;
+  }
+
+  return true;
 }
 
 bool LoadJVMLibrary()
@@ -398,17 +471,22 @@ bool LoadJVMLibrary()
     dllName = clientDllName;
   }
 
-  SetCurrentDirectoryA(binDir.c_str());   // ensure that we can find msvcr100.dll which is located in jre/bin directory
+  // ensure we can find msvcr100.dll which is located in jre/bin directory; jvm.dll depends on it.
+  SetCurrentDirectoryA(binDir.c_str());
   hJVM = LoadLibraryA(dllName.c_str());
   if (hJVM)
   {
-    pCreateJavaVM = (JNI_createJavaVM)GetProcAddress(hJVM, "JNI_CreateJavaVM");
+    pCreateJavaVM = (JNI_createJavaVM) GetProcAddress(hJVM, "JNI_CreateJavaVM");
   }
   if (!pCreateJavaVM)
   {
-    char buf[_MAX_PATH];
-    sprintf(buf, "Failed to load JVM DLL %s", dllName.c_str());
-    MessageBoxA(NULL, buf, "Error Launching IntelliJ Platform", MB_OK);
+    std::string jvmError = "Failed to load JVM DLL ";
+    jvmError += dllName.c_str();
+    jvmError += "\n"
+        "If you already have a " BITS_STR " JDK installed, define a JAVA_HOME variable in "
+        "Computer > System Properties > System Settings > Environment Variables.";
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, jvmError.c_str(), error.c_str(), MB_OK);
     return false;
   }
   return true;
@@ -433,9 +511,14 @@ bool CreateJVM()
 
   if (result != JNI_OK)
   {
-    TCHAR buf[_MAX_PATH];
-    _stprintf_s(buf, _T("Failed to create JVM: error code %d"), result);
-    MessageBox(NULL, buf, _T("Error launching IntelliJ Platform"), MB_OK);
+    std::stringstream buf;
+
+    buf << "Failed to create JVM: error code " << result << ".\n";
+    buf << "JVM Path: " << jvmPath << "\n";
+    buf << "If you already have a " BITS_STR " JDK installed, define a JAVA_HOME variable in ";
+        "Computer > System Properties > System Settings > Environment Variables.";
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, buf.str().c_str(), error.c_str(), MB_OK);
   }
 
   return result == JNI_OK;
@@ -461,16 +544,18 @@ bool RunMainClass()
   jclass mainClass = env->FindClass(mainClassName.c_str());
   if (!mainClass)
   {
-    char buf[_MAX_PATH];
+    char buf[_MAX_PATH + 256];
     sprintf_s(buf, "Could not find main class %s", mainClassName.c_str());
-    MessageBoxA(NULL, buf, "Error Launching IntelliJ Platform", MB_OK);
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, buf, error.c_str(), MB_OK);
     return false;
   }
 
   jmethodID mainMethod = env->GetStaticMethodID(mainClass, "main", "([Ljava/lang/String;)V");
   if (!mainMethod)
   {
-    MessageBoxA(NULL, "Could not find main method", "Error Launching IntelliJ Platform", MB_OK);
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, "Could not find main method", error.c_str(), MB_OK);
     return false;
   }
 
@@ -479,7 +564,8 @@ bool RunMainClass()
   jthrowable exc = env->ExceptionOccurred();
   if (exc)
   {
-    MessageBox(NULL, _T("Error invoking main method"), _T("Error launching IntelliJ Platform"), MB_OK);
+    std::string error = LoadStdString(IDS_ERROR_LAUNCHING_APP);
+    MessageBoxA(NULL, "Error invoking main method", error.c_str(), MB_OK);
   }
 
   return true;
