@@ -177,11 +177,11 @@ private layoutWin(Map _args, String home, Paths paths) {
 
   ant.copy(file: "$home/../adt/idea/adt-branding/src/artwork/androidstudio.ico", tofile: "$target/bin/idea.ico")
 
-  // The 0.1.1 win launcher.
-  ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-Win32/studio.exe",
-           tofile: "$target/bin/studio.exe")
-  ant.copy(  file: "$home/../adt/idea/native/WinLauncher/out/Release-x64/studio64.exe",
-           tofile: "$target/bin/studio64.exe")
+  List resourcePaths = ["$home/../adt/idea/adt-branding/src"]
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/studio.exe", appInfoFile(),
+                   "$home/../adt/idea/adt-branding/src/idea/android_studio_launcher.properties", _args.system_selector, resourcePaths)
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/studio64.exe", appInfoFile(),
+                   "$home/../adt/idea/adt-branding/src/idea/android_studio_launcher.properties", _args.system_selector, resourcePaths)
 
   // Unlike intellij we do not distribute a batch file to launch studio.
   // winScripts(target, home, "studio.bat", args)
