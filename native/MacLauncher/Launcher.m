@@ -369,6 +369,18 @@ NSString *getOverridePropertiesPath() {
     NSAlert *alert = [[[NSAlert alloc] init] autorelease];
     [alert setMessageText:[values objectAtIndex:0]];
     [alert setInformativeText:[values objectAtIndex:1]];
+
+    if ([values count] > 2) {
+        NSTextView *accessory = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0 , 300 , 15)];
+        [accessory setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+        NSMutableAttributedString *str = [[NSMutableAttributedString alloc] initWithString: [values objectAtIndex:2]];
+        [str addAttribute: NSLinkAttributeName value: [values objectAtIndex:2] range: NSMakeRange(0, str.length)];
+        [accessory insertText:str];
+        [accessory setEditable:NO];
+        [accessory setDrawsBackground:NO];
+        [alert setAccessoryView:accessory];
+    }
+
     [alert runModal];
 }
 
@@ -378,8 +390,9 @@ NSString *getOverridePropertiesPath() {
     NSBundle *vm = findMatchingVm();
     if (vm == nil) {
         NSString *title = @"Java not found";
-        NSString *message = [getBundleName() stringByAppendingString:@" was unable to find a valid JVM."];
-        [self performSelectorOnMainThread:@selector(alert:) withObject:@[title, message] waitUntilDone:true];
+        NSString *message = [getBundleName() stringByAppendingString:@" was unable to find a valid JVM. Please download it from:"];
+        NSString *link = @"http://support.apple.com/kb/DL1572";
+        [self performSelectorOnMainThread:@selector(alert:) withObject:@[title, message, link] waitUntilDone:true];
 
         NSLog(@"Cannot find matching VM, aborting");
         exit(-1);
