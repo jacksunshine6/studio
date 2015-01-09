@@ -106,7 +106,7 @@ NSString *jvmVersion(NSBundle *bundle) {
     return [bundle.infoDictionary valueForKey:@"JVMVersion" inDictionary:@"JavaVM" defaultObject:@"0"];
 }
 
-NSString *requiredJvmVersion() {
+NSString *requiredJvmVersions() {
     return [[NSBundle mainBundle].infoDictionary valueForKey:@"JVMVersion" inDictionary: JVMOptions defaultObject:@"1.7*"];
 }
 
@@ -152,17 +152,20 @@ NSBundle *findMatchingVm() {
         }
     }
 
-    NSString *required = requiredJvmVersion();
-    debugLog([NSString stringWithFormat:@"Required VM: %@", required]);
+    NSString *requiredList = requiredJvmVersions();
+    debugLog([NSString stringWithFormat:@"Required VMs: %@", requiredList]);
 
-    if (required != nil && required != NULL) {
-    for (NSBundle *vm in vmBundles) {
-        if (satisfies(jvmVersion(vm), required)) {
-            debugLog(@"Chosen VM:");
-            debugLog([vm bundlePath]);
-            return vm;
+    if (requiredList != nil && requiredList != NULL) {
+        NSArray *array = [requiredList componentsSeparatedByString:@","];
+        for (NSString* required in array) {
+            for (NSBundle *vm in vmBundles) {
+                if (satisfies(jvmVersion(vm), required)) {
+                    debugLog(@"Chosen VM:");
+                    debugLog([vm bundlePath]);
+                    return vm;
+                }
+            }
         }
-    }
     } else {
         NSLog(@"Info.plist is corrupted, Absent JVMOptions key.");
         exit(-1);
