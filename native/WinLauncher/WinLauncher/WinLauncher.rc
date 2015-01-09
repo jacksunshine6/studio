@@ -22,6 +22,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -38,6 +39,7 @@ IDB_SPLASH              BITMAP                  "splash.bmp"
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DEU)
 LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -86,6 +88,7 @@ END
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -136,7 +139,7 @@ STRINGTABLE
 BEGIN
     IDS_APP_TITLE           "WinLauncher"
     IDS_JDK_ENV_VAR         "IDEA_JDK"
-    IDS_VM_OPTIONS_PATH     "%USERPROFILE%\\.IntelliJIdea14\\idea.vmoptions"
+    IDS_VM_OPTIONS_PATH     "%USERPROFILE%\\.__PRODUCT_PATHS_SELECTOR__"
     IDS_MAIN_CLASS          "com/intellij/idea/Main"
     IDS_CLASSPATH_LIBS      "bootstrap.jar;extensions.jar;util.jar;jdom.jar;log4j.jar;trove4j.jar;jna.jar"
     IDS_JDK_ONLY            "true"
@@ -149,6 +152,9 @@ END
 STRINGTABLE
 BEGIN
     IDS_VM_OPTIONS          "-Didea.jre.check=false"
+    IDS_PROPS_ENV_VAR       "IDEA_PROPERTIES"
+    IDS_VM_OPTIONS_ENV_VAR  "IDEA_VM_OPTIONS"
+    IDS_ERROR_LAUNCHING_APP "Error Launching IntelliJ Platform"
 END
 
 #endif    // English (United States) resources
