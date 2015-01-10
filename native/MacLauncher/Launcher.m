@@ -167,7 +167,7 @@ NSArray *allVms() {
         NSString *appDir = [bundle.bundlePath stringByAppendingPathComponent:@"Contents"];
 
         appendJvmBundlesAt([appDir stringByAppendingPathComponent:@"/jre"], jvmBundlePaths);
-        if ((jvmBundlePaths.count > 0) && (satisfies(jvmVersion(jvmBundlePaths[jvmBundlePaths.count-1]), required))) return jvmBundlePaths;
+        if (jvmBundlePaths.count > 0) return jvmBundlePaths;
 
         appendJvmBundlesAt([NSHomeDirectory() stringByAppendingPathComponent:@"Library/Java/JavaVirtualMachines"], jvmBundlePaths);
         appendJvmBundlesAt(@"/Library/Java/JavaVirtualMachines", jvmBundlePaths);
@@ -183,8 +183,8 @@ NSString *jvmVersion(NSBundle *bundle) {
     return javaVersion;
 }
 
-NSString *requiredJvmVersion() {
-    return (JVMVersion != NULL) ? JVMVersion : [[NSBundle mainBundle].infoDictionary valueForKey:@"JVMVersion" inDictionary: JVMOptions defaultObject:@"1.7*"];
+NSString *requiredJvmVersions() {
+    return [[NSBundle mainBundle].infoDictionary valueForKey:@"JVMVersion" inDictionary: JVMOptions defaultObject:@"1.7*"];
 }
 
 BOOL satisfies(NSString *vmVersion, NSString *requiredVersion) {
@@ -233,17 +233,20 @@ NSBundle *findMatchingVm() {
         }
     }
 
-    NSString *required = requiredJvmVersion();
-    debugLog([NSString stringWithFormat:@"Required VM: %@", required]);
+    NSString *requiredList = requiredJvmVersions();
+    debugLog([NSString stringWithFormat:@"Required VMs: %@", requiredList]);
 
-    if (required != nil && required != NULL) {
-      for (NSBundle *vm in vmBundles) {
-        if (satisfies(jvmVersion(vm), required)) {
-            debugLog(@"Chosen VM:");
-            debugLog([vm bundlePath]);
-            return vm;
+    if (requiredList != nil && requiredList != NULL) {
+        NSArray *array = [requiredList componentsSeparatedByString:@","];
+        for (NSString* required in array) {
+            for (NSBundle *vm in vmBundles) {
+                if (satisfies(jvmVersion(vm), required)) {
+                    debugLog(@"Chosen VM:");
+                    debugLog([vm bundlePath]);
+                    return vm;
+                }
+            }
         }
-      }
     } else {
         NSLog(@"Info.plist is corrupted, Absent JVMOptions key.");
         exit(-1);
