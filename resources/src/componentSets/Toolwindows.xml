@@ -1,7 +1,12 @@
 <components>
   <project-components>
+    <!--
+    Android Studio: Remove the plain Palette. That one is used for the Swing designer,
+    which is not included in Android Studio (and whose name conflicts with the Android
+    layout editor palette; see issue 82634: "Palette" show twice in View > Tools Window
     <component>
       <implementation-class>com.intellij.ide.palette.impl.PaletteManager</implementation-class>
     </component>
+    -->
   </project-components>
 </components>
