@@ -50,6 +50,7 @@ target('run_tests': 'Run java tests') {
   new File(classpathFile).text = testRuntimeClasspath.findAll({ new File((String)it).exists() }).join('\n')
 
   testcases.each { testCase ->
+    projectBuilder.stage("NOW EXECUTING: $testCase")
     ant.junit(fork: "yes", showoutput: "true", logfailedtests: false) {
       jvmarg(value: "-Dclasspath.file=${classpathFile}")
       pass("idea.test.group")
