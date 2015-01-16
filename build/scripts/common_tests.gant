@@ -83,6 +83,8 @@ target('run_tests': 'Run java tests') {
         pathelement(location: "${jdkHome}/lib/tools.jar")
       }
 
+      formatter(type: 'plain')
+      formatter(type: 'xml')
       test(name: 'com.intellij.tests.BootstrapTests')
     }
   }
