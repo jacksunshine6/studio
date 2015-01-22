@@ -4,6 +4,9 @@
 # $2 = dist_dir
 # $3 = build_number
 
+# exit on error
+set -e
+
 PROG_DIR=$(dirname "$0")
 
 function die() {
