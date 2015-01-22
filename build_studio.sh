@@ -46,3 +46,4 @@ $ANT "-Dout=$OUT" "-DbuildNumber=$BNUM"
 echo "## Copying android-studio destination files"
 cp -rfv "$OUT"/artifacts/android-studio* "$DIST"/
 cp -rfv "$OUT"/updater-full.jar "$DIST"/android-studio-updater.jar
+(cd ../adt/idea/native/installer/win && zip -r - ".") > "$DIST"/android-studio-bundle-data.zip
