@@ -18,6 +18,7 @@ package org.jetbrains.plugins.gradle.tooling.builder;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.artifacts.repositories.ArtifactRepository;
 import org.gradle.plugins.ide.idea.IdeaPlugin;
 import org.gradle.plugins.ide.idea.model.Dependency;
 import org.gradle.plugins.ide.idea.model.IdeaModule;
@@ -93,6 +94,11 @@ public class ModelBuildScriptClasspathBuilderImpl implements ModelBuilderService
         configuration.getArtifacts().addAll(classpathConfiguration.getAllArtifacts());
       }
 
+      final List<ArtifactRepository> buildscriptRepositories = project.getBuildscript().getRepositories();
+      final List<ArtifactRepository> projectRepositories = new ArrayList<ArtifactRepository>(project.getRepositories());
+      project.getRepositories().clear();
+      project.getRepositories().addAll(buildscriptRepositories);
+
       Collection<Configuration> plusConfigurations = Collections.singletonList(configuration);
 
       final Map<String, Map<String, Collection<Configuration>>> scopes =
@@ -117,8 +123,11 @@ public class ModelBuildScriptClasspathBuilderImpl implements ModelBuilderService
         }
       }
 
+      // revert project and ideaModule modifications
       ideaModule.setScopes(scopes);
       configurations.remove(configuration);
+      project.getRepositories().clear();
+      project.getRepositories().addAll(projectRepositories);
     }
 
     cache.put(project.getPath(), buildScriptClasspath);
