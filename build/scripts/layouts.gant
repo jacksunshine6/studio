@@ -826,6 +826,7 @@ def layoutAndroid() {
                 "manifest-merger",
                 "ninepatch",
                 "perflib",
+                "rpclib",
                 "sdk-common",
                 "sdklib"
         ]
