@@ -42,6 +42,14 @@ public class NullableNotNullManager implements PersistentStateComponent<Element>
 
   public String myDefaultNullable = AnnotationUtil.NULLABLE;
   public String myDefaultNotNull = AnnotationUtil.NOT_NULL;
+  /* Android Studio: Switch default annotations for projects over to the Android support library
+      public String myDefaultNullable = "android.support.annotation.Nullable";
+      public String myDefaultNotNull = "android.support.annotation.NonNull";
+    such that infer nullity & friends can use these instead. But first, we'll need
+    to make InferNullityAnnotationsAction able to insert a Gradle project dependency
+    on the right library.
+    */
+
   public final JDOMExternalizableStringList myNullables = new JDOMExternalizableStringList();
   public final JDOMExternalizableStringList myNotNulls = new JDOMExternalizableStringList();
 
