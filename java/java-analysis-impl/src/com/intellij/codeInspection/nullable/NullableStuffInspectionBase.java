@@ -94,6 +94,9 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
           final String anno = annotated.isDeclaredNotNull ? manager.getDefaultNotNull() : manager.getDefaultNullable();
           final List<String> annoToRemove = annotated.isDeclaredNotNull ? manager.getNullables() : manager.getNotNulls();
 
+          /* Android Studio: Disabled. We don't use code generation for @NotNull in Gradle builds,
+             so this is misleading.
+
           if (!AnnotationUtil.isAnnotatingApplicable(field, anno)) {
             final PsiAnnotation notNull = AnnotationUtil.findAnnotation(field, manager.getNotNulls());
             final PsiAnnotation nullable = AnnotationUtil.findAnnotation(field, manager.getNullables());
@@ -114,6 +117,7 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
                                    new ChangeNullableDefaultsFix(notNull, nullable, manager));
             return;
           }
+          */
 
           String propName = JavaCodeStyleManager.getInstance(project).variableNameToPropertyName(field.getName(), VariableKind.FIELD);
           final boolean isStatic = field.hasModifierProperty(PsiModifier.STATIC);
