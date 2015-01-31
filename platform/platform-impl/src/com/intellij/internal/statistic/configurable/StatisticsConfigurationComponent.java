@@ -77,6 +77,9 @@ public class StatisticsConfigurationComponent {
     myTitle.setText(myTitle.getText().replace("%company%", company));
     myLabel.setText(myLabel.getText().replace("%company%", company));
     myAllowToSendUsagesCheckBox.setText(myAllowToSendUsagesCheckBox.getText().replace("%company%", company));
+
+    // Android Studio : Do not show panel that allows configuring stats upload frequency
+    myRadioButtonPanel.setVisible(false);
   }
 
   private void setRadioButtonsEnabled() {
