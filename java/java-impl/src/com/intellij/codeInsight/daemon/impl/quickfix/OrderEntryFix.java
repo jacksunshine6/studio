@@ -143,6 +143,7 @@ public abstract class OrderEntryFix implements IntentionAction, LocalQuickFix {
       return Arrays.asList((LocalQuickFix)fix);
     }
 
+    /* Android Studio: Disabled, doesn't work with Gradle projects.
     if (isAnnotation(psiElement) && AnnotationUtil.isJetbrainsAnnotation(referenceName)) {
       @NonNls final String className = "org.jetbrains.annotations." + referenceName;
       PsiClass found =
@@ -190,6 +191,7 @@ public abstract class OrderEntryFix implements IntentionAction, LocalQuickFix {
       registrar.register(fix);
       return Arrays.asList((LocalQuickFix)fix);
     }
+    */
 
     List<LocalQuickFix> result = new ArrayList<LocalQuickFix>();
     Set<Object> librariesToAdd = new THashSet<Object>();
