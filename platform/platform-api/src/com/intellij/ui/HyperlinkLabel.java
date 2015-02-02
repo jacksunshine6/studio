@@ -35,7 +35,7 @@ import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.parser.ParserDelegator;
 import java.awt.*;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
@@ -85,6 +85,28 @@ public class HyperlinkLabel extends HighlightableComponent {
     setHyperlinkText(text);
     enableEvents(AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK);
     setOpaque(false);
+    setFocusable(true);
+    addFocusListener(new FocusListener() {
+      @Override
+      public void focusGained(FocusEvent e) {
+        repaint();
+      }
+
+      @Override
+      public void focusLost(FocusEvent e) {
+        repaint();
+      }
+    });
+
+    addKeyListener(new KeyAdapter() {
+      @Override
+      public void keyTyped(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER) {
+          e.consume();
+          doClick();
+        }
+      }
+    });
   }
 
   public void addNotify() {
@@ -241,5 +263,10 @@ public class HyperlinkLabel extends HighlightableComponent {
   @Override
   public void updateUI() {
     setFont(UIUtil.getLabelFont());
+  }
+
+  protected void paintComponent(Graphics g) {
+    myIsSelected = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner() == this;
+    super.paintComponent(g);
   }
 }
