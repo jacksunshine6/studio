@@ -84,7 +84,7 @@ public class HyperlinkLabel extends HighlightableComponent {
 
     addKeyListener(new KeyAdapter() {
       @Override
-      public void keyTyped(KeyEvent e) {
+      public void keyPressed(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER) {
           e.consume();
           doClick();
