@@ -579,12 +579,15 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
         }
       }
     });
+    viewSelectionChanged();
   }
 
   private void ensurePanesLoaded() {
     if (myExtensionsLoaded) return;
     myExtensionsLoaded = true;
-    for(AbstractProjectViewPane pane: Extensions.getExtensions(AbstractProjectViewPane.EP_NAME, myProject)) {
+    AbstractProjectViewPane[] extensions = Extensions.getExtensions(AbstractProjectViewPane.EP_NAME, myProject);
+    Arrays.sort(extensions, PANE_WEIGHT_COMPARATOR);
+    for(AbstractProjectViewPane pane: extensions) {
       if (myUninitializedPaneState.containsKey(pane.getId())) {
         try {
           pane.readExternal(myUninitializedPaneState.get(pane.getId()));
@@ -897,18 +900,23 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
 
   @Override
   public void changeView(@NotNull String viewId, @Nullable String subId) {
+    changeViewCB(viewId, subId);
+  }
+
+  @NotNull
+  @Override
+  public ActionCallback changeViewCB(@NotNull String viewId, String subId) {
     AbstractProjectViewPane pane = getProjectViewPaneById(viewId);
     LOG.assertTrue(pane != null, "Project view pane not found: " + viewId + "; subId:" + subId);
     if (!viewId.equals(getCurrentViewId())
         || subId != null && !subId.equals(pane.getSubId())) {
       for (Content content : myContentManager.getContents()) {
         if (viewId.equals(content.getUserData(ID_KEY)) && StringUtil.equals(subId, content.getUserData(SUB_ID_KEY))) {
-          myContentManager.setSelectedContent(content);
-          break;
+          return myContentManager.setSelectedContentCB(content);
         }
       }
-      viewSelectionChanged();
     }
+    return ActionCallback.REJECTED;
   }
 
   private final class MyDeletePSIElementProvider implements DeleteProvider {
@@ -1796,7 +1804,7 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
     pane.installComparator();
   }
 
-  private class ManualOrderAction extends ToggleAction {
+  private class ManualOrderAction extends ToggleAction implements DumbAware {
     private ManualOrderAction() {
       super(IdeBundle.message("action.manual.order"), IdeBundle.message("action.manual.order"), AllIcons.ObjectBrowser.Sorted);
     }
@@ -1816,11 +1824,11 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
       super.update(e);
       final Presentation presentation = e.getPresentation();
       AbstractProjectViewPane pane = getCurrentProjectViewPane();
-      presentation.setVisible(pane != null && pane.supportsManualOrder());
+      presentation.setEnabledAndVisible(pane != null && pane.supportsManualOrder());
     }
   }
   
-  private class SortByTypeAction extends ToggleAction {
+  private class SortByTypeAction extends ToggleAction implements DumbAware {
     private SortByTypeAction() {
       super(IdeBundle.message("action.sort.by.type"), IdeBundle.message("action.sort.by.type"), AllIcons.ObjectBrowser.SortByType);
     }
@@ -1843,7 +1851,7 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
     }
   }
 
-  private class FoldersAlwaysOnTopAction extends ToggleAction {
+  private class FoldersAlwaysOnTopAction extends ToggleAction implements DumbAware {
     private FoldersAlwaysOnTopAction() {
       super("Folders Always on Top");
     }
@@ -1862,7 +1870,7 @@ public class ProjectViewImpl extends ProjectView implements PersistentStateCompo
     public void update(final AnActionEvent e) {
       super.update(e);
       final Presentation presentation = e.getPresentation();
-      presentation.setVisible(getCurrentProjectViewPane() != null);
+      presentation.setEnabledAndVisible(getCurrentProjectViewPane() != null);
     }
   }
 

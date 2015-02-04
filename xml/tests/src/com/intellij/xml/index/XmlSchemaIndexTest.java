@@ -31,7 +31,6 @@ public class XmlSchemaIndexTest extends LightCodeInsightFixtureTestCase {
   public void testBuilder() throws IOException {
 
     VirtualFile file = myFixture.copyFileToProject("spring-beans-2.0.xsd");
-    assert file != null;
     final Collection<String> tags = XsdTagNameBuilder.computeTagNames(file.getInputStream());
     assert tags != null;
     assertEquals(22, tags.size());
@@ -40,9 +39,8 @@ public class XmlSchemaIndexTest extends LightCodeInsightFixtureTestCase {
     assertEquals("http://www.springframework.org/schema/beans", ns);
 
     final VirtualFile xsd = myFixture.copyFileToProject("XMLSchema.xsd");
-    assert xsd != null;
-    final String xsns = XsdNamespaceBuilder.computeNamespace(xsd.getInputStream());
-    assertEquals("http://www.w3.org/2001/XMLSchema", xsns);
+    final String namespace = XsdNamespaceBuilder.computeNamespace(xsd.getInputStream());
+    assertEquals("http://www.w3.org/2001/XMLSchema", namespace);
 
     final Collection<String> xstags = XsdTagNameBuilder.computeTagNames(xsd.getInputStream());
     assert xstags != null;

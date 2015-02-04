@@ -76,7 +76,7 @@ public class GitResetOperation {
 
   public void execute() {
     saveAllDocuments();
-    DvcsUtil.workingTreeChangeStarted(myProject);
+    AccessToken token = DvcsUtil.workingTreeChangeStarted(myProject);
     Map<GitRepository, GitCommandResult> results = ContainerUtil.newHashMap();
     try {
       for (Map.Entry<GitRepository, VcsFullCommitDetails> entry : myCommits.entrySet()) {
@@ -99,7 +99,7 @@ public class GitResetOperation {
       }
     }
     finally {
-      DvcsUtil.workingTreeChangeFinished(myProject);
+      DvcsUtil.workingTreeChangeFinished(myProject, token);
     }
     notifyResult(results);
   }

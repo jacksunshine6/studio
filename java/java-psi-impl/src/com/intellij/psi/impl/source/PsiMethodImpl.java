@@ -22,7 +22,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Queryable;
 import com.intellij.openapi.util.Computable;
-import com.intellij.openapi.util.registry.Registry;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.ElementPresentationUtil;
 import com.intellij.psi.impl.PsiClassImplUtil;
@@ -193,11 +192,11 @@ public class PsiMethodImpl extends JavaStubPsiElement<PsiMethodStub> implements 
 
     final PsiMethodStub stub = getStub();
     if (stub != null) {
-      final String typeText = TypeInfo.createTypeText(stub.getReturnTypeText(true));
-      if (typeText == null) return null;
-
       PsiType type = SoftReference.dereference(myCachedType);
       if (type != null) return type;
+
+      final String typeText = TypeInfo.createTypeText(stub.getReturnTypeText(true));
+      if (typeText == null) return null;
 
       try {
         type = JavaPsiFacade.getInstance(getProject()).getElementFactory().createTypeFromText(typeText, this);
@@ -315,9 +314,6 @@ public class PsiMethodImpl extends JavaStubPsiElement<PsiMethodStub> implements 
         @Override
         public Result<MethodSignature> compute() {
           MethodSignature signature = MethodSignatureBackedByPsiMethod.create(PsiMethodImpl.this, PsiSubstitutor.EMPTY);
-          if (Registry.is("psi.drop.method.signature.cache.on.change.inside")) {
-            return Result.create(signature, PsiMethodImpl.this, PsiModificationTracker.JAVA_STRUCTURE_MODIFICATION_COUNT);
-          }
           return Result.create(signature, PsiModificationTracker.JAVA_STRUCTURE_MODIFICATION_COUNT);
         }
       });

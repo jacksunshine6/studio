@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2013 Dave Griffith, Bas Leijdekkers
+ * Copyright 2003-2015 Dave Griffith, Bas Leijdekkers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 package com.siyeh.ig.jdk;
 
+import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.codeInspection.ui.SingleCheckboxOptionsPanel;
-import com.intellij.lang.java.JavaLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiUtil;
@@ -33,10 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class AutoBoxingInspection extends BaseInspection {
 
@@ -92,17 +89,24 @@ public class AutoBoxingInspection extends BaseInspection {
   }
 
   @Override
+  public boolean shouldInspect(PsiFile file) {
+    return PsiUtil.isLanguageLevel5OrHigher(file);
+  }
+
+  @Override
   public BaseInspectionVisitor buildVisitor() {
     return new AutoBoxingVisitor();
   }
 
   @Override
   public InspectionGadgetsFix buildFix(Object... infos) {
+    if (infos.length == 0) {
+      return null;
+    }
     return new AutoBoxingFix();
   }
 
   private static class AutoBoxingFix extends InspectionGadgetsFix {
-
     @Override
     @NotNull
     public String getName() {
@@ -221,17 +225,6 @@ public class AutoBoxingInspection extends BaseInspection {
   private class AutoBoxingVisitor extends BaseInspectionVisitor {
 
     @Override
-    public void visitElement(PsiElement element) {
-      if (element.getLanguage() != JavaLanguage.INSTANCE) {
-        return;
-      }
-      if (!PsiUtil.isLanguageLevel5OrHigher(element)) {
-        return;
-      }
-      super.visitElement(element);
-    }
-
-    @Override
     public void visitArrayAccessExpression(PsiArrayAccessExpression expression) {
       super.visitArrayAccessExpression(expression);
       checkExpression(expression);
@@ -294,7 +287,39 @@ public class AutoBoxingInspection extends BaseInspection {
     @Override
     public void visitReferenceExpression(PsiReferenceExpression expression) {
       super.visitReferenceExpression(expression);
-      checkExpression(expression);
+      if (expression instanceof PsiMethodReferenceExpression) {
+        final PsiMethodReferenceExpression methodReferenceExpression = (PsiMethodReferenceExpression)expression;
+        if (methodReferenceExpression.isConstructor()) {
+          return;
+        }
+        final PsiElement referenceNameElement = methodReferenceExpression.getReferenceNameElement();
+        if (referenceNameElement == null) {
+          return;
+        }
+        final PsiElement target = methodReferenceExpression.resolve();
+        if (!(target instanceof PsiMethod)) {
+          return;
+        }
+        final PsiMethod method = (PsiMethod)target;
+        final PsiType returnType = method.getReturnType();
+        if (returnType == null || returnType.equals(PsiType.VOID) || !TypeConversionUtil.isPrimitiveAndNotNull(returnType)) {
+          return;
+        }
+        final PsiPrimitiveType primitiveType = (PsiPrimitiveType)returnType;
+        final PsiClassType boxedType = primitiveType.getBoxedType(expression);
+        if (boxedType == null) {
+          return;
+        }
+        final PsiType functionalInterfaceReturnType = LambdaUtil.getFunctionalInterfaceReturnType(methodReferenceExpression);
+        if (functionalInterfaceReturnType == null || ClassUtils.isPrimitive(functionalInterfaceReturnType) ||
+            !functionalInterfaceReturnType.isAssignableFrom(boxedType)) {
+          return;
+        }
+        registerError(referenceNameElement);
+      }
+      else {
+        checkExpression(expression);
+      }
     }
 
     @Override
@@ -304,8 +329,20 @@ public class AutoBoxingInspection extends BaseInspection {
     }
 
     private void checkExpression(@NotNull PsiExpression expression) {
-      if (expression.getParent() instanceof PsiParenthesizedExpression) {
+      final PsiElement parent = expression.getParent();
+      if (parent instanceof PsiParenthesizedExpression) {
         return;
+      }
+      if (parent instanceof PsiExpressionList) {
+        final PsiElement grandParent = parent.getParent();
+        if (grandParent instanceof PsiMethodCallExpression) {
+          final PsiMethodCallExpression methodCallExpression = (PsiMethodCallExpression)grandParent;
+          final PsiMethod method = methodCallExpression.resolveMethod();
+          if (method != null &&
+              AnnotationUtil.isAnnotated(method, Collections.singletonList("java.lang.invoke.MethodHandle.PolymorphicSignature"))) {
+            return;
+          }
+        }
       }
       final PsiType expressionType = expression.getType();
       if (expressionType == null || expressionType.equals(PsiType.VOID) || !TypeConversionUtil.isPrimitiveAndNotNull(expressionType)) {
@@ -339,7 +376,7 @@ public class AutoBoxingInspection extends BaseInspection {
       if (ignoreAddedToCollection && isAddedToCollection(expression)) {
         return;
       }
-      registerError(expression);
+      registerError(expression, expression);
     }
 
     private boolean isAddedToCollection(PsiExpression expression) {

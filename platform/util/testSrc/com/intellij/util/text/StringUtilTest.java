@@ -15,6 +15,7 @@
  */
 package com.intellij.util.text;
 
+import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.text.StringUtil;
 import junit.framework.TestCase;
 
@@ -129,6 +130,10 @@ public class StringUtilTest extends TestCase {
     assertEquals("Couldn't Connect to Debugger", StringUtil.wordsToBeginFromUpperCase("Couldn't connect to debugger"));
   }
 
+  public void testSentenceCapitalization() {
+    assertEquals("couldn't connect to debugger", StringUtil.wordsToBeginFromLowerCase("Couldn't Connect to Debugger"));
+  }
+
   public void testEscapeStringCharacters() {
     assertEquals("\\\"\\n", StringUtil.escapeStringCharacters(3, "\\\"\n", "\"", false, new StringBuilder()).toString());
     assertEquals("\\\"\\n", StringUtil.escapeStringCharacters(2, "\"\n", "\"", false, new StringBuilder()).toString());
@@ -225,7 +230,7 @@ public class StringUtilTest extends TestCase {
   }
 
   public void testShortened() {
-    String[] names = {"AVeryVeeryLongClassName.java", "com.test.SomeJAVAClassName.java", "strangelowercaseclassname.java", "PrefixPostfix.java", "SomeJAVAClassName.java"};
+    String[] names = {"AVeryVeeryLongClassName.java", "com.test.SomeJAVAClassName.java", "strangelowercaseclassname.java", "PrefixPostfix.java", "SomeJAVAClassName.java", "qwertyuiopasdghjklzxcvbnm1234567890"};
     for (String name : names) {
       for (int i = name.length() + 1; i > 15; i--) {
         String shortened = StringUtil.getShortened(name, i);
@@ -250,6 +255,53 @@ public class StringUtilTest extends TestCase {
 
   public void testReplace() {
     assertEquals(StringUtil.replace("$PROJECT_FILE$/filename", "$PROJECT_FILE$", "/tmp"), "/tmp/filename");
+  }
+
+  public void testEqualsIgnoreWhitespaces() {
+    assertTrue(StringUtil.equalsIgnoreWhitespaces(null, null));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("", null));
+
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("", ""));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("\n\t ", ""));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("", "\t\n \n\t"));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("\t", "\n"));
+
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("x", " x"));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("x", "x "));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("x\n", "x"));
+
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("abcd", "a\nb\nc\nd\n"));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("x y x", "x y x"));
+    assertTrue(StringUtil.equalsIgnoreWhitespaces("xyx", "x y x"));
+
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("x", "\t\n "));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("", " x "));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("", "x "));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("", " x"));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("xyx", "xxx"));
+    assertFalse(StringUtil.equalsIgnoreWhitespaces("xyx", "xYx"));
+  }
+
+  public void testStringHashCodeIgnoreWhitespaces() {
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces(""), StringUtil.stringHashCodeIgnoreWhitespaces("")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("\n\t "), StringUtil.stringHashCodeIgnoreWhitespaces("")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces(""), StringUtil.stringHashCodeIgnoreWhitespaces("\t\n \n\t")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("\t"), StringUtil.stringHashCodeIgnoreWhitespaces("\n")));
+
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("x"), StringUtil.stringHashCodeIgnoreWhitespaces(" x")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("x"), StringUtil.stringHashCodeIgnoreWhitespaces("x ")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("x\n"), StringUtil.stringHashCodeIgnoreWhitespaces("x")));
+
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("abcd"), StringUtil.stringHashCodeIgnoreWhitespaces("a\nb\nc\nd\n")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("x y x"), StringUtil.stringHashCodeIgnoreWhitespaces("x y x")));
+    assertTrue(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("xyx"), StringUtil.stringHashCodeIgnoreWhitespaces("x y x")));
+
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("x"), StringUtil.stringHashCodeIgnoreWhitespaces("\t\n ")));
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces(""), StringUtil.stringHashCodeIgnoreWhitespaces(" x ")));
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces(""), StringUtil.stringHashCodeIgnoreWhitespaces("x ")));
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces(""), StringUtil.stringHashCodeIgnoreWhitespaces(" x")));
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("xyx"), StringUtil.stringHashCodeIgnoreWhitespaces("xxx")));
+    assertFalse(Comparing.equal(StringUtil.stringHashCodeIgnoreWhitespaces("xyx"), StringUtil.stringHashCodeIgnoreWhitespaces("xYx")));
   }
 
   public void testContains() {

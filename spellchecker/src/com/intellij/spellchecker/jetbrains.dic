@@ -6,7 +6,9 @@ anyschema
 aopalliance
 appender
 archivelog
+argc
 args
+argv
 arial
 arity
 asensitive
@@ -66,11 +68,13 @@ checksum
 chmod
 classpath
 clazz
+clion
 clob
 clojure
 cloneable
 closable
 closeable
+cmake
 cmdline
 codebase
 codeinsight
@@ -86,6 +90,7 @@ configs
 configurator
 configurators
 const
+constexpr
 contravariant
 controlfile
 covariant
@@ -93,6 +98,7 @@ cron
 ctrl
 customizer
 cyclomatic
+cygwin
 datafile
 datafiles
 datetime
@@ -132,6 +138,7 @@ ehcache
 elseif
 elsif
 endregion
+endif
 enqueue
 enum
 enums
@@ -177,7 +184,9 @@ giud
 globals
 google
 gruntfile
+gruntfiles
 gulpfile
+gulpfiles
 gzip
 gzipped
 hamcrest
@@ -199,6 +208,8 @@ https
 iconable
 iife
 impl
+implementor
+implementors
 inbox
 incrementer
 indextype
@@ -245,6 +256,8 @@ keychain
 keychains
 keyframe
 keyframes
+keymap
+keymaps
 kotlin
 labeler
 labelers
@@ -293,6 +306,7 @@ middleint
 middleware
 millis
 minextents
+mingw
 minimizable
 minvalue
 miny
@@ -351,6 +365,7 @@ nowrap
 nullabilities
 nullability
 nullif
+nullptr
 nvarchar
 oauth
 objc
@@ -510,6 +525,7 @@ sigwaiting
 sigwinch
 sigxcpu
 sigxfsz
+sizeof
 slru
 smallfile
 smallint
@@ -579,6 +595,7 @@ typedef
 typedefs
 typename
 typeof
+ubuntu
 unary
 unboxing
 unbuffered
@@ -615,8 +632,11 @@ verdana
 versa
 vertices
 viewlet
+viewport
+viewports
 vtlvariable
 watchlist
+wchar
 webpack
 webservice
 whitespace
@@ -631,6 +651,8 @@ writeln
 wsdl
 xcode
 xcodeproj
+xctest
+xcworkspace
 xhtml
 xmlbeans
 xmlschema

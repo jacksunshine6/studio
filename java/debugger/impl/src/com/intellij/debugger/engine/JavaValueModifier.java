@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,6 @@ import com.intellij.util.IJSwingUtilities;
 import com.intellij.xdebugger.frame.XValueModifier;
 import com.sun.jdi.*;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
@@ -59,17 +58,35 @@ public class JavaValueModifier extends XValueModifier {
     myJavaValue = javaValue;
   }
 
-  @Nullable
   @Override
-  public String getInitialValueEditorText() {
-    Value value = myJavaValue.getDescriptor().getValue();
+  public void calculateInitialValueEditorText(final XInitialValueCallback callback) {
+    final Value value = myJavaValue.getDescriptor().getValue();
     if (value instanceof PrimitiveValue) {
-      return myJavaValue.getValueString();
+      String valueString = myJavaValue.getValueString();
+      int pos = valueString.lastIndexOf('('); //skip hex presentation if any
+      if (pos > 1) {
+        valueString = valueString.substring(0, pos).trim();
+      }
+      callback.setValue(valueString);
     }
     else if (value instanceof StringReference) {
-      return StringUtil.wrapWithDoubleQuote(DebuggerUtils.translateStringValue(myJavaValue.getValueString()));
+      final EvaluationContextImpl evaluationContext = myJavaValue.getEvaluationContext();
+      evaluationContext.getManagerThread().schedule(new SuspendContextCommandImpl(evaluationContext.getSuspendContext()) {
+        @Override
+        public Priority getPriority() {
+          return Priority.NORMAL;
+        }
+
+        @Override
+        public void contextAction() throws Exception {
+          callback.setValue(
+            StringUtil.wrapWithDoubleQuote(DebuggerUtils.translateStringValue(DebuggerUtils.getValueAsString(evaluationContext, value))));
+        }
+      });
     }
-    return null;
+    else {
+      callback.setValue(null);
+    }
   }
 
   //public void update(AnActionEvent e) {

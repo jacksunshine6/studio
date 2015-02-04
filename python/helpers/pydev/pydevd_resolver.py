@@ -13,12 +13,12 @@ except:
     setattr(__builtin__, 'False', 0)
 
 import pydevd_constants
-from pydevd_constants import DictIterItems, xrange
+from pydevd_constants import DictIterItems, DictKeys, xrange
 
 
 # Note: 300 is already a lot to see in the outline (after that the user should really use the shell to get things)
 # and this also means we'll pass less information to the client side (which makes debugging faster).
-MAX_ITEMS_TO_HANDLE = 300
+MAX_ITEMS_TO_HANDLE = 300 
 
 TOO_LARGE_MSG = 'Too large to show contents. Max items to show: ' + str(MAX_ITEMS_TO_HANDLE)
 TOO_LARGE_ATTR = 'Unable to handle:'
@@ -235,7 +235,7 @@ class DictResolver:
 
     def keyStr(self, key):
         if isinstance(key, str):
-            return "'%s'"%key
+            return '%r'%key
         else:
             if not pydevd_constants.IS_PY3K:
                 if isinstance(key, unicode):
@@ -284,11 +284,11 @@ class TupleResolver: #to enumerate tuples and lists
         for item in var:
             d[format_str % i] = item
             i += 1
-
+            
             if i > MAX_ITEMS_TO_HANDLE:
                 d[TOO_LARGE_ATTR] = TOO_LARGE_MSG
                 break
-
+                
         d['__len__'] = len(var)
         return d
 
@@ -319,12 +319,12 @@ class SetResolver:
         for item in var:
             i+= 1
             d[id(item)] = item
-
+            
             if i > MAX_ITEMS_TO_HANDLE:
                 d[TOO_LARGE_ATTR] = TOO_LARGE_MSG
                 break
 
-
+            
         d['__len__'] = len(var)
         return d
 
@@ -444,6 +444,43 @@ class NdArrayResolver:
 class NdArrayItemsContainer: pass
 
 
+
+#=======================================================================================================================
+# MultiValueDictResolver
+#=======================================================================================================================
+class MultiValueDictResolver(DictResolver):
+
+    def resolve(self, dict, key):
+        if key in ('__len__', TOO_LARGE_ATTR):
+            return None
+
+        #ok, we have to iterate over the items to find the one that matches the id, because that's the only way
+        #to actually find the reference from the string we have before.
+        expected_id = int(key.split('(')[-1][:-1])
+        for key in DictKeys(dict):
+            val = dict.getlist(key)
+            if id(key) == expected_id:
+                return val
+
+        raise UnableToResolveVariableException()
+
+    def getDictionary(self, dict):
+        ret = {}
+        i = 0
+        for key in DictKeys(dict):
+            val = dict.getlist(key)
+            i += 1
+            #we need to add the id because otherwise we cannot find the real object to get its contents later on.
+            key = '%s (%s)' % (self.keyStr(key), id(key))
+            ret[key] = val
+            if i > MAX_ITEMS_TO_HANDLE:
+                ret[TOO_LARGE_ATTR] = TOO_LARGE_MSG
+                break
+
+        ret['__len__'] = len(dict)
+        return ret
+
+
 #=======================================================================================================================
 # FrameResolver
 #=======================================================================================================================
@@ -501,4 +538,5 @@ instanceResolver = InstanceResolver()
 jyArrayResolver = JyArrayResolver()
 setResolver = SetResolver()
 ndarrayResolver = NdArrayResolver()
+multiValueDictResolver = MultiValueDictResolver()
 frameResolver = FrameResolver()

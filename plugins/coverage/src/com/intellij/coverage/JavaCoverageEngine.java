@@ -72,6 +72,10 @@ import java.util.*;
 public class JavaCoverageEngine extends CoverageEngine {
   private static final Logger LOG = Logger.getInstance(JavaCoverageEngine.class.getName());
 
+  public static JavaCoverageEngine getInstance() {
+    return Extensions.findExtension(EP_NAME, JavaCoverageEngine.class);
+  }
+
   @Override
   public boolean isApplicableTo(@Nullable final RunConfigurationBase conf) {
     if (conf instanceof CommonJavaRunConfigurationParameters) {
@@ -388,6 +392,15 @@ public class JavaCoverageEngine extends CoverageEngine {
     }
     buf.append(lineData.getHits()).append("\n");
 
+
+    for (JavaCoverageEngineExtension extension : Extensions.getExtensions(JavaCoverageEngineExtension.EP_NAME)) {
+      String report = extension.generateBriefReport(editor, psiFile, lineNumber, startOffset, endOffset, lineData);
+      if (report != null) {
+        buf.append(report);
+        return report;
+      }
+    }
+
     final List<PsiExpression> expressions = new ArrayList<PsiExpression>();
 
     final Project project = editor.getProject();
@@ -665,5 +678,14 @@ public class JavaCoverageEngine extends CoverageEngine {
                                                            CoverageSuitesBundle suiteBundle,
                                                            CoverageViewManager.StateBean stateBean) {
     return new JavaCoverageViewExtension((JavaCoverageAnnotator)getCoverageAnnotator(project), project, suiteBundle, stateBean);
+  }
+
+  public boolean isSourceMapNeeded(RunConfigurationBase configuration) {
+    for (final JavaCoverageEngineExtension extension : Extensions.getExtensions(JavaCoverageEngineExtension.EP_NAME)) {
+      if (extension.isSourceMapNeeded(configuration)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -15,7 +15,6 @@
  */
 package com.intellij.application.options.codeStyle;
 
-import com.intellij.lang.Language;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.psi.codeStyle.CodeStyleSettings;
 import com.intellij.psi.codeStyle.CommonCodeStyleSettings;
@@ -46,7 +45,7 @@ import java.util.List;
 /**
  * @author max
  */
-public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleAbstractPanel {
+public abstract class OptionTreeWithPreviewPanel extends CustomizableLanguageCodeStylePanel {
   private static final Logger LOG = Logger.getInstance("#com.intellij.application.options.CodeStyleSpacesPanel");
   private JTree myOptionsTree;
   private final ArrayList<BooleanOptionKey> myKeys = new ArrayList<BooleanOptionKey>();
@@ -80,7 +79,7 @@ public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleA
     };
     myPanel.add(scrollPane,
                 new GridBagConstraints(0, 0, 1, 1, 0, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH,
-                                       new Insets(0, 0, 0, 8), 0, 0));
+                                       new Insets(0, 0, 0, 0), 0, 0));
 
     JPanel previewPanel = createPreviewPanel();
 
@@ -92,11 +91,6 @@ public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleA
     addPanelToWatch(myPanel);
 
     isFirstUpdate = false;
-  }
-
-  @Override
-  protected void onLanguageChange(Language language) {
-    updateOptionsTree();
   }
 
   @Override
@@ -169,11 +163,6 @@ public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleA
         key.setEnabled(true);
       }
     }
-  }
-
-  protected void updateOptionsTree() {
-    resetImpl(getSettings());
-    myOptionsTree.repaint();
   }
 
   protected JTree createOptionsTree() {
@@ -507,7 +496,7 @@ public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleA
 
     public void setValue(CodeStyleSettings settings, Boolean aBoolean) {
       try {
-        CommonCodeStyleSettings commonSettings = settings.getCommonSettings(getSelectedLanguage());
+        CommonCodeStyleSettings commonSettings = settings.getCommonSettings(getDefaultLanguage());
         field.set(commonSettings, aBoolean);
       }
       catch (IllegalAccessException e) {
@@ -516,7 +505,7 @@ public abstract class OptionTreeWithPreviewPanel extends MultilanguageCodeStyleA
     }
 
     public boolean getValue(CodeStyleSettings settings) throws IllegalAccessException {
-      CommonCodeStyleSettings commonSettings = settings.getCommonSettings(getSelectedLanguage());
+      CommonCodeStyleSettings commonSettings = settings.getCommonSettings(getDefaultLanguage());
       return field.getBoolean(commonSettings);
     }
 

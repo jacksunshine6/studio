@@ -15,7 +15,9 @@
  */
 package com.intellij.openapi.components.impl.stores;
 
-import com.intellij.openapi.components.*;
+import com.intellij.openapi.components.PathMacroManager;
+import com.intellij.openapi.components.PathMacroSubstitutor;
+import com.intellij.openapi.components.StateStorageException;
 import com.intellij.openapi.project.impl.ProjectManagerImpl;
 import com.intellij.util.SmartList;
 import org.jdom.Element;
@@ -34,21 +36,14 @@ abstract class BaseFileConfigurableStoreImpl extends ComponentStoreImpl {
 
   private static final List<String> ourConversionProblemsStorage = new SmartList<String>();
 
-  private final ComponentManager myComponentManager;
-  private final DefaultsStateStorage myDefaultsStateStorage;
   private StateStorageManager myStateStorageManager;
+  protected final PathMacroManager myPathMacroManager;
 
-  protected BaseFileConfigurableStoreImpl(@NotNull ComponentManager componentManager) {
-    myComponentManager = componentManager;
-    myDefaultsStateStorage = new DefaultsStateStorage(PathMacroManager.getInstance(myComponentManager));
+  protected BaseFileConfigurableStoreImpl(@NotNull PathMacroManager pathMacroManager) {
+    myPathMacroManager = pathMacroManager;
   }
 
-  @NotNull
-  public ComponentManager getComponentManager() {
-    return myComponentManager;
-  }
-
-  protected static class BaseStorageData extends FileBasedStorage.FileStorageData {
+  protected static class BaseStorageData extends StorageData {
     private int myVersion = ProjectManagerImpl.CURRENT_FORMAT_VERSION;
 
     public BaseStorageData(@NotNull String rootElementName) {
@@ -115,10 +110,10 @@ abstract class BaseFileConfigurableStoreImpl extends ComponentStoreImpl {
     return (BaseStorageData)getMainStorage().getStorageData();
   }
 
-  @Nullable
+  @NotNull
   @Override
-  protected StateStorage getDefaultsStorage() {
-    return myDefaultsStateStorage;
+  protected final PathMacroManager getPathMacroManagerForDefaults() {
+    return myPathMacroManager;
   }
 
   @NotNull

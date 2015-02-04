@@ -349,7 +349,7 @@ public class RefactoringUtil {
     }
   }
 
-  public static boolean canBeDeclaredFinal(PsiVariable variable) {
+  public static boolean canBeDeclaredFinal(@NotNull PsiVariable variable) {
     LOG.assertTrue(variable instanceof PsiLocalVariable || variable instanceof PsiParameter);
     final boolean isReassigned = HighlightControlFlowUtil
       .isReassigned(variable, new THashMap<PsiElement, Collection<ControlFlowUtil.VariableInfo>>());
@@ -718,6 +718,7 @@ public class RefactoringUtil {
     PsiUtil.setModifierProperty(method, PsiModifier.FINAL, false);
     PsiUtil.setModifierProperty(method, PsiModifier.SYNCHRONIZED, false);
     PsiUtil.setModifierProperty(method, PsiModifier.NATIVE, false);
+    PsiUtil.setModifierProperty(method, PsiModifier.PUBLIC, false);
     removeFinalParameters(method);
   }
 
@@ -873,18 +874,24 @@ public class RefactoringUtil {
       JavaCodeStyleManager.getInstance(declaration.getProject()).shortenClassReferences(declaration);
       if (loopBodyCopy != null) codeBlock.add(loopBodyCopy);
     } else if (container instanceof PsiLambdaExpression) {
-      final PsiLambdaExpression lambdaExpression = (PsiLambdaExpression)container;
-      final PsiElement lambdaExpressionBody = lambdaExpression.getBody();
-      LOG.assertTrue(lambdaExpressionBody != null);
+      PsiLambdaExpression lambdaExpression = (PsiLambdaExpression)container;
+      final PsiElement invalidBody = lambdaExpression.getBody();
+      if (invalidBody == null) return declaration;
 
       final PsiLambdaExpression expressionFromText = (PsiLambdaExpression)elementFactory
-        .createExpressionFromText(lambdaExpression.getParameterList().getText() + " -> {}", lambdaExpression);
+        .createExpressionFromText(lambdaExpression.getParameterList().getText() + " -> {}", lambdaExpression.getParent());
       PsiCodeBlock newBody = (PsiCodeBlock)expressionFromText.getBody();
       LOG.assertTrue(newBody != null);
       newBody.add(declaration);
 
+      lambdaExpression =
+        (PsiLambdaExpression)lambdaExpression.replace(elementFactory.createExpressionFromText(
+          lambdaExpression.getParameterList().getText() + " -> " + invalidBody.getText(), lambdaExpression));
+
+      final PsiElement lambdaExpressionBody = lambdaExpression.getBody();
+      LOG.assertTrue(lambdaExpressionBody != null);
       final PsiStatement lastBodyStatement;
-      if (LambdaUtil.getFunctionalInterfaceReturnType(lambdaExpression) == PsiType.VOID) {
+      if (PsiType.VOID.equals(LambdaUtil.getFunctionalInterfaceReturnType(lambdaExpression))) {
         lastBodyStatement = elementFactory.createStatementFromText("a;", lambdaExpression);
         ((PsiExpressionStatement)lastBodyStatement).getExpression().replace(lambdaExpressionBody);
       }

@@ -17,6 +17,7 @@
 package com.intellij.pom.tree.events.impl;
 
 import com.intellij.lang.ASTNode;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.pom.tree.events.ChangeInfo;
@@ -35,7 +36,7 @@ public class TreeChangeImpl implements TreeChange {
   private final List<Pair<ASTNode,Integer>> mySortedChanges = new ArrayList<Pair<ASTNode, Integer>>(); // change, oldoffset
   private final ASTNode myParent;
 
-  private static boolean ourDoChecks = false; //ApplicationManager.getApplication().isEAP();
+  private static boolean ourDoChecks = ApplicationManager.getApplication().isEAP();
 
   public TreeChangeImpl(ASTNode parent) {
     myParent = parent;
@@ -174,11 +175,16 @@ public class TreeChangeImpl implements TreeChange {
   }
 
   private static boolean isAfter(final ASTNode what, final ASTNode afterWhat) {
-    ASTNode current = afterWhat.getTreeNext();
+    ASTNode previous = afterWhat;
+    ASTNode current = previous.getTreeNext();
 
     while(current != null){
-      if(current == what) return true;
-      current = current.getTreeNext();
+      if(current == what) {
+        // afterWhat can be replaced during reparse and in old tree it can reference 'what' so check they are in same tree
+        return what.getTreePrev() == previous;
+      }
+      previous = current;
+      current = previous.getTreeNext();
       if(current != null && current.getTextLength() != 0) break;
     }
     return false;

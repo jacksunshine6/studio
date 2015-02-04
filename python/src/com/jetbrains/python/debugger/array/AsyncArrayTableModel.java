@@ -26,6 +26,8 @@ import com.jetbrains.python.debugger.ArrayChunk;
 import com.jetbrains.python.debugger.PyDebugValue;
 
 import javax.swing.table.AbstractTableModel;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.*;
 
 /**

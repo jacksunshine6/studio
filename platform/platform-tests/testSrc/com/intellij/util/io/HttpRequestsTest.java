@@ -15,16 +15,17 @@
  */
 package com.intellij.util.io;
 
+import com.intellij.ide.IdeBundle;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.*;
 
-public class HttpRequestsTest {
+public class HttpRequestsTest  {
   private final HttpRequests.RequestProcessor<Void> myProcessor = new HttpRequests.RequestProcessor<Void>() {
     @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
@@ -41,31 +42,24 @@ public class HttpRequestsTest {
       fail();
     }
     catch (IOException e) {
-      assertEquals("Too many redirects", e.getMessage());
+      assertEquals(IdeBundle.message("error.connection.failed.redirects"), e.getMessage());
     }
   }
 
-  @Test
-  public void testConnectTimeout() {
-    try {
-      HttpRequests.request("http://openjdk.java.net").connectTimeout(1).connect(myProcessor);
-      fail();
-    }
-    catch (SocketTimeoutException ignore) { }
-    catch (IOException e) {
-      fail(e.getMessage());
-    }
+  @Test(timeout = 5000, expected = SocketTimeoutException.class)
+  public void testConnectTimeout() throws IOException {
+    HttpRequests.request("http://openjdk.java.net").connectTimeout(1).connect(myProcessor);
+    fail();
   }
 
-  @Test
-  public void testReadTimeout() {
-    try {
-      HttpRequests.request("http://openjdk.java.net").readTimeout(1).connect(myProcessor);
-      fail();
-    }
-    catch (SocketTimeoutException ignore) { }
-    catch (IOException e) {
-      fail(e.getMessage());
-    }
+  @Test(timeout = 5000, expected = SocketTimeoutException.class)
+  public void testReadTimeout() throws IOException {
+    HttpRequests.request("http://openjdk.java.net").readTimeout(1).connect(myProcessor);
+    fail();
+  }
+
+  @Test(timeout = 5000)
+  public void testReadString() throws IOException {
+    assertThat(HttpRequests.request("http://openjdk.java.net").readString(null), containsString("Download"));
   }
 }

@@ -100,7 +100,8 @@ public class MethodReferenceResolver implements ResolveCache.PolyVariantContextR
               final PsiExpressionList argumentList = getArgumentList();
               final PsiType[] typeParameters = reference.getTypeParameters();
               return new MethodCandidateInfo(method, substitutor, !accessible, staticProblem, argumentList, myCurrentFileContext,
-                                             argumentList != null ? argumentList.getExpressionTypes() : null, typeParameters.length > 0 ? typeParameters : null,
+                                             argumentList != null ? argumentList.getExpressionTypes() : null,
+                                             method.hasTypeParameters() && typeParameters.length > 0 ? typeParameters : null,
                                              getLanguageLevel()) {
                 @Override
                 public boolean isVarargs() {
@@ -174,17 +175,7 @@ public class MethodReferenceResolver implements ResolveCache.PolyVariantContextR
   }
 
   protected PsiType getInterfaceType(PsiMethodReferenceExpression reference) {
-    PsiType functionalInterfaceType = null;
-    final Map<PsiMethodReferenceExpression,PsiType> map = PsiMethodReferenceUtil.ourRefs.get();
-    if (map != null) {
-      functionalInterfaceType = FunctionalInterfaceParameterizationUtil.getGroundTargetType(map.get(reference));
-    }
-
-    if (functionalInterfaceType == null) {
-      functionalInterfaceType = reference.getFunctionalInterfaceType();
-    }
-
-    return functionalInterfaceType;
+    return reference.getFunctionalInterfaceType();
   }
 
   protected PsiConflictResolver createResolver(PsiMethodReferenceExpressionImpl referenceExpression,
@@ -226,8 +217,8 @@ public class MethodReferenceResolver implements ResolveCache.PolyVariantContextR
     public CandidateInfo resolveConflict(@NotNull List<CandidateInfo> conflicts) {
       if (mySignature == null) return null;
 
-      checkSameSignatures(conflicts);
-      checkAccessStaticLevels(conflicts, true);
+      if (conflicts.size() > 1) checkSameSignatures(conflicts);
+      if (conflicts.size() > 1) checkAccessStaticLevels(conflicts, true);
 
       final PsiType[] argTypes = mySignature.getParameterTypes();
       boolean hasReceiver = PsiMethodReferenceUtil.hasReceiver(argTypes, myQualifierResolveResult, myReferenceExpression);

@@ -48,7 +48,7 @@ public class PsiManagerImpl extends PsiManagerEx {
   private static final Logger LOG = Logger.getInstance("#com.intellij.psi.impl.PsiManagerImpl");
 
   private final Project myProject;
-  private final FileIndexFacade myExcludedFileIndex;
+  private final FileIndexFacade myFileIndex;
   private final MessageBus myMessageBus;
   private final PsiModificationTracker myModificationTracker;
 
@@ -70,11 +70,11 @@ public class PsiManagerImpl extends PsiManagerEx {
   public PsiManagerImpl(Project project,
                         FileDocumentManager fileDocumentManager,
                         PsiBuilderFactory psiBuilderFactory,
-                        FileIndexFacade excludedFileIndex,
+                        FileIndexFacade fileIndex,
                         MessageBus messageBus,
                         PsiModificationTracker modificationTracker) {
     myProject = project;
-    myExcludedFileIndex = excludedFileIndex;
+    myFileIndex = fileIndex;
     myMessageBus = messageBus;
     myModificationTracker = modificationTracker;
 
@@ -83,7 +83,7 @@ public class PsiManagerImpl extends PsiManagerEx {
 
     boolean isProjectDefault = project.isDefault();
 
-    myFileManager = isProjectDefault ? new EmptyFileManager(this) : new FileManagerImpl(this, fileDocumentManager, excludedFileIndex);
+    myFileManager = isProjectDefault ? new EmptyFileManager(this) : new FileManagerImpl(this, fileDocumentManager, fileIndex);
 
     myTreeChangePreprocessors.add((PsiTreeChangePreprocessor)modificationTracker);
     Collections.addAll(myTreeChangePreprocessors, Extensions.getExtensions(PsiTreeChangePreprocessor.EP_NAME, myProject));
@@ -113,9 +113,6 @@ public class PsiManagerImpl extends PsiManagerEx {
 
   @Override
   public boolean isInProject(@NotNull PsiElement element) {
-    PsiFile file = element.getContainingFile();
-    if (file != null && file.isPhysical() && file.getViewProvider().getVirtualFile() instanceof LightVirtualFile) return true;
-
     if (element instanceof PsiDirectoryContainer) {
       PsiDirectory[] dirs = ((PsiDirectoryContainer)element).getDirectories();
       for (PsiDirectory dir : dirs) {
@@ -124,6 +121,7 @@ public class PsiManagerImpl extends PsiManagerEx {
       return true;
     }
 
+    PsiFile file = element.getContainingFile();
     VirtualFile virtualFile = null;
     if (file != null) {
       virtualFile = file.getViewProvider().getVirtualFile();
@@ -131,9 +129,10 @@ public class PsiManagerImpl extends PsiManagerEx {
     else if (element instanceof PsiFileSystemItem) {
       virtualFile = ((PsiFileSystemItem)element).getVirtualFile();
     }
+    if (file != null && file.isPhysical() && virtualFile instanceof LightVirtualFile) return true;
 
     if (virtualFile != null) {
-      return myExcludedFileIndex.isInContent(virtualFile);
+      return myFileIndex.isInContent(virtualFile);
     }
     return false;
   }

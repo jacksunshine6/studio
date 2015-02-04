@@ -1,17 +1,15 @@
 package org.jetbrains.debugger;
 
-import com.intellij.openapi.util.ActionCallback;
-import com.intellij.openapi.util.AsyncResult;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.concurrency.Promise;
 
 public interface SuspendContextManager<CALL_FRAME extends CallFrame> {
   /**
-   * Tries to suspend VM. If successful, {@link DebugEventListener#suspended(SuspendContext)}
-   * will be called.
+   * Tries to suspend VM. If successful, {@link DebugEventListener#suspended(SuspendContext)} will be called.
    */
   @NotNull
-  ActionCallback suspend();
+  Promise<?> suspend();
 
   @Nullable
   SuspendContext getContext();
@@ -24,13 +22,13 @@ public interface SuspendContextManager<CALL_FRAME extends CallFrame> {
   void setOverlayMessage(@Nullable String message);
 
   /**
-   * Resumes the VM execution using a "continue" request. This context becomes invalid until another context is supplied through the
+   * Resumes the VM execution. This context becomes invalid until another context is supplied through the
    * {@link DebugEventListener#suspended(SuspendContext)} event.
-   *
-   * @param stepAction to perform
+   *  @param stepAction to perform
    * @param stepCount steps to perform (not used if {@code stepAction == CONTINUE})
    */
-  ActionCallback continueVm(@NotNull StepAction stepAction, int stepCount);
+  @NotNull
+  Promise<Void> continueVm(@NotNull StepAction stepAction, int stepCount);
 
   boolean isRestartFrameSupported();
 
@@ -42,7 +40,7 @@ public interface SuspendContextManager<CALL_FRAME extends CallFrame> {
    *     without VM state change (this case presently is never actually happening)
    */
   @NotNull
-  AsyncResult<Boolean> restartFrame(@NotNull CALL_FRAME callFrame);
+  Promise<Boolean> restartFrame(@NotNull CALL_FRAME callFrame);
 
   /**
    * @return whether reset operation is supported for the particular callFrame

@@ -1,6 +1,5 @@
 package org.jetbrains.debugger;
 
-import com.intellij.openapi.util.ActionCallback;
 import com.intellij.util.ThreeState;
 import com.intellij.xdebugger.evaluation.XDebuggerEvaluator;
 import com.intellij.xdebugger.frame.XCompositeNode;
@@ -9,6 +8,7 @@ import com.intellij.xdebugger.frame.XNavigatable;
 import com.intellij.xdebugger.frame.XValueNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.concurrency.Promise;
 import org.jetbrains.debugger.frame.CallFrameView;
 import org.jetbrains.debugger.values.ObjectValue;
 import org.jetbrains.debugger.values.Value;
@@ -17,7 +17,9 @@ import javax.swing.*;
 import java.util.Collections;
 import java.util.List;
 
-public class BasicDebuggerViewSupport implements DebuggerViewSupport, MemberFilter {
+public class BasicDebuggerViewSupport extends MemberFilterBase implements DebuggerViewSupport {
+  protected final Promise<MemberFilter> defaultMemberFilterPromise = Promise.<MemberFilter>resolve(this);
+
   public static final DebuggerViewSupport INSTANCE = new BasicDebuggerViewSupport();
 
   @Nullable
@@ -71,53 +73,31 @@ public class BasicDebuggerViewSupport implements DebuggerViewSupport, MemberFilt
   }
 
   @Override
-  public void computeSourcePosition(@NotNull Variable variable, @NotNull VariableContext context, @NotNull XNavigatable navigatable) {
+  public void computeSourcePosition(@NotNull String name, @NotNull Variable variable, @NotNull VariableContext context, @NotNull XNavigatable navigatable) {
   }
 
   @NotNull
   @Override
-  public ThreeState computeInlineDebuggerData(@NotNull Variable variable, @NotNull VariableContext context, @NotNull XInlineDebuggerDataCallback callback) {
+  public ThreeState computeInlineDebuggerData(@NotNull String name, @NotNull Variable variable, @NotNull VariableContext context, @NotNull XInlineDebuggerDataCallback callback) {
     return ThreeState.UNSURE;
   }
 
   @Nullable
   @Override
-  public ActionCallback computeAdditionalObjectProperties(@NotNull ObjectValue value, @NotNull Variable variable, @NotNull VariableContext context, @NotNull XCompositeNode node) {
+  public Promise<Void> computeAdditionalObjectProperties(@NotNull ObjectValue value, @NotNull Variable variable, @NotNull VariableContext context, @NotNull XCompositeNode node) {
     return null;
   }
 
   @NotNull
   @Override
-  public MemberFilter createMemberFilter(@NotNull VariableContext context) {
-    return this;
-  }
-
-  @Override
-  public boolean isMemberVisible(@NotNull Variable variable, boolean filterFunctions) {
-    return true;
+  public Promise<MemberFilter> getMemberFilter(@NotNull VariableContext context) {
+    return defaultMemberFilterPromise;
   }
 
   @NotNull
   @Override
   public List<Variable> getAdditionalVariables() {
     return Collections.emptyList();
-  }
-
-  @NotNull
-  @Override
-  public String getName(@NotNull Variable variable) {
-    return variable.getName();
-  }
-
-  @Override
-  public boolean hasNameMappings() {
-    return false;
-  }
-
-  @NotNull
-  @Override
-  public String normalizeMemberName(@NotNull Variable variable) {
-    return variable.getName();
   }
 
   @Override

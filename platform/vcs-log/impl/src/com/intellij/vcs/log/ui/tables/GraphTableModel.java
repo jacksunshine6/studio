@@ -8,7 +8,6 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.Function;
-import com.intellij.util.NotNullFunction;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.text.DateFormatUtil;
 import com.intellij.vcs.log.*;
@@ -37,9 +36,10 @@ public class GraphTableModel extends AbstractTableModel {
   private static final String[] COLUMN_NAMES = {"", "Subject", "Author", "Date"};
 
   @NotNull protected final VcsLogUiImpl myUi;
-  @NotNull protected final VisiblePack myDataPack;
   @NotNull private final VcsLogDataHolder myDataHolder;
   @NotNull private final VcsLogDataHolder myLogDataHolder;
+
+  @NotNull protected VisiblePack myDataPack;
 
   private boolean myMoreRequested;
 
@@ -75,24 +75,32 @@ public class GraphTableModel extends AbstractTableModel {
     List<GraphCommit<Integer>> commits = myDataPack.getPermanentGraph().getAllCommits();
     for (int i = 0; i < 100 && i < commits.size(); i++) {
       GraphCommit<Integer> commit = commits.get(i);
-      sb.append(myDataHolder.getHash(commit.getId()) + "\n");
+      sb.append(String.format("%s -> %s\n", myDataHolder.getHash(commit.getId()).toShortString(), getParents(commit)));
     }
     sb.append("\nALL REFS:\n");
-    printRefs(sb, myDataHolder.getHashMap().asIndexGetter(), myDataPack.getRefsModel().getAllRefsByRoot());
+    printRefs(sb, myDataPack.getRefsModel().getAllRefsByRoot());
     return sb.toString();
   }
 
-  private static void printRefs(@NotNull StringBuilder sb,
-                                @NotNull final NotNullFunction<Hash, Integer> indexGetter,
-                                @NotNull Map<VirtualFile, Set<VcsRef>> refs) {
+  @NotNull
+  private String getParents(@NotNull GraphCommit<Integer> commit) {
+    return StringUtil.join(commit.getParents(), new Function<Integer, String>() {
+      @Override
+      public String fun(Integer integer) {
+        return myDataHolder.getHash(integer).toShortString();
+      }
+    }, ", ");
+  }
+
+  private static void printRefs(@NotNull StringBuilder sb, @NotNull Map<VirtualFile, Set<VcsRef>> refs) {
     for (Map.Entry<VirtualFile, Set<VcsRef>> entry : refs.entrySet()) {
-      sb.append(entry.getKey().getName() + ":\n");
+      sb.append("\n\n" + entry.getKey().getName() + ":\n");
       sb.append(StringUtil.join(entry.getValue(), new Function<VcsRef, String>() {
         @Override
         public String fun(@NotNull VcsRef ref) {
-          return ref.getName() + "(" + indexGetter.fun(ref.getCommitHash()) + ")";
+          return ref.getName() + " : " + ref.getCommitHash().toShortString();
         }
-      }, ","));
+      }, "\n"));
     }
   }
 
@@ -234,5 +242,11 @@ public class GraphTableModel extends AbstractTableModel {
   @Override
   public String getColumnName(int column) {
     return COLUMN_NAMES[column];
+  }
+
+  public void setVisiblePack(@NotNull VisiblePack visiblePack) {
+    myDataPack = visiblePack;
+    myMoreRequested = false;
+    fireTableDataChanged();
   }
 }

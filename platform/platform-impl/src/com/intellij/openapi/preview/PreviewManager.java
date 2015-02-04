@@ -15,6 +15,8 @@
  */
 package com.intellij.openapi.preview;
 
+import com.intellij.ide.ui.UISettings;
+import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,9 +28,33 @@ public interface PreviewManager {
     }
 
     @Nullable
-    public static PreviewManager getInstance(@NotNull Project project) {
-      /*if (!UISettings.getInstance().NAVIGATE_TO_PREVIEW) */return null;
-      //return ServiceManager.getService(project, PreviewManager.class);//disabled in 139 for a while
+    private static PreviewManager getInstance(@NotNull Project project) {
+      if (!UISettings.getInstance().NAVIGATE_TO_PREVIEW) return null;
+      return ServiceManager.getService(project, PreviewManager.class);
+    }
+
+    /**
+     * @return null if preview cannot be performed
+     */
+    @Nullable
+    public static <V, C> C preview(@NotNull Project project, @NotNull PreviewProviderId<V, C> id, V data, boolean requestFocus) {
+      PreviewManager instance = getInstance(project);
+      if (instance == null) return null;
+      return instance.preview(id, data, requestFocus);
+    }
+
+    public static <V, C> void close(@NotNull Project project, @NotNull PreviewProviderId<V, C> id, V data) {
+      PreviewManager instance = getInstance(project);
+      if (instance != null) {
+        instance.close(id, data);
+      }
+    }
+
+    public static <V, C> void moveToStandardPlaceImpl(@NotNull Project project, @NotNull PreviewProviderId<V, C> id, V data) {
+      PreviewManager instance = getInstance(project);
+      if (instance != null) {
+        instance.moveToStandardPlaceImpl(id, data);
+      }
     }
   }
 
@@ -38,7 +64,7 @@ public interface PreviewManager {
   @Nullable
   <V, C> C preview(@NotNull PreviewProviderId<V, C> id, V data, boolean requestFocus);
 
-  <V, C> boolean moveToStandardPlace(@NotNull PreviewProviderId<V, C> id, V data);
+  <V, C> void moveToStandardPlaceImpl(@NotNull PreviewProviderId<V, C> id, V data);
 
   <V, C> void close(@NotNull PreviewProviderId<V, C> id, V data);
 }

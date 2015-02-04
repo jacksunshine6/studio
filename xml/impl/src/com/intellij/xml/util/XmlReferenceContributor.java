@@ -18,16 +18,13 @@ package com.intellij.xml.util;
 import com.intellij.codeInsight.daemon.impl.analysis.encoding.XmlEncodingReferenceProvider;
 import com.intellij.html.impl.providers.MicrodataReferenceProvider;
 import com.intellij.html.impl.util.MicrodataUtil;
+import com.intellij.openapi.paths.WebReference;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.*;
 import com.intellij.psi.filters.*;
 import com.intellij.psi.filters.position.NamespaceFilter;
 import com.intellij.psi.filters.position.ParentElementFilter;
-import com.intellij.psi.impl.UrlPsiReference;
-import com.intellij.psi.impl.source.resolve.reference.impl.providers.DtdReferencesProvider;
-import com.intellij.psi.impl.source.resolve.reference.impl.providers.IdReferenceProvider;
-import com.intellij.psi.impl.source.resolve.reference.impl.providers.SchemaReferencesProvider;
-import com.intellij.psi.impl.source.resolve.reference.impl.providers.URIReferenceProvider;
+import com.intellij.psi.impl.source.resolve.reference.impl.providers.*;
 import com.intellij.psi.xml.*;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
@@ -59,7 +56,6 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
     URIReferenceProvider uriProvider = new URIReferenceProvider();
     XmlUtil.registerXmlAttributeValueReferenceProvider(registrar, null, dtdReferencesProvider.getSystemReferenceFilter(), uriProvider);
 
-
     XmlUtil.registerXmlAttributeValueReferenceProvider(registrar, new String[] { "href" }, new ScopeFilter(
       new ParentElementFilter(
         new AndFilter(
@@ -68,7 +64,10 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
         ),
         2
       )
-    ), true, uriProvider);
+    ), true, new XmlBaseReferenceProvider(true));
+
+    registrar.registerReferenceProvider(xmlAttributeValue().withLocalName("base").withNamespace(XmlUtil.XML_NAMESPACE_URI),
+                                        new XmlBaseReferenceProvider(false));
 
     XmlUtil.registerXmlAttributeValueReferenceProvider(
       registrar,
@@ -117,7 +116,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                                           @Override
                                           public PsiReference[] getReferencesByElement(@NotNull PsiElement element,
                                                                                        @NotNull ProcessingContext context) {
-                                            return new PsiReference[] { new UrlPsiReference(element) };
+                                            return new PsiReference[] { new WebReference(element) };
                                           }
                                         });
   }

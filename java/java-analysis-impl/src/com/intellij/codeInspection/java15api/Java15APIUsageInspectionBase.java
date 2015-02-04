@@ -17,6 +17,7 @@ package com.intellij.codeInspection.java15api;
 
 import com.intellij.ToolExtensionPoints;
 import com.intellij.codeHighlighting.HighlightDisplayLevel;
+import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.codeInsight.daemon.GroupNames;
 import com.intellij.codeInsight.intention.QuickFixFactory;
 import com.intellij.codeInspection.*;
@@ -296,6 +297,32 @@ public class Java15APIUsageInspectionBase extends BaseJavaBatchLocalInspectionTo
       }
     }
 
+    @Override
+    public void visitMethod(PsiMethod method) {
+      super.visitMethod(method);
+      PsiAnnotation annotation = AnnotationUtil.findAnnotation(method, CommonClassNames.JAVA_LANG_OVERRIDE);
+      if (annotation != null) {
+        final Module module = ModuleUtilCore.findModuleForPsiElement(annotation);
+        if (module != null) {
+          final LanguageLevel languageLevel = getEffectiveLanguageLevel(module);
+          final PsiMethod[] methods = method.findSuperMethods();
+          for (PsiMethod superMethod : methods) {
+            if (superMethod instanceof PsiCompiledElement) {
+              if (!isForbiddenApiUsage(superMethod, languageLevel)) {
+                return;
+              }
+            }
+            else {
+              return;
+            }
+          }
+          if (methods.length > 0) {
+            registerError(annotation.getNameReferenceElement(), languageLevel);
+          }
+        }
+      }
+    }
+
     private LanguageLevel getEffectiveLanguageLevel(Module module) {
       if (myEffectiveLanguageLevel != null) return myEffectiveLanguageLevel;
       return EffectiveLanguageLevelUtil.getEffectiveLanguageLevel(module);
@@ -354,30 +381,35 @@ public class Java15APIUsageInspectionBase extends BaseJavaBatchLocalInspectionTo
     return nextForbiddenApi != null && isForbiddenSignature(signature, nextLanguageLevel, nextForbiddenApi);
   }
 
+  /**
+   * please leave public for {@link #com.intellij.codeInspection.JavaAPIUsagesInspectionTest#testCollectSinceApiUsages}
+   */
   @Nullable
-  public static String getSignature(PsiMember member) {
+  public static String getSignature(@Nullable PsiMember member) {
     if (member instanceof PsiClass) {
       return ((PsiClass)member).getQualifiedName();
     }
     if (member instanceof PsiField) {
-      return getSignature(member.getContainingClass()) + "#" + member.getName();
+      String containingClass = getSignature(member.getContainingClass());
+      return containingClass == null ? null : containingClass + "#" + member.getName();
     }
     if (member instanceof PsiMethod) {
       final PsiMethod method = (PsiMethod)member;
+      String containingClass = getSignature(member.getContainingClass());
+      if (containingClass == null) return null;
+
       StringBuilder buf = new StringBuilder();
-      buf.append(getSignature(method.getContainingClass()));
+      buf.append(containingClass);
       buf.append('#');
       buf.append(method.getName());
       buf.append('(');
-      final PsiType[] params = method.getSignature(PsiSubstitutor.EMPTY).getParameterTypes();
-      for (PsiType type : params) {
+      for (PsiType type : method.getSignature(PsiSubstitutor.EMPTY).getParameterTypes()) {
         buf.append(type.getCanonicalText());
         buf.append(";");
       }
       buf.append(')');
       return buf.toString();
     }
-    assert false;
     return null;
   }
 }

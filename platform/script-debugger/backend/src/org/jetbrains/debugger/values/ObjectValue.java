@@ -1,11 +1,13 @@
 package org.jetbrains.debugger.values;
 
-import com.intellij.openapi.util.ActionCallback;
-import com.intellij.openapi.util.AsyncResult;
 import com.intellij.util.ThreeState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.concurrency.Obsolescent;
+import org.jetbrains.concurrency.Promise;
+import org.jetbrains.debugger.EvaluateContext;
 import org.jetbrains.debugger.Variable;
+import org.jetbrains.debugger.VariablesHost;
 
 import java.util.List;
 
@@ -13,13 +15,17 @@ import java.util.List;
  * A compound value that has zero or more properties
  */
 public interface ObjectValue extends Value {
-  void clearCaches();
-
   @Nullable
   String getClassName();
 
   @NotNull
-  AsyncResult<List<Variable>> getProperties();
+  Promise<List<Variable>> getProperties();
+
+  @NotNull
+  Promise<List<Variable>> getProperties(@NotNull List<String> names, @NotNull EvaluateContext evaluateContext, @NotNull Obsolescent obsolescent);
+
+  @NotNull
+  VariablesHost getVariablesHost();
 
   /**
    * from (inclusive) to (exclusive) ranges of array elements or elements if less than bucketThreshold
@@ -27,7 +33,7 @@ public interface ObjectValue extends Value {
    * "to" could be -1 (sometimes length is unknown, so, you can pass -1 instead of actual elements size)
    */
   @NotNull
-  ActionCallback getIndexedProperties(int from, int to, int bucketThreshold, @NotNull IndexedVariablesConsumer consumer, @Nullable ValueType componentType);
+  Promise<Void> getIndexedProperties(int from, int to, int bucketThreshold, @NotNull IndexedVariablesConsumer consumer, @Nullable ValueType componentType);
 
   /**
    * It must return quickly. Return {@link com.intellij.util.ThreeState#UNSURE} otherwise.
@@ -40,6 +46,4 @@ public interface ObjectValue extends Value {
    */
   @NotNull
   ThreeState hasIndexedProperties();
-
-  int getCacheStamp();
 }

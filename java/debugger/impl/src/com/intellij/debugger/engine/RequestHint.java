@@ -34,6 +34,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Computable;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.util.Range;
 import com.sun.jdi.Location;
 import com.sun.jdi.Method;
 import com.sun.jdi.VMDisconnectedException;
@@ -133,13 +134,25 @@ public class RequestHint {
     return myMethodFilter instanceof BreakpointStepMethodFilter || myTargetMethodMatched;
   }
 
+  private boolean isTheSameDepth(SuspendContextImpl context) {
+    final ThreadReferenceProxyImpl contextThread = context.getThread();
+    if (contextThread != null) {
+      try {
+        return myFrameCount == contextThread.frameCount();
+      }
+      catch (EvaluateException ignored) {
+      }
+    }
+    return false;
+  }
+
   private boolean isOnTheSameLine(SourcePosition locationPosition) {
     if (myMethodFilter == null) {
       return myPosition.getLine() == locationPosition.getLine();
     }
     else {
-      return locationPosition.getLine() >= myMethodFilter.getCallingExpressionLines().getFrom() &&
-             locationPosition.getLine() <= myMethodFilter.getCallingExpressionLines().getTo();
+      Range<Integer> exprLines = myMethodFilter.getCallingExpressionLines();
+      return exprLines != null && locationPosition.getLine() >= exprLines.getFrom() && locationPosition.getLine() <= exprLines.getTo();
     }
   }
 
@@ -151,7 +164,9 @@ public class RequestHint {
       if (myMethodFilter != null &&
           frameProxy != null &&
           !(myMethodFilter instanceof BreakpointStepMethodFilter) &&
-          myMethodFilter.locationMatches(context.getDebugProcess(), frameProxy.location())) {
+          myMethodFilter.locationMatches(context.getDebugProcess(), frameProxy.location()) &&
+          !isTheSameDepth(context)
+        ) {
         myTargetMethodMatched = true;
         return STOP;
       }
@@ -160,32 +175,9 @@ public class RequestHint {
         final Integer resultDepth = ApplicationManager.getApplication().runReadAction(new Computable<Integer>() {
           public Integer compute() {
             final SourcePosition locationPosition = ContextUtil.getSourcePosition(context);
-            if (locationPosition == null) {
-              return null;
-            }
-            int frameCount = -1;
-            final ThreadReferenceProxyImpl contextThread = context.getThread();
-            if (contextThread != null) {
-              try {
-                frameCount = contextThread.frameCount();
-              }
-              catch (EvaluateException ignored) {
-              }
-            }
-            final boolean filesEqual = myPosition.getFile().equals(locationPosition.getFile());
-            if (filesEqual && isOnTheSameLine(locationPosition) && myFrameCount == frameCount) {
-              return myDepth;
-            }
-            if (myDepth == StepRequest.STEP_INTO) {
-              if (filesEqual) {
-                // we are actually one or more frames upper than the original frame, should stop
-                if (myFrameCount > frameCount) {
-                  return STOP;
-                }
-                // check if we are still at the line from which the stepping begun
-                if (myFrameCount == frameCount && !isOnTheSameLine(locationPosition)) {
-                  return STOP;
-                }
+            if (locationPosition != null) {
+              if (myPosition.getFile().equals(locationPosition.getFile()) && isTheSameDepth(context)) {
+                return isOnTheSameLine(locationPosition) ? myDepth : STOP;
               }
             }
             return null;
@@ -195,50 +187,49 @@ public class RequestHint {
           return resultDepth.intValue();
         }
       }
-      // the rest of the code makes sense for depth == STEP_INTO only
 
-      if (myDepth == StepRequest.STEP_INTO) {
-        final DebuggerSettings settings = DebuggerSettings.getInstance();
+      // Now check filters
 
-        if ((settings.SKIP_SYNTHETIC_METHODS || myMethodFilter != null)&& frameProxy != null) {
-          final Location location = frameProxy.location();
-          if (location != null) {
-            if (DebuggerUtils.isSynthetic(location.method())) {
-              return myDepth;
+      final DebuggerSettings settings = DebuggerSettings.getInstance();
+
+      if ((myMethodFilter != null || (settings.SKIP_SYNTHETIC_METHODS && !myIgnoreFilters))&& frameProxy != null) {
+        final Location location = frameProxy.location();
+        if (location != null) {
+          if (DebuggerUtils.isSynthetic(location.method())) {
+            return myDepth;
+          }
+        }
+      }
+
+      if (!myIgnoreFilters) {
+        if(settings.SKIP_GETTERS) {
+          boolean isGetter = ApplicationManager.getApplication().runReadAction(new Computable<Boolean>(){
+            public Boolean compute() {
+              final PsiMethod psiMethod = PsiTreeUtil.getParentOfType(PositionUtil.getContextElement(context), PsiMethod.class);
+              return (psiMethod != null && DebuggerUtils.isSimpleGetter(psiMethod))? Boolean.TRUE : Boolean.FALSE;
             }
+          }).booleanValue();
+
+          if(isGetter) {
+            return StepRequest.STEP_OUT;
           }
         }
 
-        if (!myIgnoreFilters) {
-          if(settings.SKIP_GETTERS) {
-            boolean isGetter = ApplicationManager.getApplication().runReadAction(new Computable<Boolean>(){
-              public Boolean compute() {
-                final PsiMethod psiMethod = PsiTreeUtil.getParentOfType(PositionUtil.getContextElement(context), PsiMethod.class);
-                return (psiMethod != null && DebuggerUtils.isSimpleGetter(psiMethod))? Boolean.TRUE : Boolean.FALSE;
+        if (frameProxy != null) {
+          if (settings.SKIP_CONSTRUCTORS) {
+            final Location location = frameProxy.location();
+            if (location != null) {
+              final Method method = location.method();
+              if (method != null && method.isConstructor()) {
+                return StepRequest.STEP_OUT;
               }
-            }).booleanValue();
-
-            if(isGetter) {
-              return StepRequest.STEP_OUT;
             }
           }
 
-          if (frameProxy != null) {
-            if (settings.SKIP_CONSTRUCTORS) {
-              final Location location = frameProxy.location();
-              if (location != null) {
-                final Method method = location.method();
-                if (method != null && method.isConstructor()) {
-                  return StepRequest.STEP_OUT;
-                }
-              }
-            }
-
-            if (settings.SKIP_CLASSLOADERS) {
-              final Location location = frameProxy.location();
-              if (location != null && DebuggerUtilsEx.isAssignableFrom("java.lang.ClassLoader", location.declaringType())) {
-                return StepRequest.STEP_OUT;
-              }
+          if (settings.SKIP_CLASSLOADERS) {
+            final Location location = frameProxy.location();
+            if (location != null && DebuggerUtilsEx.isAssignableFrom("java.lang.ClassLoader", location.declaringType())) {
+              return StepRequest.STEP_OUT;
             }
           }
         }

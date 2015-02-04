@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2011 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionTool {
   // deprecated fields remain to minimize changes to users inspection profiles (which are often located in version control).
@@ -75,14 +76,17 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
   @Override
   @NotNull
   public PsiElementVisitor buildVisitor(@NotNull final ProblemsHolder holder, boolean isOnTheFly) {
+    if (!PsiUtil.isLanguageLevel5OrHigher(holder.getFile())) {
+      return new PsiElementVisitor() { };
+    }
     return new JavaElementVisitor() {
-      @Override public void visitMethod(PsiMethod method) {
-        if (!PsiUtil.isLanguageLevel5OrHigher(method)) return;
+      @Override
+      public void visitMethod(PsiMethod method) {
         checkNullableStuffForMethod(method, holder);
       }
 
-      @Override public void visitField(PsiField field) {
-        if (!PsiUtil.isLanguageLevel5OrHigher(field)) return;
+      @Override
+      public void visitField(PsiField field) {
         final PsiType type = field.getType();
         final Annotated annotated = check(field, holder, type);
         if (TypeConversionUtil.isPrimitiveAndNotNull(type)) {
@@ -161,8 +165,7 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
                                      addAnnoFix);
             }
             if (PropertyUtil.isSimpleSetter(setter)) {
-              if (annotated.isDeclaredNotNull && isNullableNotInferred(parameter, false) ||
-                  annotated.isDeclaredNullable && isNotNullNotInferred(parameter, false, false)) {
+              if (annotated.isDeclaredNotNull && isNullableNotInferred(parameter, false)) {
                 final PsiIdentifier nameIdentifier1 = parameter.getNameIdentifier();
                 assertValidElement(setter, parameter, nameIdentifier1);
                 holder.registerProblem(nameIdentifier1, InspectionsBundle.message(
@@ -230,8 +233,8 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
         LOG.assertTrue(parameter.isPhysical(), setter.getText());
       }
 
-      @Override public void visitParameter(PsiParameter parameter) {
-        if (!PsiUtil.isLanguageLevel5OrHigher(parameter)) return;
+      @Override
+      public void visitParameter(PsiParameter parameter) {
         check(parameter, holder, parameter.getType());
       }
 
@@ -267,6 +270,12 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
   @NotNull
   private static String getPresentableAnnoName(@NotNull PsiModifierListOwner owner) {
     NullableNotNullManager manager = NullableNotNullManager.getInstance(owner.getProject());
+    Set<String> names = ContainerUtil.newHashSet(manager.getNullables());
+    names.addAll(manager.getNotNulls());
+
+    PsiAnnotation annotation = AnnotationUtil.findAnnotationInHierarchy(owner, names);
+    if (annotation != null) return getPresentableAnnoName(annotation);
+    
     String anno = manager.getNotNull(owner);
     return StringUtil.getShortName(anno != null ? anno : StringUtil.notNullize(manager.getNullable(owner), "???"));
   }
@@ -526,7 +535,7 @@ public class NullableStuffInspectionBase extends BaseJavaBatchLocalInspectionToo
     return true;
   }
 
-  private static boolean isNullableNotInferred(@NotNull PsiModifierListOwner owner, boolean checkBases) {
+  public static boolean isNullableNotInferred(@NotNull PsiModifierListOwner owner, boolean checkBases) {
     Project project = owner.getProject();
     NullableNotNullManager manager = NullableNotNullManager.getInstance(project);
     if (!manager.isNullable(owner, checkBases)) return false;

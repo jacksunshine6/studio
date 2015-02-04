@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ public class ControlFlowGraph implements CodeConstants {
   }
 
   public String toString() {
+    if (blocks == null) return "Empty";
 
     String new_line_separator = DecompilerContext.getNewLineSeparator();
 
@@ -396,7 +397,7 @@ public class ControlFlowGraph implements CodeConstants {
 
         ExceptionRangeCFG range = new ExceptionRangeCFG(protectedRange, handle, handler.exceptionClass == null
                                                                                 ? null
-                                                                                : Arrays.asList(handler.exceptionClass));
+                                                                                : Collections.singletonList(handler.exceptionClass));
         mapRanges.put(key, range);
 
         exceptions.add(range);

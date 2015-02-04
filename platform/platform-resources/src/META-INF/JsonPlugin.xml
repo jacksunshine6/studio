@@ -31,6 +31,7 @@
 
     <!-- Codeinsight -->
     <breadcrumbsInfoProvider implementation="com.intellij.json.breadcrumbs.JsonBreadcrumbsProvider"/>
+    <qualifiedNameProvider implementation="com.intellij.json.navigation.JsonQualifiedNameProvider"/>
     <completion.contributor language="JSON" implementationClass="com.intellij.json.codeinsight.JsonCompletionContributor"/>
     <lang.psiStructureViewFactory language="JSON" implementationClass="com.intellij.json.structureView.JsonStructureViewBuilderFactory"/>
     <lang.foldingBuilder language="JSON" implementationClass="com.intellij.json.editor.folding.JsonFoldingBuilder"/>
@@ -40,7 +41,7 @@
     <lang.surroundDescriptor language="JSON" implementationClass="com.intellij.json.surroundWith.JsonSurroundDescriptor"/>
     <lang.findUsagesProvider language="JSON" implementationClass="com.intellij.json.findUsages.JsonFindUsagesProvider"/>
     <statementUpDownMover implementation="com.intellij.json.editor.lineMover.JsonLineMover" id="JSON" order="before line"/>
-    <liveTemplateContext implementation="com.intellij.json.JsonContextType"/>
+    <liveTemplateContext implementation="com.intellij.json.liveTemplates.JsonContextType"/>
     <spellchecker.support language="JSON" implementationClass="com.intellij.json.JsonSpellcheckerStrategy"/>
     <extendWordSelectionHandler implementation="com.intellij.json.editor.selection.JsonStringLiteralSelectionHandler"/>
     <basicWordSelectionFilter implementation="com.intellij.json.editor.selection.JsonBasicWordSelectionFilter"/>

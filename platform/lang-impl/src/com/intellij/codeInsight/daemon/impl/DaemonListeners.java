@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -118,7 +117,7 @@ public class DaemonListeners implements Disposable {
     return project.getComponent(DaemonListeners.class);
   }
 
-  public DaemonListeners(@NotNull Project project,
+  public DaemonListeners(@NotNull final Project project,
                          @NotNull DaemonCodeAnalyzerImpl daemonCodeAnalyzer,
                          @NotNull final EditorTracker editorTracker,
                          @NotNull EditorFactory editorFactory,
@@ -140,7 +139,8 @@ public class DaemonListeners implements Disposable {
                          @NotNull UndoManager undoManager,
                          @NotNull ProjectLevelVcsManager projectLevelVcsManager,
                          @NotNull VcsDirtyScopeManager vcsDirtyScopeManager,
-                         @NotNull FileStatusManager fileStatusManager) {
+                         @NotNull FileStatusManager fileStatusManager,
+                         @NotNull EditorColorsManager colorsManager) {
     Disposer.register(project, this);
     myProject = project;
     myDaemonCodeAnalyzer = daemonCodeAnalyzer;
@@ -296,6 +296,12 @@ public class DaemonListeners implements Disposable {
       }
     });
 
+    colorsManager.addEditorColorsListener(new EditorColorsListener() {
+      @Override
+      public void globalSchemeChange(EditorColorsScheme scheme) {
+        stopDaemonAndRestartAllFiles();
+      }
+    }, this);
 
     commandProcessor.addCommandListener(new MyCommandListener(), this);
     application.addApplicationListener(new MyApplicationListener(), this);
@@ -349,6 +355,31 @@ public class DaemonListeners implements Disposable {
       }
     };
     LaterInvocator.addModalityStateListener(modalityStateListener,this);
+
+    messageBus.connect().subscribe(SeverityRegistrar.SEVERITIES_CHANGED_TOPIC, new Runnable() {
+      @Override
+      public void run() {
+        UIUtil.invokeLaterIfNeeded(new Runnable() {
+          @Override
+          public void run() {
+            if (!project.isDisposed()) {
+              for (Editor editor : editorTracker.getActiveEditors()) {
+                repaintErrorStripeRenderer(editor, project);
+              }
+            }
+          }
+        });
+      }
+    });
+    if (RefResolveService.ENABLED) {
+      RefResolveService resolveService = RefResolveService.getInstance(project);
+      resolveService.addListener(this, new RefResolveService.Listener() {
+        @Override
+        public void allFilesResolved() {
+          stopDaemon(true, "RefResolveService is up to date");
+        }
+      });
+    }
   }
   
   static boolean isUnderIgnoredAction(@Nullable Object action) {
@@ -404,7 +435,7 @@ public class DaemonListeners implements Disposable {
     if (activeVcs == null) return Result.NOT_SURE;
 
     FilePath path = VcsUtil.getFilePath(virtualFile);
-    boolean vcsIsThinking = !myVcsDirtyScopeManager.whatFilesDirty(Arrays.asList(path)).isEmpty();
+    boolean vcsIsThinking = !myVcsDirtyScopeManager.whatFilesDirty(Collections.singletonList(path)).isEmpty();
     if (vcsIsThinking) return Result.NOT_SURE; // do not modify file which is in the process of updating
 
     FileStatus status = myFileStatusManager.getStatus(virtualFile);
@@ -541,16 +572,12 @@ public class DaemonListeners implements Disposable {
     if (myTogglePopupHintsPanel != null) myTogglePopupHintsPanel.updateStatus();
   }
 
-  private class MyAnActionListener implements AnActionListener {
+  private class MyAnActionListener extends AnActionListener.Adapter {
     private final AnAction escapeAction = myActionManager.getAction(IdeActions.ACTION_EDITOR_ESCAPE);
 
     @Override
     public void beforeActionPerformed(AnAction action, DataContext dataContext, AnActionEvent event) {
       myEscPressed = action == escapeAction;
-    }
-
-    @Override
-    public void afterActionPerformed(final AnAction action, final DataContext dataContext, AnActionEvent event) {
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.intellij.codeInsight.actions;
 
 import com.intellij.codeInsight.CodeInsightBundle;
 import com.intellij.lang.LanguageFormatting;
+import com.intellij.openapi.application.ApplicationBundle;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.command.CommandProcessor;
@@ -32,6 +33,7 @@ import com.intellij.openapi.progress.util.ProgressWindow;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectCoreUtil;
+import com.intellij.openapi.project.ProjectUtil;
 import com.intellij.openapi.roots.GeneratedSourcesFilter;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.ex.MessagesEx;
@@ -68,7 +70,7 @@ public abstract class AbstractLayoutCodeProcessor {
   private final String myProgressText;
   private final String myCommandName;
   private final Runnable myPostRunnable;
-  private final boolean myProcessChangedTextOnly;
+  private boolean myProcessChangedTextOnly;
 
   protected AbstractLayoutCodeProcessor myPreviousCodeProcessor;
   private List<FileFilter> myFilters = ContainerUtil.newArrayList();
@@ -179,6 +181,9 @@ public abstract class AbstractLayoutCodeProcessor {
     myFilters.add(filter);
   }
 
+  protected void setProcessChangedTextOnly(boolean value) {
+    myProcessChangedTextOnly = value;
+  }
   /**
    * Ensures that given file is ready to reformatting and prepares it if necessary.
    *
@@ -203,7 +208,13 @@ public abstract class AbstractLayoutCodeProcessor {
           if (!previousTask.get() || previousTask.isCancelled()) return false;
         }
 
-        currentTask.run();
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+          @Override
+          public void run() {
+            currentTask.run();
+          }
+        });
+
         return currentTask.get() && !currentTask.isCancelled();
       }
     });
@@ -338,7 +349,7 @@ public abstract class AbstractLayoutCodeProcessor {
     };
   }
 
-  private void runProcessFiles(final @NotNull FileTreeIterator fileIterator) {
+  private void runProcessFiles(@NotNull final FileTreeIterator fileIterator) {
     final Runnable[] resultRunnable = new Runnable[1];
 
     Runnable readAction = new Runnable() {
@@ -412,7 +423,7 @@ public abstract class AbstractLayoutCodeProcessor {
               public void run() {
                 if (globalAction) CommandProcessor.getInstance().markCurrentCommandAsGlobal(myProject);
                 try {
-                  ApplicationManager.getApplication().runWriteAction(writeAction);
+                  writeAction.run();
 
                   if (myPostRunnable != null) {
                     ApplicationManager.getApplication().invokeLater(myPostRunnable);
@@ -489,17 +500,24 @@ public abstract class AbstractLayoutCodeProcessor {
       }
 
       if (!myFilesCountingFinished) {
+        updateIndicatorText(ApplicationBundle.message("bulk.reformat.prepare.progress.text"), "");
         countingIteration();
         return true;
       }
 
-      updateIndicator(myFilesProcessed);
+      updateIndicatorFraction(myFilesProcessed);
 
       if (myFileTreeIterator.hasNext()) {
-        PsiFile file = myFileTreeIterator.next();
+        final PsiFile file = myFileTreeIterator.next();
         myFilesProcessed++;
         if (file.isWritable() && canBeFormatted(file) && acceptedByFilters(file)) {
-          performFileProcessing(file);
+          updateIndicatorText(ApplicationBundle.message("bulk.reformat.process.progress.text"), getPresentablePath(file));
+          ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+              performFileProcessing(file);
+            }
+          });
         }
       }
 
@@ -522,11 +540,23 @@ public abstract class AbstractLayoutCodeProcessor {
       }
     }
 
-    private void updateIndicator(int filesProcessed) {
-      if (myCompositeTask != null) {
-        ProgressIndicator indicator = myCompositeTask.getIndicator();
-        if (indicator != null)
-          indicator.setFraction((double)filesProcessed / myTotalFiles);
+    private void updateIndicatorText(@NotNull String upperLabel, @NotNull String downLabel) {
+      ProgressIndicator indicator = myCompositeTask.getIndicator();
+      if (indicator != null) {
+        indicator.setText(upperLabel);
+        indicator.setText2(downLabel);
+      }
+    }
+
+    private String getPresentablePath(@NotNull PsiFile file) {
+      VirtualFile vFile = file.getVirtualFile();
+      return vFile != null ? ProjectUtil.calcRelativeToProjectPath(vFile, myProject) : file.getName();
+    }
+
+    private void updateIndicatorFraction(int processed) {
+      ProgressIndicator indicator = myCompositeTask.getIndicator();
+      if (indicator != null) {
+        indicator.setFraction((double)processed / myTotalFiles);
       }
     }
 

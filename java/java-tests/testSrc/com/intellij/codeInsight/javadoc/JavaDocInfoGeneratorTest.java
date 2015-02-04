@@ -1,3 +1,18 @@
+/*
+ * Copyright 2000-2015 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.intellij.codeInsight.javadoc;
 
 import com.intellij.JavaTestUtil;
@@ -82,6 +97,10 @@ public class JavaDocInfoGeneratorTest extends CodeInsightTestCase {
     doTestField();
   }
 
+  public void testMethodExpressionWithLiteral() throws Exception {
+    doTestField();
+  }
+
   public void testInitializerWithReference() throws Exception {
     doTestField();
   }
@@ -91,6 +110,10 @@ public class JavaDocInfoGeneratorTest extends CodeInsightTestCase {
   }
 
   public void testAnnotationsInParams() throws Exception {
+    doTestMethod();
+  }
+
+  public void testApiNotes() throws Exception {
     doTestMethod();
   }
 
@@ -147,7 +170,7 @@ public class JavaDocInfoGeneratorTest extends CodeInsightTestCase {
   }
 
   public void testLambdaParameter() throws Exception {
-    doTestLamabdaParameter();
+    doTestLambdaParameter();
   }
 
   private void doTestField() throws Exception {
@@ -162,7 +185,7 @@ public class JavaDocInfoGeneratorTest extends CodeInsightTestCase {
     verifyJavaDoc(method);
   }
 
-  private void doTestLamabdaParameter() throws Exception {
+  private void doTestLambdaParameter() throws Exception {
     PsiClass psiClass = getTestClass();
     final PsiLambdaExpression lambdaExpression = PsiTreeUtil.findChildOfType(psiClass, PsiLambdaExpression.class);
     assertNotNull(lambdaExpression);
@@ -189,6 +212,14 @@ public class JavaDocInfoGeneratorTest extends CodeInsightTestCase {
     String htmlText = FileUtil.loadFile(new File(packageInfo + File.separator + "packageInfo.html"));
     assertNotNull(info);
     assertEquals(StringUtil.convertLineSeparators(htmlText.trim()), StringUtil.convertLineSeparators(info.trim()));
+  }
+
+  public void testInheritedParameter() throws Exception {
+    configureByFile("/codeInsight/javadocIG/" + getTestName(true) + ".java");
+    PsiClass outerClass = ((PsiJavaFile) myFile).getClasses()[0];
+    PsiClass innerClass = outerClass.findInnerClassByName("Impl", false);
+    PsiParameter parameter = innerClass.getMethods()[0].getParameterList().getParameters()[0];
+    verifyJavaDoc(parameter);
   }
 
   @Override

@@ -198,16 +198,25 @@ public class TestVcsLogProvider implements VcsLogProvider {
     return myReadFirstBlockCounter;
   }
 
+  @Nullable
+  @Override
+  public <T> T getPropertyValue(VcsLogProperties.VcsLogProperty<T> property) {
+    return null;
+  }
+
   private static class MockRefManager implements VcsLogRefManager {
+
+    public static final Comparator<VcsRef> FAKE_COMPARATOR = new Comparator<VcsRef>() {
+      @Override
+      public int compare(VcsRef o1, VcsRef o2) {
+        return 0;
+      }
+    };
+
     @NotNull
     @Override
-    public Comparator<VcsRef> getComparator() {
-      return new Comparator<VcsRef>() {
-        @Override
-        public int compare(VcsRef o1, VcsRef o2) {
-          return 0;
-        }
-      };
+    public Comparator<VcsRef> getLabelsOrderComparator() {
+      return FAKE_COMPARATOR;
     }
 
     @NotNull
@@ -219,6 +228,12 @@ public class TestVcsLogProvider implements VcsLogProvider {
           return new SingletonRefGroup(ref);
         }
       });
+    }
+
+    @NotNull
+    @Override
+    public Comparator<VcsRef> getBranchLayoutComparator() {
+      return FAKE_COMPARATOR;
     }
   }
 

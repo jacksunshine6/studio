@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,8 +81,8 @@ public abstract class JavaLineBreakpointTypeBase<P extends JavaBreakpointPropert
   }
 
   @Override
-  public final boolean canPutAt(@NotNull VirtualFile file, final int line, @NotNull Project project) {
-    PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
+  public final boolean canPutAt(@NotNull final VirtualFile file, final int line, @NotNull Project project) {
+    final PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
     // JSPX supports jvm debugging, but not in XHTML files
     if (psiFile == null || psiFile.getVirtualFile().getFileType() == StdFileTypes.XHTML) {
       return false;

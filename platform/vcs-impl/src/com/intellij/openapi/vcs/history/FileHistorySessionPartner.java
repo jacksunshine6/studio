@@ -27,12 +27,10 @@ import com.intellij.openapi.vcs.ui.VcsBalloonProblemNotifier;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowId;
 import com.intellij.openapi.wm.ToolWindowManager;
-import com.intellij.ui.content.Content;
-import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.util.BufferedListConsumer;
 import com.intellij.util.Consumer;
-import com.intellij.util.ContentsUtil;
+import com.intellij.util.ContentUtilEx;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -128,11 +126,11 @@ public class FileHistorySessionPartner implements VcsAppendableHistorySessionPar
         ContentManager contentManager = ProjectLevelVcsManagerEx.getInstanceEx(myVcs.getProject()).getContentManager();
 
         myFileHistoryPanel = resetHistoryPanel();
-        Content content = ContentFactory.SERVICE.getInstance().createContent(myFileHistoryPanel, actionName, true);
-        ContentsUtil.addOrReplaceContent(contentManager, content, true);
-
         ToolWindow toolWindow = ToolWindowManager.getInstance(myVcs.getProject()).getToolWindow(ToolWindowId.VCS);
         assert toolWindow != null : "Version Control ToolWindow should be available at this point.";
+
+        ContentUtilEx.addTabbedContent(toolWindow.getContentManager(), myFileHistoryPanel, "History", myFileHistoryPanel.getVirtualFile().getName(), myRefresherI.isFirstTime());
+
         if (myRefresherI.isFirstTime()) {
           toolWindow.activate(null);
         }

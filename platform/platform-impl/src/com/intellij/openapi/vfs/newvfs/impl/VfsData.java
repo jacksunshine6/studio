@@ -20,7 +20,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.vfs.InvalidVirtualFileAccessException;
 import com.intellij.openapi.vfs.newvfs.persistent.FSRecords;
 import com.intellij.util.ArrayUtil;
-import com.intellij.util.SmartFMap;
 import com.intellij.util.concurrency.AtomicFieldUpdater;
 import com.intellij.util.containers.ConcurrentBitSet;
 import com.intellij.util.containers.ConcurrentIntObjectMap;
@@ -37,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -81,7 +81,7 @@ public class VfsData {
   private static final ConcurrentIntObjectMap<Segment> ourSegments = ContainerUtil.createConcurrentIntObjectMap();
   private static final ConcurrentBitSet ourInvalidatedIds = new ConcurrentBitSet();
   private static TIntHashSet ourDyingIds = new TIntHashSet();
-  private static volatile SmartFMap<VirtualFileSystemEntry, VirtualDirectoryImpl> ourChangedParents = SmartFMap.emptyMap();
+  private static final ConcurrentIntObjectMap<VirtualDirectoryImpl> ourChangedParents = ContainerUtil.createConcurrentIntObjectMap();
 
   static {
     ApplicationManager.getApplication().addApplicationListener(new ApplicationAdapter() {
@@ -101,7 +101,7 @@ public class VfsData {
       if (!ourDyingIds.isEmpty()) {
         for (int id : ourDyingIds.toArray()) {
           assertNotNull(getSegment(id, false)).myObjectArray.set(getOffset(id), ourDeadMarker);
-          ourChangedParents = ourChangedParents.minus(new VirtualFileImpl(id, null, null));
+          ourChangedParents.remove(id);
         }
         ourDyingIds = new TIntHashSet();
       }
@@ -164,15 +164,12 @@ public class VfsData {
   }
 
   @Nullable
-  static VirtualDirectoryImpl getChangedParent(VirtualFileSystemEntry child) {
-    SmartFMap<VirtualFileSystemEntry, VirtualDirectoryImpl> map = ourChangedParents;
-    return map == (SmartFMap)SmartFMap.emptyMap() ? null : map.get(child);
+  static VirtualDirectoryImpl getChangedParent(int id) {
+    return ourChangedParents.get(id);
   }
 
-  static void changeParent(VirtualFileSystemEntry child, VirtualDirectoryImpl parent) {
-    synchronized (ourDeadMarker) {
-      ourChangedParents = ourChangedParents.plus(child, parent);
-    }
+  static void changeParent(int id, VirtualDirectoryImpl parent) {
+    ourChangedParents.put(id, parent);
   }
 
   static void invalidateFile(int id) {
@@ -197,7 +194,7 @@ public class VfsData {
       myIntArray.set(getOffset(fileId) * 2, nameId);
     }
 
-    void setUserMap(int fileId, KeyFMap map) {
+    void setUserMap(int fileId, @NotNull KeyFMap map) {
       myObjectArray.set(getOffset(fileId), map);
     }
 
@@ -250,9 +247,9 @@ public class VfsData {
   // non-final field accesses are synchronized on this instance, but this happens in VirtualDirectoryImpl
   public static class DirectoryData {
     private static final AtomicFieldUpdater<DirectoryData, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(DirectoryData.class, KeyFMap.class);
-    volatile KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
-    int[] myChildrenIds = ArrayUtil.EMPTY_INT_ARRAY;
-    private THashSet<String> myAdoptedNames;
+    @NotNull volatile KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
+    @NotNull int[] myChildrenIds = ArrayUtil.EMPTY_INT_ARRAY;
+    private Set<String> myAdoptedNames;
 
     VirtualFileSystemEntry[] getFileChildren(int fileId, VirtualDirectoryImpl parent) {
       assert fileId > 0;

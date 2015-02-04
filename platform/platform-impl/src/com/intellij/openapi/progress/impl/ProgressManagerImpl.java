@@ -34,7 +34,7 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.ProgressIndicatorEx;
 import com.intellij.psi.PsiLock;
 import com.intellij.ui.SystemNotifications;
-import com.intellij.util.containers.ConcurrentHashSet;
+import com.intellij.util.containers.ConcurrentLongObjectMap;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.SmartHashSet;
 import gnu.trove.THashMap;
@@ -48,7 +48,6 @@ import java.awt.*;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ProgressManagerImpl extends ProgressManager implements Disposable {
   private static final Logger LOG = Logger.getInstance("#com.intellij.openapi.progress.impl.ProgressManagerImpl");
-  public static final int CHECK_CANCELED_DELAY_MILLIS = 10;
+  static final int CHECK_CANCELED_DELAY_MILLIS = 10;
   private final AtomicInteger myCurrentUnsafeProgressCount = new AtomicInteger(0);
   private final AtomicInteger myCurrentModalProgressCount = new AtomicInteger(0);
 
@@ -68,9 +67,9 @@ public class ProgressManagerImpl extends ProgressManager implements Disposable {
   // indicator -> threads which are running under this indicator. guarded by this.
   private static final Map<ProgressIndicator, Set<Thread>> threadsUnderIndicator = new THashMap<ProgressIndicator, Set<Thread>>();
   // the active indicator for the thread id
-  private static final ConcurrentMap<Long, ProgressIndicator> currentIndicators = ContainerUtil.newConcurrentMap();
+  private static final ConcurrentLongObjectMap<ProgressIndicator> currentIndicators = ContainerUtil.createConcurrentLongObjectMap();
   // threads which are running under canceled indicator
-  static final Set<Thread> threadsUnderCanceledIndicator = new ConcurrentHashSet<Thread>();
+  static final Set<Thread> threadsUnderCanceledIndicator = ContainerUtil.newConcurrentSet();
 
   // active (i.e. which have executeProcessUnderProgress() method running) indicators which are not inherited from StandardProgressIndicator.
   // for them an extra processing thread (see myCheckCancelledFuture) has to be run to call their non-standard checkCanceled() method
@@ -275,7 +274,9 @@ public class ProgressManagerImpl extends ProgressManager implements Disposable {
 
     try {
       if (indicator instanceof WrappedProgressIndicator) {
-        registerIndicatorAndRun(((WrappedProgressIndicator)indicator).getOriginalProgressIndicator(), currentThread, oldIndicator, process);
+        ProgressIndicator wrappee = ((WrappedProgressIndicator)indicator).getOriginalProgressIndicator();
+        assert wrappee != indicator : indicator + " wraps itself";
+        registerIndicatorAndRun(wrappee, currentThread, oldIndicator, process);
       }
       else {
         process.run();
@@ -320,19 +321,17 @@ public class ProgressManagerImpl extends ProgressManager implements Disposable {
       Set<Thread> threads = threadsUnderIndicator.get(indicator);
       if (threads != null) {
         for (Thread thread : threads) {
-          ProgressIndicator currentIndicator = getCurrentIndicator(thread);
-          boolean underCancelledIndicator = currentIndicator == indicator;
-
-          if (!underCancelledIndicator && currentIndicator instanceof WrappedProgressIndicator) {
-            while(currentIndicator instanceof WrappedProgressIndicator) {
-              ProgressIndicator originalProgressIndicator = ((WrappedProgressIndicator)currentIndicator).getOriginalProgressIndicator();
-              if (originalProgressIndicator == indicator) {
-                underCancelledIndicator = true;
-                break;
-              }
-              currentIndicator = originalProgressIndicator;
+          boolean underCancelledIndicator = false;
+          for (ProgressIndicator currentIndicator = getCurrentIndicator(thread);
+               currentIndicator != null;
+               currentIndicator = currentIndicator instanceof WrappedProgressIndicator ?
+                                  ((WrappedProgressIndicator)currentIndicator).getOriginalProgressIndicator() : null) {
+            if (currentIndicator == indicator) {
+              underCancelledIndicator = true;
+              break;
             }
           }
+
           if (underCancelledIndicator) {
             threadsUnderCanceledIndicator.add(thread);
           }
@@ -440,10 +439,8 @@ public class ProgressManagerImpl extends ProgressManager implements Disposable {
     return result;
   }
 
-  private static void systemNotify(final Task.NotificationInfo notificationInfo) {
-    SystemNotifications.getInstance().notify(notificationInfo.getNotificationName(),
-                                             notificationInfo.getNotificationTitle(),
-                                             notificationInfo.getNotificationText());
+  private static void systemNotify(Task.NotificationInfo info) {
+    SystemNotifications.getInstance().notify(info.getNotificationName(), info.getNotificationTitle(), info.getNotificationText());
   }
 
   @Override
