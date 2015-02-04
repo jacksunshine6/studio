@@ -15,15 +15,20 @@
  */
 package com.intellij.internal.statistic.configurable;
 
+import com.intellij.ide.BrowserUtil;
 import com.intellij.internal.statistic.StatisticsBundle;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.internal.statistic.connect.StatisticsService;
 import com.intellij.internal.statistic.persistence.UsageStatisticsPersistenceComponent;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationNamesInfo;
+import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.ui.HyperlinkLabel;
 import com.intellij.util.ui.UIUtil;
 
 import javax.swing.*;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Map;
@@ -38,13 +43,18 @@ public class StatisticsConfigurationComponent {
   private JRadioButton myWeeklyRadioButton;
   private JLabel myLabel;
   private JPanel myRadioButtonPanel;
+  private HyperlinkLabel myHyperLink;
 
   public StatisticsConfigurationComponent() {
     String product = ApplicationNamesInfo.getInstance().getFullProductName();
     String company = ApplicationInfo.getInstance().getCompanyName();
     myTitle.setText(StatisticsBundle.message("stats.title", product, company));
     myLabel.setText(StatisticsBundle.message("stats.config.details", company));
-    myLabel.setFont(UIUtil.getLabelFont(UIUtil.FontSize.SMALL));
+
+    String linkUrl = null;
+    String linkBeforeText = null;
+    String linkText = null;
+    String linkAfterText = null;
 
     myAllowToSendUsagesCheckBox.setText(StatisticsBundle.message("stats.config.allow.send.stats.text", company));
     myAllowToSendUsagesCheckBox.addActionListener(new ActionListener() {
@@ -71,12 +81,35 @@ public class StatisticsConfigurationComponent {
         if (s != null) {
           myAllowToSendUsagesCheckBox.setText(s);
         }
+
+        linkUrl = overrides.get(StatisticsService.LINK_URL);
+        linkBeforeText = overrides.get(StatisticsService.LINK_BEFORE_TEXT);
+        linkText = overrides.get(StatisticsService.LINK_TEXT);
+        linkAfterText = overrides.get(StatisticsService.LINK_AFTER_TEXT);
       }
     }
 
     myTitle.setText(myTitle.getText().replace("%company%", company));
     myLabel.setText(myLabel.getText().replace("%company%", company));
     myAllowToSendUsagesCheckBox.setText(myAllowToSendUsagesCheckBox.getText().replace("%company%", company));
+
+    // Android Studio: add a hyperlink label so that we can link to the privacy policy
+    if (linkUrl == null) {
+      myHyperLink.setVisible(false);
+    } else {
+      myHyperLink.setHyperlinkText(StringUtil.notNullize(linkBeforeText),
+                                   StringUtil.notNullize(linkText),
+                                   StringUtil.notNullize(linkAfterText));
+      final String url = linkUrl;
+      myHyperLink.addHyperlinkListener(new HyperlinkListener() {
+        @Override
+        public void hyperlinkUpdate(HyperlinkEvent e) {
+          if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+            BrowserUtil.browse(url);
+          }
+        }
+      });
+    }
 
     // Android Studio : Do not show panel that allows configuring stats upload frequency
     myRadioButtonPanel.setVisible(false);
