@@ -35,6 +35,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.*;
 import com.intellij.util.concurrency.Semaphore;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.containers.OpenTHashSet;
 import com.intellij.vcs.log.*;
 import com.intellij.vcs.log.impl.HashImpl;
 import com.intellij.vcs.log.impl.LogDataImpl;
@@ -42,11 +43,13 @@ import com.intellij.vcs.log.util.StopWatch;
 import git4idea.*;
 import git4idea.branch.GitBranchUtil;
 import git4idea.commands.*;
+import git4idea.config.GitVersionSpecialty;
 import git4idea.history.browser.GitHeavyCommit;
 import git4idea.history.browser.SHAHash;
 import git4idea.history.browser.SymbolicRefs;
 import git4idea.history.browser.SymbolicRefsI;
 import git4idea.history.wholeTree.AbstractHash;
+import git4idea.log.GitLogProvider;
 import git4idea.log.GitRefManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -374,7 +377,15 @@ public class GitHistoryUtils {
     final GitLogParser parser = new GitLogParser(project, GitLogParser.NameStatus.STATUS, HASH, COMMIT_TIME, PARENTS);
     h.setStdoutSuppressed(true);
     h.addParameters("-M", "--name-status", parser.getPretty(), "--encoding=UTF-8", commit);
-    h.endOptions();
+    GitVcs vcs = GitVcs.getInstance(project);
+    if (vcs != null && !GitVersionSpecialty.FOLLOW_IS_BUGGY_IN_THE_LOG.existsIn(vcs.getVersion())) {
+      h.addParameters("--follow");
+      h.endOptions();
+      h.addRelativePaths(filePath);
+    }
+    else {
+      h.endOptions();
+    }
     final String output = h.run();
     final List<GitLogRecord> records = parser.parse(output);
 
@@ -650,9 +661,9 @@ public class GitHistoryUtils {
    * @return the list of the revisions
    * @throws VcsException if there is problem with running git
    */
-  public static List<VcsFileRevision> history(final Project project, final FilePath path) throws VcsException {
+  public static List<VcsFileRevision> history(final Project project, final FilePath path, String... parameters) throws VcsException {
     final VirtualFile root = GitUtil.getGitRoot(path);
-    return history(project, path, root);
+    return history(project, path, root, parameters);
   }
 
   /**
@@ -724,7 +735,7 @@ public class GitHistoryUtils {
     if (factory == null) {
       return LogDataImpl.empty();
     }
-    final Set<VcsRef> refs = ContainerUtil.newHashSet();
+    final Set<VcsRef> refs = new OpenTHashSet<VcsRef>(GitLogProvider.DONT_CONSIDER_SHA);
     final List<VcsCommitMetadata> commits =
       loadDetails(project, root, withRefs, false, new NullableFunction<GitLogRecord, VcsCommitMetadata>() {
         @Nullable
@@ -732,7 +743,12 @@ public class GitHistoryUtils {
         public VcsCommitMetadata fun(GitLogRecord record) {
           GitCommit commit = createCommit(project, root, record, factory);
           if (withRefs) {
-            refs.addAll(parseRefs(record.getRefs(), commit.getId(), factory, root));
+            Collection<VcsRef> refsInRecord = parseRefs(record.getRefs(), commit.getId(), factory, root);
+            for (VcsRef ref : refsInRecord) {
+              if (!refs.add(ref)) {
+                LOG.error("Adding duplicate element to the set");
+              }
+            }
           }
           return commit;
         }

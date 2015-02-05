@@ -41,14 +41,16 @@ public abstract class XmlSuppressionProvider implements InspectionSuppressor {
 
   public abstract boolean isProviderAvailable(@NotNull PsiFile file);
 
+  @Override
   public abstract boolean isSuppressedFor(@NotNull PsiElement element, @NotNull String inspectionId);
 
   public abstract void suppressForFile(@NotNull PsiElement element, @NotNull String inspectionId);
 
   public abstract void suppressForTag(@NotNull PsiElement element, @NotNull String inspectionId);
 
+  @NotNull
   @Override
-  public SuppressQuickFix[] getSuppressActions(@Nullable PsiElement element, String toolShortName) {
+  public SuppressQuickFix[] getSuppressActions(@Nullable PsiElement element, @NotNull String toolShortName) {
     return XmlSuppressableInspectionTool.getSuppressFixes(toolShortName, this);
   }
 

@@ -15,15 +15,18 @@
  */
 package com.intellij.openapi.components.impl.stores;
 
-import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.components.StateStorage;
 import com.intellij.openapi.components.StateStorageOperation;
 import com.intellij.openapi.components.StoragePathMacros;
 import com.intellij.openapi.components.TrackingPathMacroSubstitutor;
 import com.intellij.openapi.module.impl.ModuleImpl;
+import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.List;
 
 class ModuleStateStorageManager extends StateStorageManagerImpl {
   @NonNls private static final String ROOT_TAG_NAME = "module";
@@ -36,7 +39,7 @@ class ModuleStateStorageManager extends StateStorageManagerImpl {
   }
 
   @Override
-  protected StorageData createStorageData(@NotNull String storageSpec) {
+  protected StorageData createStorageData(@NotNull String fileSpec, @NotNull String filePath) {
     return new ModuleStoreImpl.ModuleFileData(ROOT_TAG_NAME, myModule);
   }
 
@@ -44,26 +47,23 @@ class ModuleStateStorageManager extends StateStorageManagerImpl {
   @Override
   public ExternalizationSession startExternalization() {
     return new StateStorageManagerExternalizationSession() {
-      @Nullable
+      @NotNull
       @Override
-      public StateStorage.SaveSession createSaveSession() {
-        final ModuleStoreImpl.ModuleFileData data = ((ModuleStoreImpl)myModule.getStateStore()).getMainStorageData();
-        final StateStorage.SaveSession session = super.createSaveSession();
+      public List<StateStorage.SaveSession> createSaveSessions() {
+        final ModuleStoreImpl.ModuleFileData data = myModule.getStateStore().getMainStorageData();
+        List<StateStorage.SaveSession> sessions = super.createSaveSessions();
         if (!data.isDirty()) {
-          return session;
+          return sessions;
         }
 
-        return new StateStorage.SaveSession() {
+        return ContainerUtil.concat(sessions, Collections.singletonList(new StateStorage.SaveSession() {
           @Override
           public void save() {
-            if (session != null) {
-              session.save();
-            }
             if (data.isDirty()) {
-              ((ModuleStoreImpl)myModule.getStateStore()).getMainStorage().forceSave();
+              myModule.getStateStore().getMainStorage().forceSave();
             }
           }
-        };
+        }));
       }
     };
   }
@@ -72,15 +72,6 @@ class ModuleStateStorageManager extends StateStorageManagerImpl {
   @Override
   protected String getOldStorageSpec(@NotNull Object component, @NotNull String componentName, @NotNull StateStorageOperation operation) {
     return StoragePathMacros.MODULE_FILE;
-  }
-
-  @Override
-  protected String getVersionsFilePath() {
-    return PathManager.getConfigPath() + "/componentVersions/" + "module" + getLocationHash() + ".xml";
-  }
-
-  private String getLocationHash() {
-    return myModule.getName() + Integer.toHexString(myModule.getModuleFilePath().hashCode());
   }
 
   @NotNull

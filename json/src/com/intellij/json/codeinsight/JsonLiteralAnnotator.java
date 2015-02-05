@@ -27,13 +27,13 @@ public class JsonLiteralAnnotator implements Annotator {
 
   @Override
   public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
+    final String text = JsonPsiUtil.getElementTextWithoutHostEscaping(element);
     if (element instanceof JsonStringLiteral) {
       final JsonStringLiteral stringLiteral = (JsonStringLiteral)element;
       final int elementOffset = element.getTextOffset();
       if (JsonPsiUtil.isPropertyKey(element)) {
         holder.createInfoAnnotation(element, DEBUG ? "property key" : null).setTextAttributes(JsonSyntaxHighlighterFactory.JSON_PROPERTY_KEY);
       }
-      final String text = element.getText();
       final int length = text.length();
 
       // Check that string literal is closed properly
@@ -57,7 +57,7 @@ public class JsonLiteralAnnotator implements Annotator {
       }
     }
     else if (element instanceof JsonNumberLiteral) {
-      if (!VALID_NUMBER_LITERAL.matcher(element.getText()).matches()) {
+      if (!VALID_NUMBER_LITERAL.matcher(text).matches()) {
         holder.createErrorAnnotation(element, JsonBundle.message("msg.illegal.floating.point.literal"));
       }
     }

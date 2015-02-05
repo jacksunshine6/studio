@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 package com.intellij.xml.breadcrumbs;
 
 import com.intellij.application.options.editor.WebEditorOptions;
+import com.intellij.codeInsight.daemon.impl.tagTreeHighlighting.XmlTagTreeHighlightingUtil;
+import com.intellij.codeInsight.highlighting.HighlightManager;
 import com.intellij.ide.ui.UISettings;
 import com.intellij.ide.ui.UISettingsListener;
 import com.intellij.lang.Language;
@@ -25,10 +27,14 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.ScrollType;
+import com.intellij.openapi.editor.colors.EditorColors;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorFontType;
 import com.intellij.openapi.editor.event.CaretAdapter;
 import com.intellij.openapi.editor.event.CaretEvent;
 import com.intellij.openapi.editor.event.CaretListener;
+import com.intellij.openapi.editor.markup.RangeHighlighter;
+import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.extensions.Extensions;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
@@ -40,6 +46,7 @@ import com.intellij.openapi.vcs.FileStatusListener;
 import com.intellij.openapi.vcs.FileStatusManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
+import com.intellij.util.BitUtil;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.update.MergingUpdateQueue;
 import com.intellij.util.ui.update.UiNotifyConnector;
@@ -52,10 +59,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.PriorityQueue;
+import java.util.*;
 
 /**
  * @author spleaner
@@ -64,6 +68,7 @@ public class BreadcrumbsXmlWrapper implements BreadcrumbsItemListener<Breadcrumb
   private final BreadcrumbsComponent<BreadcrumbsPsiItem> myComponent;
   private final Project myProject;
   private Editor myEditor;
+  private Collection<RangeHighlighter> myHighlighed;
   private final VirtualFile myFile;
   private boolean myUserCaretChange;
   private final MergingUpdateQueue myQueue;
@@ -377,9 +382,30 @@ public class BreadcrumbsXmlWrapper implements BreadcrumbsItemListener<Breadcrumb
     final PsiElement psiElement = item.getPsiElement();
     moveEditorCaretTo(psiElement);
 
-    if ((modifiers & Event.SHIFT_MASK) == Event.SHIFT_MASK || (modifiers & Event.META_MASK) == Event.META_MASK) {
+    if (BitUtil.isSet(modifiers, Event.SHIFT_MASK) || BitUtil.isSet(modifiers, Event.META_MASK)) {
       final TextRange range = psiElement.getTextRange();
       myEditor.getSelectionModel().setSelection(range.getStartOffset(), range.getEndOffset());
+    }
+  }
+
+  @Override
+  public void itemHovered(@Nullable BreadcrumbsPsiItem item) {
+    if (myHighlighed != null) {
+      for (RangeHighlighter highlighter : myHighlighed) {
+        HighlightManager.getInstance(myProject).removeSegmentHighlighter(myEditor, highlighter);
+      }
+      myHighlighed = null;
+    }
+    if (item != null) {
+      final TextRange range = item.getPsiElement().getTextRange();
+      final TextAttributes attributes = new TextAttributes();
+      final CrumbPresentation p = item.getPresentation();
+      final Color color = p != null ? p.getBackgroundColor(false, false, false) : BreadcrumbsComponent.ButtonSettings.DEFAULT_BG_COLOR;
+      final Color background = EditorColorsManager.getInstance().getGlobalScheme().getColor(EditorColors.CARET_ROW_COLOR);
+      attributes.setBackgroundColor(XmlTagTreeHighlightingUtil.makeTransparent(color, background, 0.3));
+      myHighlighed = new ArrayList<RangeHighlighter>(1);
+      HighlightManager.getInstance(myProject).addRangeHighlight(myEditor, range.getStartOffset(), range.getEndOffset(),
+                                                                attributes, true, true, myHighlighed);
     }
   }
 

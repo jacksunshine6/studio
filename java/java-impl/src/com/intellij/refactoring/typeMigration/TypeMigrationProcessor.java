@@ -105,8 +105,7 @@ public class TypeMigrationProcessor extends BaseRefactoringProcessor {
         throw new RuntimeException(StringUtil.join(myLabeler.getFailedConversionsReport(), "\n"));
       }
       FailedConversionsDialog dialog = new FailedConversionsDialog(myLabeler.getFailedConversionsReport(), myProject);
-      dialog.show();
-      if (!dialog.isOK()) {
+      if (!dialog.showAndGet()) {
         final int exitCode = dialog.getExitCode();
         prepareSuccessful();
         if (exitCode == FailedConversionsDialog.VIEW_USAGES_EXIT_CODE) {
@@ -172,7 +171,7 @@ public class TypeMigrationProcessor extends BaseRefactoringProcessor {
   @Override
   public void performRefactoring(UsageInfo[] usages) {
     for (PsiElement element : myRoot) {
-      if (element instanceof PsiVariable) {
+      if (element instanceof PsiVariable && ((PsiVariable)element).getTypeElement() != null) {
         ((PsiVariable)element).normalizeDeclaration();
       }
     }

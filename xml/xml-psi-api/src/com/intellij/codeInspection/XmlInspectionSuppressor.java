@@ -21,12 +21,13 @@ import org.jetbrains.annotations.Nullable;
 
 public class XmlInspectionSuppressor implements InspectionSuppressor{
   @Override
-  public boolean isSuppressedFor(@NotNull PsiElement element, String toolId) {
+  public boolean isSuppressedFor(@NotNull PsiElement element, @NotNull String toolId) {
     return XmlSuppressionProvider.isSuppressed(element, toolId);
   }
 
+  @NotNull
   @Override
-  public SuppressQuickFix[] getSuppressActions(@Nullable PsiElement element, String toolShortName) {
+  public SuppressQuickFix[] getSuppressActions(@Nullable PsiElement element, @NotNull String toolShortName) {
     return XmlSuppressableInspectionTool.getSuppressFixes(toolShortName);
   }
 }

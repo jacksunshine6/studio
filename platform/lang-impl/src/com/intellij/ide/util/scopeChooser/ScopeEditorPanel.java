@@ -28,7 +28,6 @@ import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.VerticalFlowLayout;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -36,9 +35,12 @@ import com.intellij.packageDependencies.DependencyUISettings;
 import com.intellij.packageDependencies.ui.*;
 import com.intellij.psi.search.scope.packageSet.*;
 import com.intellij.ui.*;
+import com.intellij.ui.components.panels.VerticalLayout;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
+import com.intellij.util.ArrayUtil;
 import com.intellij.util.Consumer;
+import com.intellij.util.ui.ColorIcon;
 import com.intellij.util.ui.UIUtil;
 import com.intellij.util.ui.tree.TreeUtil;
 import com.intellij.util.ui.update.Activatable;
@@ -152,8 +154,8 @@ public class ScopeEditorPanel {
         cancelCurrentProgress();
       }
     });
-    myPartiallyIncluded.setBackground(MyTreeCellRenderer.PARTIAL_INCLUDED);
-    myRecursivelyIncluded.setBackground(MyTreeCellRenderer.WHOLE_INCLUDED);
+    myPartiallyIncluded.setIcon(new ColorIcon(10, MyTreeCellRenderer.PARTIAL_INCLUDED));
+    myRecursivelyIncluded.setIcon(new ColorIcon(10, MyTreeCellRenderer.WHOLE_INCLUDED));
   }
 
   private void updateCaretPositionText() {
@@ -236,17 +238,17 @@ public class ScopeEditorPanel {
     myPackageTree.getSelectionModel().addTreeSelectionListener(new TreeSelectionListener() {
       @Override
       public void valueChanged(TreeSelectionEvent e) {
-        final boolean recursiveEnabled = isButtonEnabled(true, e.getPaths(), e);
+        final boolean recursiveEnabled = isButtonEnabled(true);
         includeRec.setEnabled(recursiveEnabled);
         excludeRec.setEnabled(recursiveEnabled);
 
-        final boolean nonRecursiveEnabled = isButtonEnabled(false, e.getPaths(), e);
+        final boolean nonRecursiveEnabled = isButtonEnabled(false);
         include.setEnabled(nonRecursiveEnabled);
         exclude.setEnabled(nonRecursiveEnabled);
       }
     });
 
-    JPanel buttonsPanel = new JPanel(new VerticalFlowLayout());
+    JPanel buttonsPanel = new JPanel(new VerticalLayout(5));
     buttonsPanel.add(include);
     buttonsPanel.add(includeRec);
     buttonsPanel.add(exclude);
@@ -278,19 +280,6 @@ public class ScopeEditorPanel {
     });
 
     return buttonsPanel;
-  }
-
-  static boolean isButtonEnabled(boolean rec, TreePath[] paths, TreeSelectionEvent e) {
-    if (paths != null) {
-      for (TreePath path : paths) {
-        if (!e.isAddedPath(path)) continue;
-        final PackageDependenciesNode node = (PackageDependenciesNode)path.getLastPathComponent();
-        if (PatternDialectProvider.getInstance(DependencyUISettings.getInstance().SCOPE_TYPE).createPackageSet(node, rec) != null) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   boolean isButtonEnabled(boolean rec) {

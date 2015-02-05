@@ -16,6 +16,7 @@
 package com.siyeh.ig.classlayout;
 
 import com.intellij.codeInsight.AnnotationUtil;
+import com.intellij.codeInsight.daemon.impl.analysis.LambdaHighlightingUtil;
 import com.intellij.codeInsight.intention.AddAnnotationPsiFix;
 import com.intellij.psi.*;
 import com.intellij.psi.util.MethodSignature;
@@ -48,12 +49,16 @@ public class InterfaceMayBeAnnotatedFunctionalInspection extends BaseInspection 
     return InspectionGadgetsBundle.message("interface.may.be.annotated.functional.problem.descriptor");
   }
 
+  @Override
+  public boolean shouldInspect(PsiFile file) {
+    return PsiUtil.isLanguageLevel8OrHigher(file);
+  }
+
   @Nullable
   @Override
   protected InspectionGadgetsFix buildFix(Object... infos) {
     final PsiClass aClass = (PsiClass)infos[0];
     return new DelegatingFix(new AddAnnotationPsiFix(CommonClassNames.JAVA_LANG_FUNCTIONAL_INTERFACE, aClass, PsiNameValuePair.EMPTY_ARRAY));
-
   }
 
   @Override
@@ -65,9 +70,6 @@ public class InterfaceMayBeAnnotatedFunctionalInspection extends BaseInspection 
 
     @Override
     public void visitClass(PsiClass aClass) {
-      if (!PsiUtil.isLanguageLevel8OrHigher(aClass)) {
-        return;
-      }
       super.visitClass(aClass);
       if (!aClass.isInterface() || AnnotationUtil.isAnnotated(aClass, "java.lang.FunctionalInterface", false)) {
         return;

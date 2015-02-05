@@ -57,6 +57,7 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
+import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.*;
@@ -180,7 +181,6 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
   @Override
   public VirtualFile copyFileToProject(@NotNull @NonNls final String sourceFilePath, @NotNull @NonNls final String targetPath) {
     final String testDataPath = getTestDataPath();
-    assert testDataPath != null : "test data path not specified";
 
     File fromFile = new File(testDataPath + "/" + sourceFilePath);
     if (!fromFile.exists()) {
@@ -236,7 +236,6 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
   @Override
   public VirtualFile copyDirectoryToProject(@NotNull @NonNls final String sourceFilePath, @NotNull @NonNls final String targetPath) {
     final String testDataPath = getTestDataPath();
-    assert testDataPath != null : "test data path not specified";
 
     final File fromFile = new File(testDataPath + "/" + sourceFilePath);
     if (myTempDirFixture instanceof LightTempDirTestFixtureImpl) {
@@ -465,7 +464,7 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     InspectionManagerEx inspectionManager = (InspectionManagerEx)InspectionManager.getInstance(getProject());
     GlobalInspectionContextImpl globalContext = createGlobalContextForTool(scope, getProject(), inspectionManager, toolWrapper);
 
-    InspectionTestUtil.runTool(toolWrapper, scope, globalContext, inspectionManager);
+    InspectionTestUtil.runTool(toolWrapper, scope, globalContext);
     InspectionTestUtil.compareToolResults(globalContext, toolWrapper, false, new File(getTestDataPath(), testDir).getPath());
   }
 
@@ -579,7 +578,16 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
   @Override
   public IntentionAction getAvailableIntention(@NotNull final String intentionName, @NotNull final String... filePaths) {
     List<IntentionAction> intentions = getAvailableIntentions(filePaths);
-    return CodeInsightTestUtil.findIntentionByText(intentions, intentionName);
+    IntentionAction action = CodeInsightTestUtil.findIntentionByText(intentions, intentionName);
+    if (action == null) {
+      System.out.println(intentionName + " not found among " + StringUtil.join(intentions, new Function<IntentionAction, String>() {
+        @Override
+        public String fun(IntentionAction action) {
+          return action.getText();
+        }
+      }, ","));
+    }
+    return action;
   }
 
   @Override
@@ -1069,7 +1077,8 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
 
 
   @Override
-  public void completeBasicAllCarets() {
+  @NotNull
+  public final List<LookupElement> completeBasicAllCarets() {
     final CaretModel caretModel = myEditor.getCaretModel();
     final List<Caret> carets = caretModel.getAllCarets();
 
@@ -1083,10 +1092,26 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     // We do it in reverse order because completions would affect offsets
     // i.e.: when you complete "spa" to "spam", next caret offset increased by 1
     Collections.reverse(originalOffsets);
+    final List<LookupElement> result = new ArrayList<LookupElement>();
     for (final int originalOffset : originalOffsets) {
       caretModel.moveToOffset(originalOffset);
-      completeBasic();
+      final LookupElement[] lookupElements = completeBasic();
+      if (lookupElements != null) {
+        result.addAll(Arrays.asList(lookupElements));
+      }
     }
+    return result;
+  }
+
+  @Override
+  public void saveText(final VirtualFile file, final String text) {
+    new WriteAction() {
+      @Override
+      protected void run(@NotNull Result result) throws Throwable {
+        VfsUtil.saveText(file, text);
+      }
+    }.execute().throwException();
+
   }
 
   @Override
@@ -1168,6 +1193,7 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
   public void setUp() throws Exception {
     super.setUp();
 
+    UsefulTestCase.replaceIdeEventQueueSafely();
     UIUtil.invokeAndWaitIfNeeded(new Runnable() {
       @Override
       public void run() {
@@ -1178,6 +1204,10 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
         catch (Exception e) {
           throw new RuntimeException(e);
         }
+
+        VirtualFile tempDir = myTempDirFixture.getFile("");
+        PlatformTestCase.synchronizeTempDirVfs(tempDir);
+
         myPsiManager = (PsiManagerImpl)PsiManager.getInstance(getProject());
         configureInspections(myInspections == null ? LocalInspectionTool.EMPTY_ARRAY : myInspections);
 
@@ -1275,7 +1305,7 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
 
       @Override
       public boolean isToolEnabled(HighlightDisplayKey key, PsiElement element) {
-        return key != null && key.toString() != null && myAvailableTools.containsKey(key.toString()) && !myDisabledInspections.contains(key.toString());
+        return key != null && myAvailableTools.containsKey(key.toString()) && !myDisabledInspections.contains(key.toString());
       }
 
       @Override
@@ -1671,14 +1701,23 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     descriptors.addAll(intentions.inspectionFixesToShow);
     descriptors.addAll(intentions.guttersToShow);
 
-    PsiElement element = file.findElementAt(editor.getCaretModel().getOffset());
+    final int fileOffset = editor.getCaretModel().getOffset();
+    PsiElement hostElement = file.getViewProvider().findElementAt(fileOffset, file.getLanguage());
+    PsiElement injectedElement = InjectedLanguageUtil.findElementAtNoCommit(file, fileOffset);
+    
+    PsiFile injectedFile = injectedElement != null ? injectedElement.getContainingFile() : null;
+    Editor injectedEditor = InjectedLanguageUtil.getInjectedEditorForInjectedFile(editor, injectedFile);
+    
     List<IntentionAction> result = new ArrayList<IntentionAction>();
 
     List<HighlightInfo> infos = DaemonCodeAnalyzerEx.getInstanceEx(file.getProject()).getFileLevelHighlights(file.getProject(), file);
     for (HighlightInfo info : infos) {
       for (Pair<HighlightInfo.IntentionActionDescriptor, TextRange> pair : info.quickFixActionRanges) {
         HighlightInfo.IntentionActionDescriptor actionInGroup = pair.first;
-        if (actionInGroup.getAction().isAvailable(file.getProject(), editor, file)) {
+        final IntentionAction action = actionInGroup.getAction();
+        
+        if (ShowIntentionActionsHandler.availableFor(file, editor, action)
+          || (injectedElement != null && hostElement != injectedElement && ShowIntentionActionsHandler.availableFor(injectedFile, injectedEditor, action))) {
           descriptors.add(actionInGroup);
         }
       }
@@ -1687,11 +1726,25 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     // add all intention options for simplicity
     for (HighlightInfo.IntentionActionDescriptor descriptor : descriptors) {
       result.add(descriptor.getAction());
-      List<IntentionAction> options = descriptor.getOptions(element,editor);
-      if (options != null) {
-        for (IntentionAction option : options) {
-          if (option.isAvailable(file.getProject(), editor, file)) {
-            result.add(option);
+      
+      if (injectedElement != null && injectedElement != hostElement) {
+        List<IntentionAction> options = descriptor.getOptions(injectedElement, injectedEditor);
+        if (options != null) {
+          for (IntentionAction option : options) {
+            if (ShowIntentionActionsHandler.availableFor(injectedFile, injectedEditor, option)) {
+              result.add(option);
+            }
+          }
+        }
+      }
+      
+      if (hostElement != null) {
+        List<IntentionAction> options = descriptor.getOptions(hostElement, editor);
+        if (options != null) {
+          for (IntentionAction option : options) {
+            if (ShowIntentionActionsHandler.availableFor(file, editor, option)) {
+              result.add(option);
+            }
           }
         }
       }

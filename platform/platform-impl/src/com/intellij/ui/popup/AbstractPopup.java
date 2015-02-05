@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,13 +49,13 @@ import com.intellij.util.IJSwingUtilities;
 import com.intellij.util.Processor;
 import com.intellij.util.ui.ChildFocusWatcher;
 import com.intellij.util.ui.EmptyIcon;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.*;
@@ -292,7 +292,7 @@ public class AbstractPopup implements JBPopup {
     else {
       myCaption = new CaptionPanel();
       myCaption.setBorder(null);
-      myCaption.setPreferredSize(new Dimension(0, 0));
+      myCaption.setPreferredSize(JBUI.emptySize());
     }
 
     setWindowActive(myHeaderAlwaysFocusable);
@@ -395,7 +395,7 @@ public class AbstractPopup implements JBPopup {
   @Override
   public void setAdText(@NotNull final String s, int alignment) {
     if (myAdComponent == null) {
-      myAdComponent = HintUtil.createAdComponent(s, BorderFactory.createEmptyBorder(1, 5, 1, 5), alignment);
+      myAdComponent = HintUtil.createAdComponent(s, JBUI.Borders.empty(1, 5), alignment);
       JPanel wrapper = new JPanel(new BorderLayout()) {
         @Override
         protected void paintComponent(Graphics g) {
@@ -405,7 +405,7 @@ public class AbstractPopup implements JBPopup {
         }
       };
       wrapper.setOpaque(false);
-      wrapper.setBorder(new EmptyBorder(1, 0, 0, 0));
+      wrapper.setBorder(JBUI.Borders.emptyTop(1));
       wrapper.add(myAdComponent, BorderLayout.CENTER);
       myContent.add(wrapper, BorderLayout.SOUTH);
       pack(false, true);
@@ -578,11 +578,11 @@ public class AbstractPopup implements JBPopup {
         final int spaceOnTheRight = screen.x + screen.width - leftTopCornerScreen.x;
         if (spaceOnTheLeft > spaceOnTheRight) {
           relativePoint = new RelativePoint(layeredPane, new Point(0, bounds.y));
-          myComponent.setPreferredSize(new Dimension(spaceOnTheLeft, Math.max(preferredSize.height, 200)));
+          myComponent.setPreferredSize(new Dimension(spaceOnTheLeft, Math.max(preferredSize.height, JBUI.scale(200))));
         }
         else {
           relativePoint = new RelativePoint(layeredPane, leftTopCorner);
-          myComponent.setPreferredSize(new Dimension(spaceOnTheRight, Math.max(preferredSize.height, 200)));
+          myComponent.setPreferredSize(new Dimension(spaceOnTheRight, Math.max(preferredSize.height, JBUI.scale(200))));
         }
       }
     }
@@ -747,7 +747,7 @@ public class AbstractPopup implements JBPopup {
 
     Point xy = new Point(aScreenX, aScreenY);
     boolean adjustXY = true;
-    if (myDimensionServiceKey != null) {
+    if (myUseDimServiceForXYLocation && myDimensionServiceKey != null) {
       final Point storedLocation = DimensionService.getInstance().getLocation(myDimensionServiceKey, myProject);
       if (storedLocation != null) {
         xy = storedLocation;
@@ -773,16 +773,10 @@ public class AbstractPopup implements JBPopup {
     }
 
     Rectangle targetBounds = new Rectangle(xy, myContent.getPreferredSize());
-    Insets insets = myPopupBorder.getBorderInsets(myContent);
-    if (insets != null) {
-      targetBounds.x += insets.left;
-      targetBounds.y += insets.top;
-    }
-
     Rectangle original = new Rectangle(targetBounds);
     if (myLocateWithinScreen) {
       if (myMovable) {
-        ScreenUtil.moveRectangleToFitTheScreen(targetBounds);
+        ScreenUtil.moveToFit(targetBounds, ScreenUtil.getScreenRectangle(aScreenX, aScreenY), null);
       }
     }
 
@@ -1674,17 +1668,11 @@ public class AbstractPopup implements JBPopup {
 
     if (owner == null) return false;
 
-    Window wnd;
-    if (owner instanceof Window) {
-      wnd = (Window)owner;
-    }
-    else {
-      wnd = SwingUtilities.getWindowAncestor(owner);
-    }
+    Window wnd = UIUtil.getWindow(owner);
 
     for (Component each : components) {
       if (each != null && SwingUtilities.isDescendingFrom(owner, each)) {
-        Window eachWindow = each instanceof Window ? (Window)each : SwingUtilities.getWindowAncestor(each);
+        Window eachWindow = UIUtil.getWindow(each);
         if (eachWindow == wnd) {
           return true;
         }

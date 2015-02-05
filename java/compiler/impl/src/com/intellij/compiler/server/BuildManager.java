@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ public class BuildManager implements ApplicationComponent{
   private static final String COMPILER_PROCESS_JDK_PROPERTY = "compiler.process.jdk";
   public static final String SYSTEM_ROOT = "compile-server";
   public static final String TEMP_DIR_NAME = "_temp_";
-  private final boolean IS_UNIT_TEST_MODE;
+  private static final boolean IS_UNIT_TEST_MODE = ApplicationManager.getApplication().isUnitTestMode();
   private static final String IWS_EXTENSION = ".iws";
   private static final String IPR_EXTENSION = ".ipr";
   private static final String IDEA_PROJECT_DIR_PATTERN = "/.idea/";
@@ -211,14 +211,12 @@ public class BuildManager implements ApplicationComponent{
 
   private final BuildMessageDispatcher myMessageDispatcher = new BuildMessageDispatcher();
   private volatile int myListenPort = -1;
-  @Nullable
-  private final Charset mySystemCharset;
+  @NotNull
+  private final Charset mySystemCharset = CharsetToolkit.getDefaultSystemCharset();
 
   public BuildManager(final ProjectManager projectManager) {
     final Application application = ApplicationManager.getApplication();
-    IS_UNIT_TEST_MODE = application.isUnitTestMode();
     myProjectManager = projectManager;
-    mySystemCharset = CharsetToolkit.getDefaultSystemCharset();
     final String systemPath = PathManager.getSystemPath();
     File system = new File(systemPath);
     try {
@@ -736,7 +734,7 @@ public class BuildManager implements ApplicationComponent{
                 myBuildsInProgress.remove(projectPath);
                 notifySessionTerminationIfNeeded(sessionId, execFailure);
 
-                if (Registry.is("compiler.process.preload") && !project.isDisposed()) {
+                if (isProcessPreloadingEnabled() && !project.isDisposed()) {
                   runCommand(new Runnable() {
                     public void run() {
                       if (!myPreloadedBuilds.containsKey(projectPath)) {
@@ -763,6 +761,11 @@ public class BuildManager implements ApplicationComponent{
     });
 
     return _future;
+  }
+
+  private static boolean isProcessPreloadingEnabled() {
+    // automatically disable process preloading when debugging or testing
+    return !IS_UNIT_TEST_MODE && Registry.is("compiler.process.preload") && Registry.intValue("compiler.process.debug.port") <= 0;
   }
 
   private void notifySessionTerminationIfNeeded(UUID sessionId, @Nullable Throwable execFailure) {
@@ -830,6 +833,9 @@ public class BuildManager implements ApplicationComponent{
     // launching build process from projectTaskQueue ensures that no other build process for this project is currently running
     return projectTaskQueue.submit(new Callable<Pair<RequestFuture<PreloadedProcessMessageHandler>, OSProcessHandler>>() {
       public Pair<RequestFuture<PreloadedProcessMessageHandler>, OSProcessHandler> call() throws Exception {
+        if (project.isDisposed()) {
+          return null;
+        }
         final RequestFuture<PreloadedProcessMessageHandler> future = new RequestFuture<PreloadedProcessMessageHandler>(new PreloadedProcessMessageHandler(), UUID.randomUUID(), new CancelBuildSessionAction<PreloadedProcessMessageHandler>());
         try {
           myMessageDispatcher.registerBuildMessageHandler(future, null);
@@ -841,9 +847,9 @@ public class BuildManager implements ApplicationComponent{
           processHandler.startNotify();
           return Pair.create(future, processHandler);
         }
-        catch (ExecutionException e) {
+        catch (Throwable e) {
           handleProcessExecutionFailure(future.getRequestID(), e);
-          throw e;
+          throw e instanceof Exception? (Exception)e : new RuntimeException(e);
         }
       }
     });
@@ -944,7 +950,10 @@ public class BuildManager implements ApplicationComponent{
     }
 
     cmdLine.addParameter("-Djava.awt.headless=true");
-    cmdLine.addParameter("-Djava.endorsed.dirs=\"\""); // turn off all jre customizations for predictable behaviour
+    if (sdkVersion != null && sdkVersion.ordinal() < JavaSdkVersion.JDK_1_9.ordinal()) {
+      //-Djava.endorsed.dirs is not supported in JDK 9+, may result in abnormal process termination
+      cmdLine.addParameter("-Djava.endorsed.dirs=\"\""); // turn off all jre customizations for predictable behaviour
+    }
     if (IS_UNIT_TEST_MODE) {
       cmdLine.addParameter("-Dtest.mode=true");
     }
@@ -995,10 +1004,8 @@ public class BuildManager implements ApplicationComponent{
     }
 
     // javac's VM should use the same default locale that IDEA uses in order for javac to print messages in 'correct' language
-    if (mySystemCharset != null) {
-      cmdLine.setCharset(mySystemCharset);
-      cmdLine.addParameter("-D" + CharsetToolkit.FILE_ENCODING_PROPERTY + "=" + mySystemCharset.name());
-    }
+    cmdLine.setCharset(mySystemCharset);
+    cmdLine.addParameter("-D" + CharsetToolkit.FILE_ENCODING_PROPERTY + "=" + mySystemCharset.name());
     cmdLine.addParameter("-D" + JpsGlobalLoader.FILE_TYPES_COMPONENT_NAME_KEY + "=" + FileTypeManagerImpl.getFileTypeComponentName());
     for (String name : new String[]{"user.language", "user.country", "user.region", PathManager.PROPERTY_PATHS_SELECTOR}) {
       final String value = System.getProperty(name);

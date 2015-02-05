@@ -19,10 +19,10 @@ package com.intellij.history.core.changes;
 import com.intellij.history.core.Content;
 import com.intellij.history.core.StreamUtil;
 import com.intellij.history.utils.LocalHistoryLog;
-import com.intellij.openapi.util.Ref;
 import com.intellij.util.Producer;
 import com.intellij.util.SmartList;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.io.DataInputOutputUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,11 +48,11 @@ public class ChangeSet {
   }
 
   public ChangeSet(DataInput in) throws IOException {
-    myId = in.readLong();
+    myId = DataInputOutputUtil.readLONG(in);
     myName = StreamUtil.readStringOrNull(in);
-    myTimestamp = in.readLong();
+    myTimestamp = DataInputOutputUtil.readTIME(in);
 
-    int count = in.readInt();
+    int count = DataInputOutputUtil.readINT(in);
     List<Change> changes = new ArrayList<Change>(count);
     while (count-- > 0) {
       changes.add(StreamUtil.readChange(in));
@@ -61,27 +61,16 @@ public class ChangeSet {
     isLocked = true;
   }
 
-  public void write(final DataOutput out) throws IOException {
-    out.writeLong(myId);
+  public void write(DataOutput out) throws IOException {
+    LocalHistoryLog.LOG.assertTrue(isLocked, "Changeset should be locked");
+    DataInputOutputUtil.writeLONG(out, myId);
     StreamUtil.writeStringOrNull(out, myName);
-    out.writeLong(myTimestamp);
+    DataInputOutputUtil.writeTIME(out, myTimestamp);
 
-    final Ref<IOException> ref = new Ref<IOException>();
-    accessChanges(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          out.writeInt(myChanges.size());
-          for (Change c : myChanges) {
-            StreamUtil.writeChange(out, c);
-          }
-        }
-        catch (IOException e) {
-          ref.set(e);
-        }
-      }
-    });
-    if (ref.get() != null) throw ref.get();
+    DataInputOutputUtil.writeINT(out, myChanges.size());
+    for (Change c : myChanges) {
+      StreamUtil.writeChange(out, c);
+    }
   }
 
   public void setName(@Nullable String name) {
@@ -131,7 +120,7 @@ public class ChangeSet {
   }
 
   public void addChange(final Change c) {
-    LocalHistoryLog.LOG.assertTrue(!isLocked, "Changset is already locked");
+    LocalHistoryLog.LOG.assertTrue(!isLocked, "Changeset is already locked");
     accessChanges(new Runnable() {
       @Override
       public void run() {

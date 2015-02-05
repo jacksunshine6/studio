@@ -22,6 +22,7 @@ import com.intellij.codeInsight.daemon.impl.analysis.HighlightControlFlowUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
+import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
@@ -96,7 +97,7 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
                   .findExitPointsAndStatements(controlFlow, startOffset, endOffset, new IntArrayList(), PsiContinueStatement.class,
                                                PsiBreakStatement.class, PsiReturnStatement.class, PsiThrowStatement.class);
                 if (exitPoints.isEmpty()) {
-
+  
                   final List<PsiVariable> usedVariables = ControlFlowUtil.getUsedVariables(controlFlow, startOffset, endOffset);
                   for (PsiVariable variable : usedVariables) {
                     if (!HighlightControlFlowUtil.isEffectivelyFinal(variable, body, null)) {
@@ -105,7 +106,7 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
                   }
 
                   if (ExceptionUtil.getThrownCheckedExceptions(new PsiElement[] {body}).isEmpty()) {
-                    if (isCollectCall(body)) {
+                    if (isCollectCall(body, statement.getIterationParameter())) {
                       holder.registerProblem(iteratedValue, "Can be replaced with collect call",
                                              ProblemHighlightType.GENERIC_ERROR_OR_WARNING, new ReplaceWithCollectCallFix());
                     } else if (!isTrivial(body, statement.getIterationParameter())) {
@@ -124,7 +125,7 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
     };
   }
 
-  private static boolean isCollectCall(PsiStatement body) {
+  private static boolean isCollectCall(PsiStatement body, final PsiParameter parameter) {
     PsiIfStatement ifStatement = extractIfStatement(body);
     final PsiMethodCallExpression methodCallExpression = extractAddCall(body, ifStatement);
     if (methodCallExpression != null) {
@@ -132,15 +133,19 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
       final PsiExpression qualifierExpression = methodExpression.getQualifierExpression();
       PsiClass qualifierClass = null;
       if (qualifierExpression instanceof PsiReferenceExpression) {
+        if (ReferencesSearch.search(parameter, new LocalSearchScope(qualifierExpression)).findFirst() != null) {
+          return false;
+        }
         qualifierClass = PsiUtil.resolveClassInType(qualifierExpression.getType());
-      } else if (qualifierExpression == null) {
+      }
+      else if (qualifierExpression == null) {
         final PsiClass enclosingClass = PsiTreeUtil.getParentOfType(body, PsiClass.class);
         if (PsiUtil.getEnclosingStaticElement(body, enclosingClass) == null) {
           qualifierClass = enclosingClass;
         }
       }
 
-      if (qualifierClass != null &&
+      if (qualifierClass != null && 
           InheritanceUtil.isInheritor(qualifierClass, false, CommonClassNames.JAVA_UTIL_COLLECTION)) {
 
         while (ifStatement != null && PsiTreeUtil.isAncestor(body, ifStatement, false)) {
@@ -216,7 +221,7 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
     //method reference 
     final PsiCallExpression callExpression = LambdaCanBeMethodReferenceInspection
       .canBeMethodReferenceProblem(body instanceof PsiBlockStatement ? ((PsiBlockStatement)body).getCodeBlock() : body,
-                                   new PsiParameter[]{parameter},
+                                   new PsiParameter[]{parameter}, 
                                    createDefaultConsumerType(parameter.getProject(), parameter));
     if (callExpression == null) {
       return true;
@@ -282,7 +287,8 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
           LOG.assertTrue(expressions.length == 1);
 
           if (expressions[0] instanceof PsiFunctionalExpression && ((PsiFunctionalExpression)expressions[0]).getFunctionalInterfaceType() == null) {
-            callStatement = (PsiExpressionStatement)callStatement.replace(elementFactory.createStatementFromText(buffer.toString() + "(" + parameter.getText() + ") -> " + wrapInBlock(body) + ");", callStatement));
+            callStatement =
+              (PsiExpressionStatement)callStatement.replace(elementFactory.createStatementFromText(buffer.toString() + "(" + parameter.getText() + ") -> " + wrapInBlock(body) + ");", callStatement));
           }
 
           CodeStyleManager.getInstance(project).reformat(callStatement);
@@ -296,10 +302,8 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
         final PsiClassType functionalType = createDefaultConsumerType(project, parameter);
         final PsiParameter[] parameters = {parameter};
         final PsiElement bodyBlock = body instanceof PsiBlockStatement ? ((PsiBlockStatement)body).getCodeBlock() : body;
-        final PsiCallExpression toConvertCall = LambdaCanBeMethodReferenceInspection.canBeMethodReferenceProblem(bodyBlock, parameters,
-                                                                                                                 functionalType);
-        final String methodReferenceText = LambdaCanBeMethodReferenceInspection.createMethodReferenceText(toConvertCall, functionalType,
-                                                                                                          parameters);
+        final PsiCallExpression toConvertCall = LambdaCanBeMethodReferenceInspection.canBeMethodReferenceProblem(bodyBlock, parameters, functionalType);
+        final String methodReferenceText = LambdaCanBeMethodReferenceInspection.createMethodReferenceText(toConvertCall, functionalType, parameters);
         if (methodReferenceText != null) {
           return methodReferenceText;
         }
@@ -478,7 +482,7 @@ public class StreamApiMigrationInspection extends BaseJavaBatchLocalInspectionTo
     }
     return null;
   }
-
+  
   private static PsiMethodCallExpression extractAddCall(PsiStatement body, PsiIfStatement ifStatement) {
     if (ifStatement != null) {
       final PsiStatement thenBranch = ifStatement.getThenBranch();

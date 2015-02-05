@@ -45,7 +45,6 @@ import com.intellij.util.Function;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.idea.maven.indices.IndicesBundle;
 import org.jetbrains.idea.maven.indices.MavenIndex;
 import org.jetbrains.idea.maven.indices.MavenProjectIndicesManager;
 import org.jetbrains.idea.maven.indices.MavenRepositoriesConfigurable;
@@ -98,7 +97,7 @@ public class ImportMavenRepositoriesTask implements Runnable {
       if (!ExternalSystemApiUtil.isExternalSystemAwareModule(GradleConstants.SYSTEM_ID, module)) continue;
 
       final String modulePath = ExternalSystemApiUtil.getExternalProjectPath(module);
-      assert modulePath != null;
+      if (modulePath == null) continue;
 
       String buildScript = FileUtil.findFileInProvidedPath(modulePath, GradleConstants.DEFAULT_SCRIPT_NAME);
       if (StringUtil.isEmpty(buildScript)) continue;
@@ -165,7 +164,7 @@ public class ImportMavenRepositoriesTask implements Runnable {
           notificationData.setListener("#open", new NotificationListener.Adapter() {
             @Override
             protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent e) {
-              ShowSettingsUtil.getInstance().showSettingsDialog(myProject, IndicesBundle.message("maven.repositories.title"));
+              ShowSettingsUtil.getInstance().showSettingsDialog(myProject, MavenRepositoriesConfigurable.class);
             }
           });
 
@@ -182,9 +181,8 @@ public class ImportMavenRepositoriesTask implements Runnable {
                                          "Disable Notification", CommonBundle.getCancelButtonText(),
                                          Messages.getWarningIcon());
               if (result == Messages.YES) {
-                NotificationsConfigurationImpl.getNotificationsConfigurationImpl().changeSettings(
-                  UNINDEXED_MAVEN_REPOSITORIES_NOTIFICATION_GROUP,
-                  NotificationDisplayType.NONE, false, false);
+                NotificationsConfigurationImpl.getInstanceImpl().changeSettings(UNINDEXED_MAVEN_REPOSITORIES_NOTIFICATION_GROUP,
+                                                                                NotificationDisplayType.NONE, false, false);
 
                 notification.hideBalloon();
               }

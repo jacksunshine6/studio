@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,13 @@ import com.intellij.execution.impl.ConsoleViewUtil;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.highlighter.HighlighterFactory;
-import com.intellij.ide.impl.TypeSafeDataProviderAdapter;
 import com.intellij.injected.editor.EditorWindow;
 import com.intellij.lang.Language;
 import com.intellij.lang.annotation.HighlightSeverity;
-import com.intellij.openapi.Disposable;
-import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.DataProvider;
+import com.intellij.openapi.actionSystem.EmptyAction;
+import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.editor.actions.EditorActionUtil;
@@ -60,7 +61,9 @@ import com.intellij.ui.JBColor;
 import com.intellij.ui.SideBorder;
 import com.intellij.util.*;
 import com.intellij.util.ui.AbstractLayoutManager;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,14 +80,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Gregory.Shrago
  * In case of REPL consider to use {@link LanguageConsoleBuilder}
  */
-public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
+public class LanguageConsoleImpl implements LanguageConsole, DataProvider {
   private static final int SEPARATOR_THICKNESS = 1;
   private final Project myProject;
 
   private final EditorEx myConsoleEditor;
   private final EditorEx myHistoryViewer;
   private final Document myEditorDocument;
-  private final LightVirtualFile myVirtualFile;
+  private final VirtualFile myVirtualFile;
 
   protected PsiFile myFile; // will change on language change
 
@@ -122,13 +125,13 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
     this(project, title, new LightVirtualFile(title, language, ""), initComponents);
   }
 
-  public LanguageConsoleImpl(@NotNull Project project, @NotNull String title, @NotNull LightVirtualFile lightFile, boolean initComponents) {
-    this(project, title, lightFile, initComponents, null);
+  public LanguageConsoleImpl(@NotNull Project project, @NotNull String title, @NotNull VirtualFile virtualFile, boolean initComponents) {
+    this(project, title, virtualFile, initComponents, null);
   }
 
   LanguageConsoleImpl(@NotNull Project project,
                       @NotNull String title,
-                      @NotNull LightVirtualFile lightFile,
+                      @NotNull VirtualFile lightFile,
                       boolean initComponents,
                       @Nullable PairFunction<VirtualFile, Project, PsiFile> psiFileFactory) {
     myProject = project;
@@ -140,7 +143,7 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
     if (myEditorDocument == null) {
       throw new AssertionError("no document for: " + lightFile);
     }
-    myFile = psiFileFactory == null ? createFile(myVirtualFile, myEditorDocument, myProject) : psiFileFactory.fun(myVirtualFile, myProject);
+    myFile = psiFileFactory == null ? createFile(myProject, myVirtualFile) : psiFileFactory.fun(myVirtualFile, myProject);
     myConsoleEditor = (EditorEx)editorFactory.createEditor(myEditorDocument, myProject);
     myConsoleEditor.addFocusListener(myFocusListener);
     myCurrentEditor = myConsoleEditor;
@@ -177,7 +180,7 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
     myPanel.add(myHistoryViewer.getComponent());
     myPanel.add(myConsoleEditor.getComponent());
 
-    DataManager.registerDataProvider(myPanel, new TypeSafeDataProviderAdapter(this));
+    DataManager.registerDataProvider(myPanel, this);
 
     myHistoryViewer.getComponent().addComponentListener(new ComponentAdapter() {
       @Override
@@ -228,8 +231,8 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
     if (SEPARATOR_THICKNESS > 0 && myShowSeparatorLine) {
       myHistoryViewer.getComponent().setBorder(new SideBorder(JBColor.LIGHT_GRAY, SideBorder.BOTTOM));
     }
-    myHistoryViewer.getComponent().setMinimumSize(new Dimension(0, 0));
-    myHistoryViewer.getComponent().setPreferredSize(new Dimension(0, 0));
+    myHistoryViewer.getComponent().setMinimumSize(JBUI.emptySize());
+    myHistoryViewer.getComponent().setPreferredSize(JBUI.emptySize());
     myHistoryViewer.setCaretEnabled(false);
 
     myConsoleEditor.setHorizontalScrollbarVisible(true);
@@ -612,14 +615,17 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
     }
   }
 
+  @Nullable
   @Override
-  public void calcData(@NotNull DataKey key, @NotNull DataSink sink) {
-    if (OpenFileDescriptor.NAVIGATE_IN_EDITOR == key) {
-      sink.put(OpenFileDescriptor.NAVIGATE_IN_EDITOR, myConsoleEditor);
+  public Object getData(@NonNls String dataId) {
+    if (OpenFileDescriptor.NAVIGATE_IN_EDITOR.is(dataId)) {
+      return myConsoleEditor;
     }
     else if (getProject().isInitialized()) {
-      sink.put(key, FileEditorManagerEx.getInstanceEx(getProject()).getData(key.getName(), myConsoleEditor, myConsoleEditor.getCaretModel().getCurrentCaret()));
+      Caret caret = myConsoleEditor.getCaretModel().getCurrentCaret();
+      return FileEditorManagerEx.getInstanceEx(getProject()).getData(dataId, myConsoleEditor, caret);
     }
+    return null;
   }
 
   private void installEditorFactoryListener() {
@@ -680,7 +686,7 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
 
   @NotNull
   public Language getLanguage() {
-    return ObjectUtils.assertNotNull(myVirtualFile.getLanguage());
+    return myFile.getLanguage();
   }
 
   public boolean isValid() {
@@ -688,10 +694,14 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
   }
 
   public void setLanguage(@NotNull Language language) {
-    myVirtualFile.setLanguage(language);
-    myVirtualFile.setContent(myEditorDocument, myEditorDocument.getText(), false);
-    FileContentUtil.reparseFiles(myProject, Collections.<VirtualFile>singletonList(myVirtualFile), false);
-    myFile = createFile(myVirtualFile, myEditorDocument, myProject);
+    if (!(myVirtualFile instanceof LightVirtualFile)) {
+      throw new UnsupportedOperationException();
+    }
+    LightVirtualFile virtualFile = (LightVirtualFile)myVirtualFile;
+    virtualFile.setLanguage(language);
+    virtualFile.setContent(myEditorDocument, myEditorDocument.getText(), false);
+    FileContentUtil.reparseFiles(myProject, Collections.<VirtualFile>singletonList(virtualFile), false);
+    myFile = createFile(myProject, virtualFile);
   }
 
   public void setInputText(@NotNull final String query) {
@@ -704,7 +714,7 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
   }
 
   @NotNull
-  protected PsiFile createFile(@NotNull LightVirtualFile virtualFile, @NotNull Document document, @NotNull Project project) {
+  protected PsiFile createFile(@NotNull Project project, @NotNull VirtualFile virtualFile) {
     return ObjectUtils.assertNotNull(PsiManager.getInstance(project).findFile(virtualFile));
   }
 
@@ -752,7 +762,7 @@ public class LanguageConsoleImpl implements Disposable, TypeSafeDataProvider {
         history.getSettings().setAdditionalColumnsCount(2 + (width - historySize.width) / EditorUtil.getSpaceWidth(Font.PLAIN, history));
       }
 
-      // deal with height, WEB-11122 we cannot trust editor width — it could be 0 in case of soft wrap even if editor has text
+      // deal with height, WEB-11122 we cannot trust editor width - it could be 0 in case of soft wrap even if editor has text
       if (history.getDocument().getLineCount() == 0) {
         historySize.height = 0;
       }

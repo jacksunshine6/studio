@@ -32,6 +32,11 @@ import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * @deprecated to remove in IDEA 15
+ */
+@Deprecated
+@SuppressWarnings("UnusedDeclaration")
 @State(
   name = "VcsManagerConfiguration",
   storages = @Storage(file = StoragePathMacros.MODULE_FILE)

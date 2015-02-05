@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class TreeBackedLighterAST extends LighterAST {
     if (children == null || children.length == 0) {
       return ContainerUtil.emptyList();
     }
-    final ArrayList<LighterASTNode> result = new ArrayList<LighterASTNode>(children.length);
+    List<LighterASTNode> result = new ArrayList<LighterASTNode>(children.length);
     for (final ASTNode child : children) {
       result.add(wrap(child));
     }
@@ -72,6 +72,7 @@ public class TreeBackedLighterAST extends LighterAST {
       myNode = node;
     }
 
+    @NotNull
     @Override
     public IElementType getTokenType() {
       return myNode.getElementType();

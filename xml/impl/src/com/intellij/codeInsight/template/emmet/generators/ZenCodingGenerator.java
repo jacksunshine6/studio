@@ -24,14 +24,12 @@ import com.intellij.codeInsight.template.emmet.tokens.ZenCodingToken;
 import com.intellij.codeInsight.template.impl.TemplateImpl;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.options.UnnamedConfigurable;
+import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 
@@ -39,7 +37,7 @@ import java.util.List;
  * @author Eugene.Kudelevsky
  */
 public abstract class ZenCodingGenerator {
-  private static final ExtensionPointName<ZenCodingGenerator> EP_NAME = new ExtensionPointName<ZenCodingGenerator>("com.intellij.xml.zenCodingGenerator");
+  public static final ExtensionPointName<ZenCodingGenerator> EP_NAME = new ExtensionPointName<ZenCodingGenerator>("com.intellij.xml.zenCodingGenerator");
 
   public abstract TemplateImpl generateTemplate(@NotNull TemplateToken token, boolean hasChildren, @NotNull PsiElement context);
 
@@ -59,11 +57,8 @@ public abstract class ZenCodingGenerator {
   
   public abstract boolean isEnabled();
 
-  public static List<ZenCodingGenerator> getInstances() {
-    List<ZenCodingGenerator> generators = new ArrayList<ZenCodingGenerator>();
-    Collections.addAll(generators, EP_NAME.getExtensions());
-    generators.add(XmlZenCodingGeneratorImpl.INSTANCE);
-    return generators;
+  public static ZenCodingGenerator[] getInstances() {
+    return EP_NAME.getExtensions();
   }
 
   @Nullable
@@ -145,11 +140,14 @@ public abstract class ZenCodingGenerator {
   }
   
   @Nullable
-  public UnnamedConfigurable createConfigurable() {
+  public Configurable createConfigurable() {
     return null;
   }
 
   public boolean hasCompletionItem() {
     return false;
+  }
+  
+  public void disableEmmet() {
   }
 }

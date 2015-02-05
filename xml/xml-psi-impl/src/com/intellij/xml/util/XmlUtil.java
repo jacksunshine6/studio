@@ -96,7 +96,6 @@ public class XmlUtil {
   @NonNls public static final String EMPTY_URI = "";
   @NonNls public static final Key<String> TEST_PATH = Key.create("TEST PATH");
   @NonNls public static final String JSP_URI = "http://java.sun.com/JSP/Page";
-  @NonNls public static final String ANY_URI = "http://www.intellij.net/ns/any";
   @NonNls public static final String JSTL_CORE_URI = "http://java.sun.com/jsp/jstl/core";
   @NonNls public static final String JSTL_CORE_URI2 = "http://java.sun.com/jstl/core";
   @NonNls public static final String JSTL_CORE_URI3 = "http://java.sun.com/jstl/core_rt";
@@ -1346,13 +1345,18 @@ public class XmlUtil {
     return StringUtil.escapeXml(text);
   }
 
+  public static boolean isValidTagNameChar(char c) {
+    return Character.isLetter(c) || Character.isDigit(c) ||
+           c == ':' || c == '_' || c == '-' || c == '.';
+  }
+
   @Nullable
-  public static String extractXmlEncodingFromProlog(final byte[] content) {
+  public static String extractXmlEncodingFromProlog(@NotNull byte[] content) {
     return XmlCharsetDetector.extractXmlEncodingFromProlog(content);
   }
 
   @Nullable
-  public static String extractXmlEncodingFromProlog(String text) {
+  public static String extractXmlEncodingFromProlog(@NotNull CharSequence text) {
     return XmlCharsetDetector.extractXmlEncodingFromProlog(text);
   }
 

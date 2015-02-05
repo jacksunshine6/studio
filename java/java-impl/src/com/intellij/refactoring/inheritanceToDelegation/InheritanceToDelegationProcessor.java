@@ -118,7 +118,7 @@ public class InheritanceToDelegationProcessor extends BaseRefactoringProcessor {
 
     myFieldName = fieldName;
     final String propertyName = JavaCodeStyleManager.getInstance(myProject).variableNameToPropertyName(myFieldName, VariableKind.FIELD);
-    myGetterName = PropertyUtil.suggestGetterName(propertyName, myBaseClassType);
+    myGetterName = GenerateMembersUtil.suggestGetterName(propertyName, myBaseClassType, myProject);
     myGenerateGetter = generateGetter;
 
     myDelegatedInterfaces = new LinkedHashSet<PsiClass>();
@@ -204,8 +204,7 @@ public class InheritanceToDelegationProcessor extends BaseRefactoringProcessor {
       analyzeConflicts(usagesIn, conflicts);
       if (!conflicts.isEmpty()) {
         ConflictsDialog conflictsDialog = prepareConflictsDialog(conflicts, usagesIn);
-        conflictsDialog.show();
-        if (!conflictsDialog.isOK()){
+        if (!conflictsDialog.showAndGet()) {
           if (conflictsDialog.isShowConflicts()) prepareSuccessful();
           return false;
         }

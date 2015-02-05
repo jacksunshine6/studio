@@ -23,6 +23,7 @@ import com.intellij.ide.DataManager;
 import com.intellij.ide.plugins.IdeaPluginDescriptor;
 import com.intellij.ide.plugins.PluginManager;
 import com.intellij.ide.plugins.PluginManagerCore;
+import com.intellij.ide.ui.search.SearchableOptionsRegistrar;
 import com.intellij.idea.IdeaLogger;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.*;
@@ -446,9 +447,9 @@ public final class ActionManagerImpl extends ActionManagerEx implements Applicat
 
   private void _removeTimerListener(TimerListener listener, boolean transparent) {
     if (ApplicationManager.getApplication().isUnitTestMode()) return;
-    LOG.assertTrue(myTimer != null);
-
-    myTimer.removeTimerListener(listener, transparent);
+    if (LOG.assertTrue(myTimer != null)) {
+      myTimer.removeTimerListener(listener, transparent);
+    }
   }
 
   public ActionPopupMenu createActionPopupMenu(String place, @NotNull ActionGroup group, @Nullable PresentationFactory presentationFactory) {
@@ -1279,6 +1280,7 @@ public final class ActionManagerImpl extends ActionManagerEx implements Applicat
         @Override
         public void run() {
           try {
+            SearchableOptionsRegistrar.getInstance(); // load inspection descriptions etc. to be used in Goto Action, Search Everywhere 
             doPreloadActions();
           } catch (RuntimeInterruptedException ignore) {
           }

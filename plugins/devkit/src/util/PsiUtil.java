@@ -35,8 +35,6 @@ public class PsiUtil {
   private static final Key<Boolean> IDEA_PROJECT = Key.create("idea.internal.inspections.enabled");
   private static final String IDE_PROJECT_MARKER_CLASS = JBList.class.getName();
 
-  @SuppressWarnings("unused") public static final PsiElementVisitor EMPTY_VISITOR = PsiElementVisitor.EMPTY_VISITOR;
-
   private PsiUtil() { }
 
   public static boolean isInstantiable(@NotNull PsiClass cls) {

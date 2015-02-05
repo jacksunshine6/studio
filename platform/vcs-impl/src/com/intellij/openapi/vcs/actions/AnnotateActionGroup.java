@@ -26,9 +26,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author Konstantin Bulenkov
- */
 public class AnnotateActionGroup extends ActionGroup {
   private final AnAction[] myActions;
 
@@ -41,7 +38,7 @@ public class AnnotateActionGroup extends ActionGroup {
       }
     }
     actions.add(Separator.getInstance());
-    actions.add(new ShowAnnotationColorsAction(gutters, gutterComponent));
+    actions.add(new ShowAnnotationColorsAction(gutterComponent));
     actions.add(new ShowShortenNames(gutterComponent));
     myActions = actions.toArray(new AnAction[actions.size()]);
   }
@@ -50,13 +47,5 @@ public class AnnotateActionGroup extends ActionGroup {
   @Override
   public AnAction[] getChildren(@Nullable AnActionEvent e) {
     return myActions;
-  }
-
-  public void setAvailable(boolean available) {
-    for (AnAction action : myActions) {
-      if (action instanceof ShowHideAspectAction) {
-        ((ShowHideAspectAction)action).setAvailable(available);
-      }
-    }
   }
 }
