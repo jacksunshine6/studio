@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package com.intellij.lang.impl;
 import com.intellij.lang.*;
 import com.intellij.lexer.Lexer;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.project.Project;
@@ -74,7 +75,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
   private final MyList myProduction = new MyList();
 
-  private final Lexer myLexer;
+  @NotNull private final Lexer myLexer;
   private final TokenSet myWhitespaces;
   private TokenSet myComments;
 
@@ -89,6 +90,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
   private final ASTNode myOriginalTree;
   private final MyTreeStructure myParentLightTree;
+  private final int myOffset;
 
   private static TokenSet ourAnyLanguageWhitespaceTokens = TokenSet.EMPTY;
 
@@ -119,7 +121,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     }
   });
 
-  public static void registerWhitespaceToken(IElementType type) {
+  public static void registerWhitespaceToken(@NotNull IElementType type) {
     ourAnyLanguageWhitespaceTokens = TokenSet.orSet(ourAnyLanguageWhitespaceTokens, TokenSet.create(type));
   }
 
@@ -132,7 +134,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
                         @Nullable ASTNode originalTree,
                         @Nullable MyTreeStructure parentLightTree) {
     this(project, containingFile, parserDefinition.getWhitespaceTokens(), parserDefinition.getCommentTokens(), lexer, charTable, text,
-         originalTree, parentLightTree);
+         originalTree, parentLightTree, 0);
   }
 
   public PsiBuilderImpl(Project project,
@@ -144,6 +146,19 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
                         @NotNull final CharSequence text,
                         @Nullable ASTNode originalTree,
                         @Nullable MyTreeStructure parentLightTree) {
+    this(project, containingFile, whiteSpaces, comments, lexer, charTable, text, originalTree, parentLightTree, 0);
+  }
+
+  private PsiBuilderImpl(Project project,
+                        PsiFile containingFile,
+                        @NotNull TokenSet whiteSpaces,
+                        @NotNull TokenSet comments,
+                        @NotNull Lexer lexer,
+                        CharTable charTable,
+                        @NotNull final CharSequence text,
+                        @Nullable ASTNode originalTree,
+                        @Nullable MyTreeStructure parentLightTree,
+                        int offset) {
     myProject = project;
     myFile = containingFile;
 
@@ -156,6 +171,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     myCharTable = charTable;
     myOriginalTree = originalTree;
     myParentLightTree = parentLightTree;
+    myOffset = offset;
 
     cacheLexemes();
   }
@@ -174,8 +190,8 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
                         @NotNull final Lexer lexer,
                         @NotNull final LighterLazyParseableNode chameleon,
                         @NotNull final CharSequence text) {
-    this(project, chameleon.getContainingFile(), parserDefinition, lexer, chameleon.getCharTable(), text,
-         null, ((LazyParseableToken)chameleon).myParent);
+    this(project, chameleon.getContainingFile(), parserDefinition.getWhitespaceTokens(), parserDefinition.getCommentTokens(), lexer,
+         chameleon.getCharTable(), text, null, ((LazyParseableToken)chameleon).myParent, chameleon.getStartOffset());
   }
 
   private void cacheLexemes() {
@@ -231,7 +247,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
   }
 
   @Override
-  public void enforceCommentTokens(TokenSet tokens) {
+  public void enforceCommentTokens(@NotNull TokenSet tokens) {
     myComments = tokens;
   }
 
@@ -262,7 +278,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       myParent = myNext = null;
     }
 
-    public void remapTokenType(IElementType type) {
+    public void remapTokenType(@NotNull IElementType type) {
       throw new UnsupportedOperationException("Shall not be called on this kind of markers");
     }
 
@@ -335,12 +351,12 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
     @Override
     public int getStartOffset() {
-      return myBuilder.myLexStarts[myLexemeIndex];
+      return myBuilder.myLexStarts[myLexemeIndex] + myBuilder.myOffset;
     }
 
     @Override
     public int getEndOffset() {
-      return myBuilder.myLexStarts[myDoneMarker.myLexemeIndex];
+      return myBuilder.myLexStarts[myDoneMarker.myLexemeIndex] + myBuilder.myOffset;
     }
 
     @Override
@@ -348,7 +364,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       return myDoneMarker.myLexemeIndex;
     }
 
-    public void addChild(ProductionMarker node) {
+    public void addChild(@NotNull ProductionMarker node) {
       if (myFirstChild == null) {
         myFirstChild = node;
         myLastChild = node;
@@ -418,7 +434,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     }
 
     @Override
-    public void remapTokenType(IElementType type) {
+    public void remapTokenType(@NotNull IElementType type) {
       //assert myType != null && type != null;
       myType = type;
     }
@@ -487,12 +503,12 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
     @Override
     public int getEndOffset() {
-      return myTokenEnd;
+      return myTokenEnd + myBuilder.myOffset;
     }
 
     @Override
     public int getStartOffset() {
-      return myTokenStart;
+      return myTokenStart + myBuilder.myOffset;
     }
 
     public CharSequence getText() {
@@ -503,6 +519,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       return myBuilder.myText.subSequence(myTokenStart, myTokenEnd);
     }
 
+    @NotNull
     @Override
     public IElementType getTokenType() {
       return myTokenType;
@@ -581,6 +598,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       throw new UnsupportedOperationException("Shall not be called on this kind of markers");
     }
 
+    @NotNull
     @Override
     public IElementType getTokenType() {
       throw new UnsupportedOperationException("Shall not be called on this kind of markers");
@@ -636,14 +654,15 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
     @Override
     public int getEndOffset() {
-      return myBuilder.myLexStarts[myLexemeIndex];
+      return myBuilder.myLexStarts[myLexemeIndex] + myBuilder.myOffset;
     }
 
     @Override
     public int getStartOffset() {
-      return myBuilder.myLexStarts[myLexemeIndex];
+      return myBuilder.myLexStarts[myLexemeIndex] + myBuilder.myOffset;
     }
 
+    @NotNull
     @Override
     public IElementType getTokenType() {
       return TokenType.ERROR_ELEMENT;
@@ -1062,7 +1081,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     private final DiffTreeChangeBuilder<ASTNode, ASTNode> myDelegate;
     private final ASTConverter myConverter;
 
-    public ConvertFromTokensToASTBuilder(StartMarker rootNode, DiffTreeChangeBuilder<ASTNode, ASTNode> delegate) {
+    private ConvertFromTokensToASTBuilder(@NotNull StartMarker rootNode, @NotNull DiffTreeChangeBuilder<ASTNode, ASTNode> delegate) {
       myDelegate = delegate;
       myConverter = new ASTConverter(rootNode);
     }
@@ -1096,7 +1115,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     final MyComparator comparator = new MyComparator(getUserDataUnprotected(CUSTOM_COMPARATOR), treeStructure);
 
     final ProgressIndicator indicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-    BlockSupportImpl.diffTrees(oldRoot, builder, comparator, treeStructure, indicator);
+    BlockSupportImpl.diffTrees(oldRoot, builder, comparator, treeStructure, indicator == null ? new EmptyProgressIndicator() : indicator);
     return diffLog;
   }
 
@@ -1363,8 +1382,9 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       myTreeStructure = treeStructure;
     }
 
+    @NotNull
     @Override
-    public ThreeState deepEqual(final ASTNode oldNode, final LighterASTNode newNode) {
+    public ThreeState deepEqual(@NotNull final ASTNode oldNode, @NotNull final LighterASTNode newNode) {
       ProgressIndicatorProvider.checkCanceled();
 
       boolean oldIsErrorElement = oldNode instanceof PsiErrorElement;
@@ -1420,7 +1440,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     }
 
     @Override
-    public boolean typesEqual(final ASTNode n1, final LighterASTNode n2) {
+    public boolean typesEqual(@NotNull final ASTNode n1, @NotNull final LighterASTNode n2) {
       if (n1 instanceof PsiWhiteSpaceImpl) {
         return ourAnyLanguageWhitespaceTokens.contains(n2.getTokenType()) ||
                n2 instanceof Token && ((Token)n2).myBuilder.myWhitespaces.contains(n2.getTokenType());
@@ -1439,7 +1459,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       return Comparing.equal(n1t, n2t);
     }
 
-    public static IElementType dereferenceToken(IElementType probablyWrapper) {
+    private static IElementType dereferenceToken(IElementType probablyWrapper) {
       if (probablyWrapper instanceof TokenWrapper) {
         return dereferenceToken(((TokenWrapper)probablyWrapper).getDelegate());
       }
@@ -1448,7 +1468,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
 
 
     @Override
-    public boolean hashCodesEqual(final ASTNode n1, final LighterASTNode n2) {
+    public boolean hashCodesEqual(@NotNull final ASTNode n1, @NotNull final LighterASTNode n2) {
       if (n1 instanceof LeafElement && n2 instanceof Token) {
         boolean isForeign1 = n1 instanceof ForeignLeafPsiElement;
         boolean isForeign2 = n2.getTokenType() instanceof ForeignLeafType;
@@ -1563,7 +1583,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       }
 
       insertLeaves(lexIndex, marker.myDoneMarker.myLexemeIndex, marker.myBuilder);
-      into.set(nodes);
+      into.set(nodes == null ? LighterASTNode.EMPTY_ARRAY : nodes);
       nodes = null;
 
       return count;
@@ -1606,7 +1626,7 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
       return curToken;
     }
 
-    private void insertLeaf(IElementType type, PsiBuilderImpl builder, int startLexemeIndex, int endLexemeIndex) {
+    private void insertLeaf(@NotNull IElementType type, @NotNull PsiBuilderImpl builder, int startLexemeIndex, int endLexemeIndex) {
       final int start = builder.myLexStarts[startLexemeIndex];
       final int end = builder.myLexStarts[endLexemeIndex];
       if (start > end || ((start == end) && !(type instanceof ILeafElementType))) return;
@@ -1632,9 +1652,9 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
   }
 
   private static class ASTConverter implements Convertor<Node, ASTNode> {
-    private final StartMarker myRoot;
+    @NotNull private final StartMarker myRoot;
 
-    public ASTConverter(final StartMarker root) {
+    private ASTConverter(@NotNull StartMarker root) {
       myRoot = root;
     }
 
@@ -1662,12 +1682,13 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     myDebugMode = dbgMode;
   }
 
+  @NotNull
   public Lexer getLexer() {
     return myLexer;
   }
 
   @NotNull
-  private TreeElement createLeaf(final IElementType type, final int start, final int end) {
+  private TreeElement createLeaf(@NotNull IElementType type, final int start, final int end) {
     CharSequence text = myCharTable.intern(myText, start, end);
     if (myWhitespaces.contains(type)) {
       return new PsiWhiteSpaceImpl(text);
@@ -1693,19 +1714,22 @@ public class PsiBuilderImpl extends UserDataHolderBase implements PsiBuilder {
     private Object[] cachedElementData;
 
     @Override
-    public void removeRange(final int fromIndex, final int toIndex) {
+    protected void removeRange(final int fromIndex, final int toIndex) {
       super.removeRange(fromIndex, toIndex);
     }
 
-    MyList() {
+    private MyList() {
       super(256);
     }
 
     @Override
     public int lastIndexOf(final Object o) {
-      if (cachedElementData == null) return super.lastIndexOf(o);
+      Object[] data = cachedElementData;
+      if (data == null) {
+        return super.lastIndexOf(o);
+      }
       for (int i = size() - 1; i >= 0; i--) {
-        if (cachedElementData[i] == o) return i;
+        if (data[i] == o) return i;
       }
       return -1;
     }

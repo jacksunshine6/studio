@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2013 Dave Griffith, Bas Leijdekkers
+ * Copyright 2003-2015 Dave Griffith, Bas Leijdekkers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  */
 package com.siyeh.ig.jdk;
 
+import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.codeInspection.ProblemsHolder;
-import com.intellij.lang.java.JavaLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.search.LocalSearchScope;
@@ -32,13 +31,17 @@ import com.siyeh.ig.BaseInspection;
 import com.siyeh.ig.BaseInspectionVisitor;
 import com.siyeh.ig.InspectionGadgetsFix;
 import com.siyeh.ig.PsiReplacementUtil;
+import com.siyeh.ig.psiutils.ClassUtils;
 import com.siyeh.ig.psiutils.ExpectedTypeUtils;
 import com.siyeh.ig.psiutils.MethodCallUtils;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AutoUnboxingInspection extends BaseInspection {
 
@@ -73,7 +76,7 @@ public class AutoUnboxingInspection extends BaseInspection {
   @Override
   @Nullable
   public InspectionGadgetsFix buildFix(Object... infos) {
-    if (!isFixApplicable((PsiExpression)infos[0])) {
+    if (infos.length == 0 || !isFixApplicable((PsiExpression)infos[0])) {
       return null;
     }
     return new AutoUnboxingFix();
@@ -297,19 +300,13 @@ public class AutoUnboxingInspection extends BaseInspection {
   }
 
   @Override
-  public BaseInspectionVisitor buildVisitor() {
-    return new AutoUnboxingVisitor();
+  public boolean shouldInspect(PsiFile file) {
+    return PsiUtil.isLanguageLevel5OrHigher(file);
   }
 
-  @NotNull
   @Override
-  public PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly) {
-    PsiFile psiFile = holder.getFile();
-    if (psiFile.getLanguage() != JavaLanguage.INSTANCE || !PsiUtil.isLanguageLevel5OrHigher(psiFile)) {
-      return new PsiElementVisitor() {
-      };
-    }
-    return super.buildVisitor(holder, isOnTheFly);
+  public BaseInspectionVisitor buildVisitor() {
+    return new AutoUnboxingVisitor();
   }
 
   private static class AutoUnboxingVisitor extends BaseInspectionVisitor {
@@ -328,7 +325,38 @@ public class AutoUnboxingInspection extends BaseInspection {
     @Override
     public void visitReferenceExpression(PsiReferenceExpression expression) {
       super.visitReferenceExpression(expression);
-      checkExpression(expression);
+      if (expression instanceof PsiMethodReferenceExpression) {
+        final PsiMethodReferenceExpression methodReferenceExpression = (PsiMethodReferenceExpression)expression;
+        if (methodReferenceExpression.isConstructor()) {
+          return;
+        }
+        final PsiElement referenceNameElement = methodReferenceExpression.getReferenceNameElement();
+        if (referenceNameElement == null) {
+          return;
+        }
+        final PsiElement target = methodReferenceExpression.resolve();
+        if (!(target instanceof PsiMethod)) {
+          return;
+        }
+        final PsiMethod method = (PsiMethod)target;
+        final PsiType returnType = method.getReturnType();
+        if (!TypeConversionUtil.isAssignableFromPrimitiveWrapper(returnType)) {
+          return;
+        }
+        final PsiPrimitiveType unboxedType = PsiPrimitiveType.getUnboxedType(returnType);
+        if (unboxedType == null) {
+          return;
+        }
+        final PsiType functionalInterfaceReturnType = LambdaUtil.getFunctionalInterfaceReturnType(methodReferenceExpression);
+        if (functionalInterfaceReturnType == null || !ClassUtils.isPrimitive(functionalInterfaceReturnType) ||
+            !functionalInterfaceReturnType.isAssignableFrom(unboxedType)) {
+          return;
+        }
+        registerError(referenceNameElement);
+      }
+      else {
+        checkExpression(expression);
+      }
     }
 
     @Override
@@ -340,6 +368,11 @@ public class AutoUnboxingInspection extends BaseInspection {
     @Override
     public void visitMethodCallExpression(PsiMethodCallExpression expression) {
       super.visitMethodCallExpression(expression);
+      final PsiMethod method = expression.resolveMethod();
+      if (method != null &&
+          AnnotationUtil.isAnnotated(method, Collections.singletonList( "java.lang.invoke.MethodHandle.PolymorphicSignature"))) {
+        return;
+      }
       checkExpression(expression);
     }
 
@@ -366,23 +399,18 @@ public class AutoUnboxingInspection extends BaseInspection {
         return;
       }
       final PsiType expressionType = expression.getType();
-      if (expressionType == null) {
-        return;
-      }
-      if (expressionType.getArrayDimensions() > 0) {
-        // a horrible hack to get around what happens when you pass
-        // an array to a vararg expression
-        return;
-      }
-      if (TypeConversionUtil.isPrimitiveAndNotNull(expressionType)) {
-        return;
-      }
       if (!TypeConversionUtil.isAssignableFromPrimitiveWrapper(expressionType)) {
         return;
       }
       final PsiType expectedType = ExpectedTypeUtils.findExpectedType(expression, false, true);
-      if (expectedType == null || !TypeConversionUtil.isPrimitiveAndNotNull(expectedType)) {
+      if (!TypeConversionUtil.isPrimitiveAndNotNull(expectedType)) {
         return;
+      }
+      if (!(expression.getParent() instanceof PsiTypeCastExpression)) {
+        final PsiPrimitiveType unboxedType = PsiPrimitiveType.getUnboxedType(expressionType);
+        if (unboxedType == null || !expectedType.isAssignableFrom(unboxedType)) {
+          return;
+        }
       }
       registerError(expression, expression);
     }

@@ -31,6 +31,7 @@ import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiUtil;
 import com.intellij.ui.RowIcon;
 import com.intellij.util.IncorrectOperationException;
+import com.intellij.util.PathUtil;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +43,6 @@ import org.jetbrains.plugins.groovy.lang.psi.GroovyRecursiveElementVisitor;
 import org.jetbrains.plugins.groovy.lang.psi.api.auxiliary.modifiers.GrModifierList;
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.GrVariableDeclaration;
 import org.jetbrains.plugins.groovy.lang.psi.api.types.GrTypeElement;
-import org.jetbrains.plugins.groovy.lang.psi.impl.PsiImplUtil;
 import org.jetbrains.plugins.groovy.lang.psi.impl.statements.expressions.TypesUtil;
 import org.jetbrains.plugins.groovy.lang.psi.util.GroovyCommonClassNames;
 
@@ -493,7 +493,7 @@ public class GroovyScriptClass extends LightElement implements PsiClass, Synthet
 
   @Override
   public PsiElement setName(@NotNull String name) throws IncorrectOperationException {
-    myFile.setName(name + "." + myFile.getViewProvider().getVirtualFile().getExtension());
+    myFile.setName(PathUtil.makeFileName(name, myFile.getViewProvider().getVirtualFile().getExtension()));
     return this;
   }
 
@@ -557,7 +557,7 @@ public class GroovyScriptClass extends LightElement implements PsiClass, Synthet
   @Override
   @Nullable
   public PsiElement getOriginalElement() {
-    return PsiImplUtil.getOriginalElement(this, myFile);
+    return JavaPsiImplementationHelper.getInstance(getProject()).getOriginalClass(this);
   }
 
   @Override

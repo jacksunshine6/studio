@@ -1,77 +1,38 @@
 package org.jetbrains.debugger;
 
-import com.intellij.openapi.util.ActionCallback;
-import com.intellij.openapi.util.AsyncResult;
-import com.intellij.openapi.util.AsyncValueLoaderManager;
 import com.intellij.util.Consumer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.concurrency.Promise;
 import org.jetbrains.debugger.values.ObjectValue;
 import org.jetbrains.debugger.values.ValueManager;
 
 import java.util.List;
 
-public abstract class DeclarativeScope<VALUE_LOADER extends ValueManager> extends ScopeBase {
-  private static final AsyncValueLoaderManager<DeclarativeScope, List<Variable>> VARIABLES_LOADER =
-    new AsyncValueLoaderManager<DeclarativeScope, List<Variable>>(DeclarativeScope.class) {
-      @Override
-      public boolean isUpToDate(@NotNull DeclarativeScope host, @NotNull List<Variable> data) {
-        return host.valueManager.getCacheStamp() == host.cacheStamp;
-      }
+public abstract class DeclarativeScope<VALUE_MANAGER extends ValueManager> extends ScopeBase {
+  protected VariablesHost<VALUE_MANAGER> childrenManager;
 
-      @Override
-      public void load(@NotNull DeclarativeScope host, @NotNull AsyncResult<List<Variable>> result) {
-        host.loadVariables(result);
-      }
-    };
-
-  @SuppressWarnings("UnusedDeclaration")
-  private volatile AsyncResult<List<? extends Variable>> variables;
-
-  private volatile int cacheStamp = -1;
-
-  protected final VALUE_LOADER valueManager;
-
-  protected DeclarativeScope(@NotNull Type type, @Nullable String description, @NotNull VALUE_LOADER valueManager) {
+  protected DeclarativeScope(@NotNull Type type, @Nullable String description) {
     super(type, description);
-
-    this.valueManager = valueManager;
   }
 
-  /**
-   * You must call {@link #updateCacheStamp()} when data loaded
-   */
-  protected abstract void loadVariables(@NotNull AsyncResult<List<? extends Variable>> result);
-
-  protected final void updateCacheStamp() {
-    cacheStamp = valueManager.getCacheStamp();
-  }
-
-  protected final void loadScopeObjectProperties(@NotNull ObjectValue value, @NotNull final AsyncResult<List<? extends Variable>> result) {
-    if (valueManager.rejectIfObsolete(result)) {
-      return;
+  @NotNull
+  protected final Promise<List<Variable>> loadScopeObjectProperties(@NotNull ObjectValue value) {
+    if (childrenManager.valueManager.isObsolete()) {
+      return ValueManager.reject();
     }
 
-    value.getProperties().doWhenDone(new Consumer<List<Variable>>() {
+    return value.getProperties().done(new Consumer<List<Variable>>() {
       @Override
       public void consume(List<Variable> variables) {
-        updateCacheStamp();
-        result.setDone(variables);
+        childrenManager.updateCacheStamp();
       }
-    }).notifyWhenRejected(result);
+    });
   }
 
   @NotNull
   @Override
-  public final AsyncResult<List<Variable>> getVariables() {
-    return VARIABLES_LOADER.get(this);
-  }
-
-  @NotNull
-  @Override
-  public ActionCallback clearCaches() {
-    cacheStamp = -1;
-    VARIABLES_LOADER.reset(this);
-    return ActionCallback.DONE;
+  public final VariablesHost getVariablesHost() {
+    return childrenManager;
   }
 }

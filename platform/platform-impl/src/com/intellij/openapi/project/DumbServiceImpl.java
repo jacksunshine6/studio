@@ -18,6 +18,7 @@ package com.intellij.openapi.project;
 import com.intellij.ide.IdeBundle;
 import com.intellij.ide.caches.CacheUpdater;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.AccessToken;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
@@ -62,6 +63,7 @@ public class DumbServiceImpl extends DumbService implements Disposable {
   
   private final Queue<Runnable> myRunWhenSmartQueue = new Queue<Runnable>(5);
   private final Project myProject;
+  private ThreadLocal<Boolean> myAlternativeResolution = new ThreadLocal<Boolean>();
 
   public DumbServiceImpl(Project project) {
     myProject = project;
@@ -101,6 +103,17 @@ public class DumbServiceImpl extends DumbService implements Disposable {
   @Override
   public Project getProject() {
     return myProject;
+  }
+
+  @Override
+  public boolean isAlternativeResolveEnabled() {
+    return Boolean.TRUE.equals(myAlternativeResolution.get());
+  }
+
+  @Override
+  public void setAlternativeResolveEnabled(boolean enabled) {
+    assert isAlternativeResolveEnabled() != enabled : "Nested alternative resolution mode is not supported";
+    myAlternativeResolution.set(enabled);
   }
 
   @Override
@@ -152,12 +165,12 @@ public class DumbServiceImpl extends DumbService implements Disposable {
       if (indicator != null) {
         indicator.pushState();
       }
+      AccessToken token = HeavyProcessLatch.INSTANCE.processStarted("Performing indexing task");
       try {
-        HeavyProcessLatch.INSTANCE.processStarted();
         task.performInDumbMode(indicator != null ? indicator : new EmptyProgressIndicator());
       }
       finally {
-        HeavyProcessLatch.INSTANCE.processFinished();
+        token.finish();
         if (indicator != null) {
           indicator.popState();
         }
@@ -268,14 +281,13 @@ public class DumbServiceImpl extends DumbService implements Disposable {
 
   @Override
   public void waitForSmartMode() {
-    final Application application = ApplicationManager.getApplication();
-    if (!application.isUnitTestMode()) {
-      assert !application.isDispatchThread();
-      assert !application.isReadAccessAllowed();
-    }
-
     if (!isDumb()) {
       return;
+    }
+
+    final Application application = ApplicationManager.getApplication();
+    if (application.isReadAccessAllowed() || application.isDispatchThread()) {
+      throw new AssertionError("Don't invoke waitForSmartMode from inside read action in dumb mode");
     }
 
     final Semaphore semaphore = new Semaphore();
@@ -309,6 +321,7 @@ public class DumbServiceImpl extends DumbService implements Disposable {
     return wrapper;
   }
 
+  @Override
   public void smartInvokeLater(@NotNull final Runnable runnable) {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
@@ -318,6 +331,7 @@ public class DumbServiceImpl extends DumbService implements Disposable {
     }, myProject.getDisposed());
   }
 
+  @Override
   public void smartInvokeLater(@NotNull final Runnable runnable, @NotNull ModalityState modalityState) {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
@@ -334,8 +348,8 @@ public class DumbServiceImpl extends DumbService implements Disposable {
       public void run(@NotNull final ProgressIndicator visibleIndicator) {
         final ShutDownTracker shutdownTracker = ShutDownTracker.getInstance();
         final Thread self = Thread.currentThread();
+        AccessToken token = HeavyProcessLatch.INSTANCE.processStarted("Performing indexing tasks");
         try {
-          HeavyProcessLatch.INSTANCE.processStarted();
           shutdownTracker.registerStopperThread(self);
 
           if (visibleIndicator instanceof ProgressIndicatorEx) {
@@ -360,7 +374,7 @@ public class DumbServiceImpl extends DumbService implements Disposable {
         }
         finally {
           shutdownTracker.unregisterStopperThread(self);
-          HeavyProcessLatch.INSTANCE.processFinished();
+          token.finish();
         }
       }
     });

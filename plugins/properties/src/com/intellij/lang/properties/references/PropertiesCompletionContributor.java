@@ -36,6 +36,7 @@ import com.intellij.util.PlatformIcons;
 import com.intellij.util.ProcessingContext;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -76,7 +77,7 @@ public class PropertiesCompletionContributor extends CompletionContributor {
     }
   }
 
-  private static boolean hasMoreImportantReference(PsiReference[] references, PropertyReference propertyReference) {
+  public static boolean hasMoreImportantReference(@NotNull PsiReference[] references, @NotNull PropertyReference propertyReference) {
     return propertyReference.isSoft() && ContainerUtil.or(references, new Condition<PsiReference>() {
       @Override
       public boolean value(PsiReference reference) {
@@ -145,6 +146,7 @@ public class PropertiesCompletionContributor extends CompletionContributor {
     return elements.toArray(new LookupElement[elements.size()]);
   }
 
+  @Nullable
   public static LookupElement createVariant(IProperty property) {
     String key = property.getKey();
     return key == null ? null : LookupElementBuilder.create(property, key).withRenderer(LOOKUP_ELEMENT_RENDERER);

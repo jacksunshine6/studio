@@ -66,8 +66,8 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
   @Override
   // first pass - adjacent carets are grouped into blocks
   public void invoke(@NotNull Project project, @NotNull Editor editor, @NotNull Caret caret, @NotNull PsiFile file) {
-    if (!CodeInsightUtilBase.prepareEditorForWrite(editor)) return;
     myProject = project;
+    if (!CodeInsightUtilBase.prepareEditorForWrite(editor)) return;
     file = file.getViewProvider().getPsi(file.getViewProvider().getBaseLanguage());
 
     PsiElement context = InjectedLanguageManager.getInstance(file.getProject()).getInjectionHost(file);
@@ -122,18 +122,18 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
 
     Block lastBlock = myBlocks.isEmpty() ? null : myBlocks.get(myBlocks.size() - 1);
     Block currentBlock;
-    if (lastBlock == null || lastBlock.editor != editor || lastBlock.psiFile != file || endLine < (lastBlock.startLine - 1)) {
+    if (lastBlock == null || lastBlock.editor != editor || lastBlock.psiFile != file || startLine > (lastBlock.endLine + 1)) {
       currentBlock = new Block();
       currentBlock.editor = editor;
       currentBlock.psiFile = file;
-      currentBlock.endLine = endLine;
+      currentBlock.startLine = startLine;
       myBlocks.add(currentBlock);
     }
     else {
       currentBlock = lastBlock;
     }
     currentBlock.carets.add(caret);
-    currentBlock.startLine = startLine;
+    currentBlock.endLine = endLine;
 
     boolean wholeLinesSelected = !hasSelection ||
                                  startOffset == document.getLineStartOffset(document.getLineNumber(startOffset)) &&
@@ -512,6 +512,21 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
     if (startOffset == endOffset) {
       return;
     }
+    RangeMarker marker = endOffset > startOffset ? block.editor.getDocument().createRangeMarker(startOffset, endOffset) : null;
+    try {
+      if (doUncommentLine(line, document, commenter, startOffset, endOffset)) return;
+      if (marker != null) {
+        CommentByBlockCommentHandler.processDocument(document, marker, commenter, false);
+      }
+    }
+    finally {
+      if (marker != null) {
+        marker.dispose();
+      }
+    }
+  }
+
+  private static boolean doUncommentLine(int line, Document document, Commenter commenter, int startOffset, int endOffset) {
     String prefix = commenter.getLineCommentPrefix();
     if (prefix != null) {
       CharSequence chars = document.getCharsSequence();
@@ -540,22 +555,15 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
       assert commented;
 
       int charsToDelete = matchesTrimmed ? prefix.trim().length() : prefix.length();
-      int theEnd = endOffset > 0 ? endOffset : chars.length();
-      // if there's exactly one space after line comment prefix and before the text that follows in the same line, delete the space too
-      if (startOffset + charsToDelete < theEnd - 1 && chars.charAt(startOffset + charsToDelete) == ' ') {
-        if (startOffset + charsToDelete == theEnd - 2 || chars.charAt(startOffset + charsToDelete + 1) != ' ') {
-          charsToDelete++;
-        }
-      }
       document.deleteString(startOffset, startOffset + charsToDelete);
-      return;
+      return true;
     }
     String text = document.getCharsSequence().subSequence(startOffset, endOffset).toString();
 
     prefix = commenter.getBlockCommentPrefix();
     final String suffix = commenter.getBlockCommentSuffix();
     if (prefix == null || suffix == null) {
-      return;
+      return true;
     }
 
     IntArrayList prefixes = new IntArrayList();
@@ -580,6 +588,7 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
     for (int i = prefixes.size() - 1; i >= 0; i--) {
       uncommentRange(document, startOffset + prefixes.get(i), Math.min(startOffset + suffixes.get(i) + suffix.length(), endOffset), commenter);
     }
+    return false;
   }
 
   private static void commentLine(Block block, int line, int offset) {
@@ -593,10 +602,28 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
       return;
     }
 
+    int endOffset = document.getLineEndOffset(line);
+    RangeMarker marker = document.createRangeMarker(offset, endOffset);
+    marker.setGreedyToLeft(true);
+    marker.setGreedyToRight(true);
+    try {
+      if (doCommentLine(block, line, offset, endOffset, commenter, document)) return;
+      CommentByBlockCommentHandler.processDocument(document, marker, commenter, true);
+    }
+    finally {
+      marker.dispose();
+    }
+  }
+
+  private static boolean doCommentLine(Block block,
+                                       int line,
+                                       int offset,
+                                       int endOffset,
+                                       Commenter commenter,
+                                       Document document) {
     String prefix = commenter.getLineCommentPrefix();
     if (prefix != null) {
       if (commenter instanceof CommenterWithLineSuffix) {
-        int endOffset = document.getLineEndOffset(line);
         endOffset = CharArrayUtil.shiftBackward(document.getCharsSequence(), endOffset, " \t");
         int shiftedStartOffset = CharArrayUtil.shiftForward(document.getCharsSequence(), offset, " \t");
         String lineSuffix = ((CommenterWithLineSuffix)commenter).getLineCommentSuffix();
@@ -614,22 +641,21 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
     else {
       prefix = commenter.getBlockCommentPrefix();
       String suffix = commenter.getBlockCommentSuffix();
-      if (prefix == null || suffix == null) return;
-      int endOffset = document.getLineEndOffset(line);
-      if (endOffset == offset && block.startLine != block.endLine) return;
+      if (prefix == null || suffix == null) return true;
+      if (endOffset == offset && block.startLine != block.endLine) return true;
       final int textLength = document.getTextLength();
       final CharSequence chars = document.getCharsSequence();
       offset = CharArrayUtil.shiftForward(chars, offset, " \t");
       if (endOffset == textLength) {
-        final int shifted = CharArrayUtil.shiftBackward(chars, textLength - 1, " \t");
-        if (shifted < textLength - 1) endOffset = shifted;
+        final int shifted = CharArrayUtil.shiftBackward(chars, textLength - 1, " \t") + 1;
+        if (shifted < textLength) endOffset = shifted;
       }
       else {
         endOffset = CharArrayUtil.shiftBackward(chars, endOffset, " \t");
       }
       if (endOffset < offset ||
           offset == textLength - 1 && line != document.getLineCount() - 1) {
-        return;
+        return true;
       }
       final String text = chars.subSequence(offset, endOffset).toString();
       final IntArrayList prefixes = new IntArrayList();
@@ -688,6 +714,7 @@ public class CommentByLineCommentHandler extends MultiCaretCodeInsightActionHand
         document.insertString(offset, prefix);
       }
     }
+    return false;
   }
 
   private static class Block {

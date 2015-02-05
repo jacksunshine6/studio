@@ -76,6 +76,42 @@ public class SafeDeleteTest extends MultiFileTestCase {
     doSingleFileTest();
   }
 
+  public void testDeepDeleteParameterSimple() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testDeepDeleteParameterOtherTypeInBinaryExpression() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testImpossibleToDeepDeleteParameter() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testNoDeepDeleteParameterUsedInCallQualifier() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testToDeepDeleteParameterOverriders() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testDeleteMethodCascade() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testDeleteMethodCascadeRecursive() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testDeleteMethodCascadeOverridden() throws Exception {
+    doSingleFileTest();
+  }
+
+  public void testDeleteConstructorParameterWithAnonymousClassUsage() throws Exception {
+    doSingleFileTest();
+  }
+
   public void testParameterInHierarchy() throws Exception {
     doTest("C2");
   }
@@ -162,6 +198,17 @@ public class SafeDeleteTest extends MultiFileTestCase {
     }
   }
 
+  public void testAmbiguityAfterParameterDelete() throws Exception {
+    try {
+      doSingleFileTest();
+      fail("Conflict was not detected");
+    }
+    catch (BaseRefactoringProcessor.ConflictsInTestsException e) {
+      String message = e.getMessage();
+      assertEquals("Method foo() is already defined in the class <b><code>Test</code></b>", message);
+    }
+  }
+
   public void testFunctionalInterfaceDefaultMethod() throws Exception {
     LanguageLevelProjectExtension.getInstance(getProject()).setLanguageLevel(LanguageLevel.JDK_1_8);
     doSingleFileTest();
@@ -215,10 +262,6 @@ public class SafeDeleteTest extends MultiFileTestCase {
   }
 
   public void testEmptyIf() throws Exception {
-    doSingleFileTest();
-  }
-
-  public void testDeleteConstructorParameterWithAnonymousClassUsage() throws Exception {
     doSingleFileTest();
   }
   

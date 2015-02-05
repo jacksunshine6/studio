@@ -262,6 +262,6 @@ class AlignmentImpl extends Alignment {
 
   @Override
   public String toString() {
-    return "Align: " + System.identityHashCode(this);
+    return "Align: " + System.identityHashCode(this) + "," +  getAnchor() +  (isAllowBackwardShift() ? "<" : "");
   }
 }

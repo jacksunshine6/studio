@@ -19,6 +19,7 @@ package com.intellij.execution.util;
 import com.intellij.icons.AllIcons;
 import com.intellij.idea.ActionsBundle;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.text.StringUtil;
@@ -35,6 +36,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EnvVariablesTable extends ListTableWithButtons<EnvironmentVariable> {
+  public EnvVariablesTable() {
+    getTableView().getEmptyText().setText("No variables");
+  }
+  
   @Override
   protected ListTableModel createListModel() {
     final ColumnInfo name = new ElementsColumnInfoBase<EnvironmentVariable>("Name") {
@@ -93,6 +98,28 @@ public class EnvVariablesTable extends ListTableWithButtons<EnvironmentVariable>
     return new ListTableModel((new ColumnInfo[]{name, value}));
   }
 
+  public void editVariableName(final EnvironmentVariable environmentVariable) {
+    ApplicationManager.getApplication().invokeLater(new Runnable() {
+
+      @Override
+      public void run() {
+        final EnvironmentVariable actualEnvVar = ContainerUtil.find(getElements(), new Condition<EnvironmentVariable>() {
+          @Override
+          public boolean value(EnvironmentVariable item) {
+            return StringUtil.equals(environmentVariable.getName(), item.getName());
+          }
+        });
+        if (actualEnvVar == null) {
+          return;
+        }
+
+        setSelection(actualEnvVar);
+        if (actualEnvVar.getNameIsWriteable()) {
+          editSelection(0);
+        }
+      }
+    });
+  }
 
   public List<EnvironmentVariable> getEnvironmentVariables() {
     return getElements();
@@ -116,7 +143,7 @@ public class EnvVariablesTable extends ListTableWithButtons<EnvironmentVariable>
       public void actionPerformed(@NotNull AnActionEvent e) {
         stopEditing();
         StringBuilder sb = new StringBuilder();
-        List<EnvironmentVariable> variables = getEnvironmentVariables();
+        List<EnvironmentVariable> variables = getSelection();
         for (EnvironmentVariable environmentVariable : variables) {
           if (environmentVariable.getIsPredefined() || isEmpty(environmentVariable)) continue;
           if (sb.length() > 0) sb.append('\n');
@@ -125,10 +152,16 @@ public class EnvVariablesTable extends ListTableWithButtons<EnvironmentVariable>
         }
         CopyPasteManager.getInstance().setContents(new StringSelection(sb.toString()));
       }
+
+      @Override
+      public boolean isEnabled() {
+        return super.isEnabled() && !getSelection().isEmpty();
+      }
     };
     AnActionButton pasteButton = new AnActionButton(ActionsBundle.message("action.EditorPaste.text"), AllIcons.Actions.Menu_paste) {
       @Override
       public void actionPerformed(@NotNull AnActionEvent e) {
+        removeSelected();
         stopEditing();
         String content = CopyPasteManager.getInstance().getContents(DataFlavor.stringFlavor);
         if (content == null || !content.contains("=")) return;
@@ -145,13 +178,7 @@ public class EnvVariablesTable extends ListTableWithButtons<EnvironmentVariable>
             StringUtil.unescapeStringCharacters(line.substring(pos + 1)),
             false));
         }
-        List<EnvironmentVariable> variables =
-          new ArrayList<EnvironmentVariable>(ContainerUtil.filter(getEnvironmentVariables(), new Condition<EnvironmentVariable>() {
-            @Override
-            public boolean value(EnvironmentVariable variable) {
-              return variable.getIsPredefined();
-            }
-          }));
+        List<EnvironmentVariable> variables = new ArrayList<EnvironmentVariable>(getEnvironmentVariables());
         variables.addAll(parsed);
         setValues(variables);
       }

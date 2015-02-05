@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,10 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel;
 import com.intellij.openapi.ui.Splitter;
 import com.intellij.openapi.util.*;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vcs.*;
+import com.intellij.openapi.vcs.FilePath;
+import com.intellij.openapi.vcs.ProjectLevelVcsManager;
+import com.intellij.openapi.vcs.VcsBundle;
+import com.intellij.openapi.vcs.VcsException;
 import com.intellij.openapi.vcs.changes.actions.IgnoredSettingsAction;
 import com.intellij.openapi.vcs.changes.ui.ChangesListView;
 import com.intellij.openapi.vcs.changes.ui.ChangesViewContentManager;
@@ -53,6 +56,7 @@ import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.util.Alarm;
 import com.intellij.util.messages.MessageBusConnection;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import com.intellij.util.ui.tree.TreeUtil;
 import org.intellij.lang.annotations.JdkConstants;
@@ -201,7 +205,7 @@ public class ChangesViewManager implements ChangesViewI, JDOMExternalizable, Pro
       }
     });
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) return;
-    myContent = ContentFactory.SERVICE.getInstance().createContent(createChangeViewComponent(), "Local", false);
+    myContent = ContentFactory.SERVICE.getInstance().createContent(createChangeViewComponent(), ChangesViewContentManager.LOCAL_CHANGES, false);
     myContent.setCloseable(false);
     myContentManager.addContent(myContent);
 
@@ -358,7 +362,7 @@ public class ChangesViewManager implements ChangesViewI, JDOMExternalizable, Pro
         if (myProgressLabel != null) {
           myProgressLabel.removeAll();
           myProgressLabel.add(progress.create());
-          myProgressLabel.setMinimumSize(new Dimension(0, 0));
+          myProgressLabel.setMinimumSize(JBUI.emptySize());
         }
       }
     });

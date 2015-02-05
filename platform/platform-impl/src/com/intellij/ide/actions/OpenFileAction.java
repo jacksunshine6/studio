@@ -141,7 +141,7 @@ public class OpenFileAction extends AnAction implements DumbAware {
     }
   }
 
-  // vanilla OpenProjectFileChooserDescriptor only accepts project files; this on is overridden to accept any files
+  // vanilla OpenProjectFileChooserDescriptor only accepts project files; this one is overridden to accept any files
   private static class ProjectOrFileChooserDescriptor extends OpenProjectFileChooserDescriptor {
     private final FileChooserDescriptor myStandardDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor();
 

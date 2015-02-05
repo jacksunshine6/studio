@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.intellij.testFramework;
 
-import com.intellij.history.integration.LocalHistoryImpl;
 import com.intellij.ide.highlighter.ModuleFileType;
 import com.intellij.ide.highlighter.ProjectFileType;
 import com.intellij.ide.startup.impl.StartupManagerImpl;
@@ -24,7 +23,6 @@ import com.intellij.idea.IdeaTestApplication;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.DataProvider;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.command.CommandProcessor;
@@ -55,6 +53,7 @@ import com.intellij.openapi.util.EmptyRunnable;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.impl.local.LocalFileSystemImpl;
 import com.intellij.openapi.vfs.newvfs.impl.VirtualDirectoryImpl;
@@ -123,6 +122,15 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
 
   protected static long getTimeRequired() {
     return DEFAULT_TEST_TIME;
+  }
+
+  /**
+   * If a temp directory is reused from some previous test run, there might be cached children in its VFS.
+   * Ensure they're removed
+   */
+  public static void synchronizeTempDirVfs(VirtualFile tempDir) {
+    tempDir.getChildren();
+    tempDir.refresh(false, true);
   }
 
   @Nullable
@@ -353,7 +361,6 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
       localFileSystem.cleanupForNextTest();
     }
 
-    LocalHistoryImpl.getInstanceImpl().cleanupForNextTest();
   }
 
   private static Set<VirtualFile> eternallyLivingFiles() {
@@ -599,18 +606,19 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
   public void runBare() throws Throwable {
     if (!shouldRunTest()) return;
 
+    replaceIdeEventQueueSafely();
     try {
       runBareImpl();
     }
     finally {
       try {
-        ApplicationManager.getApplication().invokeAndWait(new Runnable() {
+        SwingUtilities.invokeAndWait(new Runnable() {
           @Override
           public void run() {
             cleanupApplicationCaches(getProject());
             resetAllFields();
           }
-        }, ModalityState.NON_MODAL);
+        });
       }
       catch (Throwable e) {
         // Ignore
@@ -699,8 +707,17 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
     }
   }
 
+  protected boolean isRunInEdt() {
+    return true;
+  }
+
   protected void runBareRunnable(Runnable runnable) throws Throwable {
-    SwingUtilities.invokeAndWait(runnable);
+    if (isRunInEdt()) {
+      SwingUtilities.invokeAndWait(runnable);
+    }
+    else {
+      runnable.run();
+    }
   }
 
   protected boolean isRunInWriteAction() {
@@ -782,7 +799,7 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
     return file;
   }
 
-  public static void setContentOnDisk(File file, byte[] bom, String content, Charset charset) throws IOException {
+  public static void setContentOnDisk(@NotNull File file, byte[] bom, @NotNull String content, @NotNull Charset charset) throws IOException {
     FileOutputStream stream = new FileOutputStream(file);
     if (bom != null) {
       stream.write(bom);
@@ -796,7 +813,7 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
     }
   }
 
-  public static VirtualFile createTempFile(@NonNls String ext, @Nullable byte[] bom, @NonNls String content, Charset charset) throws IOException {
+  public static VirtualFile createTempFile(@NonNls @NotNull String ext, @Nullable byte[] bom, @NonNls @NotNull String content, @NotNull Charset charset) throws IOException {
     File temp = FileUtil.createTempFile("copy", "." + ext);
     setContentOnDisk(temp, bom, content, charset);
 
@@ -889,6 +906,24 @@ public abstract class PlatformTestCase extends UsefulTestCase implements DataPro
       @Override
       protected void run() throws Throwable {
         vFile1.rename(this, newName);
+      }
+    }.execute().throwException();
+  }
+
+  public static void setFileText(@NotNull final VirtualFile file, @NotNull final String text) throws IOException {
+    new WriteAction() {
+      @Override
+      protected void run(@NotNull Result result) throws Throwable {
+        VfsUtil.saveText(file, text);
+      }
+    }.execute().throwException();
+  }
+
+  public static void setBinaryContent(final VirtualFile file, final byte[] content) {
+    new WriteAction() {
+      @Override
+      protected void run(@NotNull Result result) throws Throwable {
+        file.setBinaryContent(content);
       }
     }.execute().throwException();
   }

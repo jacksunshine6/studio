@@ -64,7 +64,6 @@
                     interface="com.intellij.openapi.ide.CutElementMarker"/>
 
     <extensionPoint name="exportable" beanClass="com.intellij.openapi.components.ServiceBean"/>
-    <extensionPoint name="schemeOwner" beanClass="com.intellij.openapi.components.ServiceBean"/>
 
     <extensionPoint name="ideRootPaneNorth" interface="com.intellij.openapi.wm.IdeRootPaneNorthExtension" area="IDEA_PROJECT"/>
 
@@ -217,6 +216,8 @@
     <extensionPoint name="colorPickerListenerFactory" interface="com.intellij.ui.ColorPickerListenerFactory"/>
 
     <extensionPoint name="search.topHitProvider" interface="com.intellij.ide.SearchTopHitProvider"/>
+    
+    <extensionPoint name="search.optionContributor" interface="com.intellij.ide.ui.search.SearchableOptionContributor"/>
     
     <extensionPoint name="schemeImporter" beanClass="com.intellij.openapi.options.SchemeImporterEP">
       <with attribute="schemeClass" implements="com.intellij.openapi.options.Scheme"/>

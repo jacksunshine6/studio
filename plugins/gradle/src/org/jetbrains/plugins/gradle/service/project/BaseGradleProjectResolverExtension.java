@@ -330,6 +330,23 @@ public class BaseGradleProjectResolverExtension implements GradleProjectResolver
     final Collection<TaskData> tasks = ContainerUtil.newArrayList();
     final String moduleConfigPath = ideModule.getData().getLinkedExternalProjectPath();
 
+    ExternalProject externalProject = resolverCtx.getExtraProject(gradleModule, ExternalProject.class);
+
+    if (externalProject != null) {
+      for (ExternalTask task : externalProject.getTasks().values()) {
+        String taskName = task.getName();
+        if (taskName.trim().isEmpty() || isIdeaTask(taskName)) {
+          continue;
+        }
+        TaskData taskData = new TaskData(GradleConstants.SYSTEM_ID, taskName, moduleConfigPath, task.getDescription());
+        taskData.setGroup(task.getGroup());
+        ideModule.createChild(ProjectKeys.TASK, taskData);
+        tasks.add(taskData);
+      }
+
+      return tasks;
+    }
+
     for (GradleTask task : gradleModule.getGradleProject().getTasks()) {
       String taskName = task.getName();
       if (taskName == null || taskName.trim().isEmpty() || isIdeaTask(taskName)) {
@@ -378,10 +395,20 @@ public class BaseGradleProjectResolverExtension implements GradleProjectResolver
       if (!StringUtil.isEmpty(httpConfigurable.PROXY_EXCEPTIONS)) {
         List<String> hosts = StringUtil.split(httpConfigurable.PROXY_EXCEPTIONS, ",");
         if (!hosts.isEmpty()) {
-          extraJvmArgs.add(KeyValue.create("http.nonProxyHosts", StringUtil.join(hosts, StringUtil.TRIMMER, "|")));
+          final String nonProxyHosts = StringUtil.join(hosts, StringUtil.TRIMMER, "|");
+          extraJvmArgs.add(KeyValue.create("http.nonProxyHosts", nonProxyHosts));
+          extraJvmArgs.add(KeyValue.create("https.nonProxyHosts", nonProxyHosts));
         }
       }
+      if (httpConfigurable.USE_HTTP_PROXY && StringUtil.isNotEmpty(httpConfigurable.PROXY_LOGIN)) {
+        extraJvmArgs.add(KeyValue.create("http.proxyUser", httpConfigurable.PROXY_LOGIN));
+        extraJvmArgs.add(KeyValue.create("https.proxyUser", httpConfigurable.PROXY_LOGIN));
+        final String plainProxyPassword = httpConfigurable.getPlainProxyPassword();
+        extraJvmArgs.add(KeyValue.create("http.proxyPassword", plainProxyPassword));
+        extraJvmArgs.add(KeyValue.create("https.proxyPassword", plainProxyPassword));
+      }
       extraJvmArgs.addAll(HttpConfigurable.getJvmPropertiesList(false, null));
+
       return extraJvmArgs;
     }
     return Collections.emptyList();
@@ -537,10 +564,16 @@ public class BaseGradleProjectResolverExtension implements GradleProjectResolver
     }
     for (IdeaSourceDirectory dir : dirs) {
       ExternalSystemSourceType dirSourceType = type;
-      if (dir.isGenerated() && !dirSourceType.isGenerated()) {
-        final ExternalSystemSourceType generatedType =
-          ExternalSystemSourceType.from(dirSourceType.isTest(), dir.isGenerated(), dirSourceType.isResource(), dirSourceType.isExcluded());
-        dirSourceType = generatedType != null ? generatedType : dirSourceType;
+      try {
+        if (dir.isGenerated() && !dirSourceType.isGenerated()) {
+          final ExternalSystemSourceType generatedType =
+            ExternalSystemSourceType.from(dirSourceType.isTest(), dir.isGenerated(), dirSourceType.isResource(), dirSourceType.isExcluded());
+          dirSourceType = generatedType != null ? generatedType : dirSourceType;
+        }
+      }
+      catch (UnsupportedMethodException e) {
+        // org.gradle.tooling.model.idea.IdeaSourceDirectory.isGenerated method supported only since Gradle 2.2
+        LOG.warn(e.getMessage());
       }
       contentRoot.storePath(dirSourceType, dir.getDirectory().getAbsolutePath());
     }

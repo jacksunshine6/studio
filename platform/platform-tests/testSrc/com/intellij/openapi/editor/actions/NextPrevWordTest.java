@@ -37,6 +37,24 @@ public class NextPrevWordTest extends LightPlatformCodeInsightFixtureTestCase {
     myFixture.checkResult("<caret><foo>");
   }
 
+  public void testNextWordWithEscapeChars() throws Exception {
+    myFixture.configureByText("Foo.java", "class Foo { String s = \"a\\<caret>nb\"; }");
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_NEXT_WORD);
+    myFixture.checkResult("class Foo { String s = \"a\\n<caret>b\"; }");
+  }
+
+  public void testPrevWordWithEscapeChars() throws Exception {
+    myFixture.configureByText("Foo.java", "class Foo { String s = \"a\\nb<caret>\"; }");
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_PREVIOUS_WORD);
+    myFixture.checkResult("class Foo { String s = \"a\\n<caret>b\"; }");
+  }
+
+  public void testPrevWordWithIllegalEscapeChar() throws Exception {
+    myFixture.configureByText("Foo.java", "class Foo { String s = \"a\\xb<caret>\"; }");
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_PREVIOUS_WORD);
+    myFixture.checkResult("class Foo { String s = \"a\\x<caret>b\"; }");
+  }
+
   public void testPrevNextWordWithFolding() {
     myFixture.configureByText("a.txt", "<caret>brown fox");
     EditorTestUtil.addFoldRegion(myFixture.getEditor(), 4, 7, "...", true);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class SideEffectWarningDialog extends DialogWrapper {
 
       @Override
       public void actionPerformed(@NotNull ActionEvent e) {
-        close(RemoveUnusedVariableUtil.DELETE_ALL);
+        close(RemoveUnusedVariableUtil.RemoveMode.DELETE_ALL.ordinal());
       }
 
     };
@@ -77,7 +77,7 @@ public class SideEffectWarningDialog extends DialogWrapper {
 
         @Override
         public void actionPerformed(@NotNull ActionEvent e) {
-          close(RemoveUnusedVariableUtil.MAKE_STATEMENT);
+          close(RemoveUnusedVariableUtil.RemoveMode.MAKE_STATEMENT.ordinal());
         }
       };
       actions.add(makeStmtAction);
@@ -111,7 +111,7 @@ public class SideEffectWarningDialog extends DialogWrapper {
 
   @Override
   public void doCancelAction() {
-    close(RemoveUnusedVariableUtil.CANCEL);
+    close(RemoveUnusedVariableUtil.RemoveMode.CANCEL.ordinal());
   }
 
   @Override
@@ -131,8 +131,8 @@ public class SideEffectWarningDialog extends DialogWrapper {
                       "There are possible side effects found in expressions assigned to the variable ''{0}''<br>\n" +
                       "You can:\n" +
                       "<br>\n" +
-                      "—&nbsp;<b>Remove</b> variable usages along with all expressions involved, or<br>\n" +
-                      "—&nbsp;<b>Transform</b> expressions assigned to variable into the statements on their own.<br>\n" +
+                      "-&nbsp;<b>Remove</b> variable usages along with all expressions involved, or<br>\n" +
+                      "-&nbsp;<b>Transform</b> expressions assigned to variable into the statements on their own.<br>\n" +
                       "<div style=\"padding-left: 0.6cm;\">\n" +
                       "  That is,<br>\n" +
                       "  <table border=\"0\">\n" +
@@ -149,7 +149,7 @@ public class SideEffectWarningDialog extends DialogWrapper {
                       "</div>\n" +
                       "</body>\n" +
                       "</html>";
-      return MessageFormat.format(format,
+      return MessageFormat.format(format, 
                                   myVariable.getName(),
                                   myVariable.getType().getPresentableText(),
                                   myBeforeText,

@@ -275,7 +275,7 @@ class Test {
     }
 }
 '''
-    assert !myFixture.filterAvailableIntentions("Import Class")
+    assert !myFixture.filterAvailableIntentions("Import class")
   }
 
   public void "test don't import class in assignment"() {
@@ -286,11 +286,84 @@ class Test {
     }
 }
 '''
-    assert !myFixture.filterAvailableIntentions("Import Class")
+    assert !myFixture.filterAvailableIntentions("Import class")
   }
 
+  public void "test don't import class in qualified reference at reference name"() {
+    myFixture.configureByText 'a.java', '''
+class Test {
+    {
+      Test.Te<caret>st
+    }
+}
+'''
+    assert !myFixture.filterAvailableIntentions("Import class")
+  }
+
+    public void "test allow to add import from javadoc"() {
+    myFixture.configureByText 'a.java', '''
+class Test {
+
+  /**
+   * {@link java.util.Ma<caret>p}
+   */
+  void run() {
+  }
+}
+'''
+    reimportClass()
+    myFixture.checkResult '''\
+import java.util.Map;
+
+class Test {
+
+  /**
+   * {@link Map}
+   */
+  void run() {
+  }
+}
+'''
+  }
+
+  public void "test do not add import for default package"() {
+    myFixture.configureByText 'a.java', '''
+class Test {
+
+  /**
+   * {@link java.lang.Ma<caret>th}
+   */
+  void run() {
+  }
+}
+'''
+    reimportClass()
+    myFixture.checkResult '''
+class Test {
+
+  /**
+   * {@link Math}
+   */
+  void run() {
+  }
+}
+'''
+  }
+
+  public void "test do not allow to add import in package-info file"() {
+    myFixture.configureByText 'package-info.java', '''
+
+/**
+ * {@link java.lang.Ma<caret>th}
+ */
+package com.rocket.test;
+'''
+    assert myFixture.filterAvailableIntentions('Replace qualified name').isEmpty()
+  }
+
+
   private def importClass() {
-    myFixture.launchAction(myFixture.findSingleIntention("Import Class"))
+    myFixture.launchAction(myFixture.findSingleIntention("Import class"))
   }
 
   private def reimportClass() {

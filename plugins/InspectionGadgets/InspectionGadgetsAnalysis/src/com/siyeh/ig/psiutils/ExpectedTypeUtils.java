@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2014 Dave Griffith, Bas Leijdekkers
+ * Copyright 2003-2015 Dave Griffith, Bas Leijdekkers
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@ import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.util.TypeConversionUtil;
+import com.intellij.util.ArrayUtil;
 import com.intellij.util.IncorrectOperationException;
+import gnu.trove.THashSet;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
 import java.util.Set;
 
 public class ExpectedTypeUtils {
@@ -56,13 +57,13 @@ public class ExpectedTypeUtils {
     /**
      * @noinspection StaticCollection
      */
-    private static final Set<IElementType> arithmeticOps = new HashSet<IElementType>(5);
+    private static final Set<IElementType> arithmeticOps = new THashSet<IElementType>(5);
 
-    private static final Set<IElementType> booleanOps = new HashSet<IElementType>(5);
+    private static final Set<IElementType> booleanOps = new THashSet<IElementType>(5);
 
-    private static final Set<IElementType> shiftOps = new HashSet<IElementType>(3);
+    private static final Set<IElementType> shiftOps = new THashSet<IElementType>(3);
 
-    private static final Set<IElementType> operatorAssignmentOps = new HashSet<IElementType>(11);
+    private static final Set<IElementType> operatorAssignmentOps = new THashSet<IElementType>(11);
 
     static {
       arithmeticOps.add(JavaTokenType.PLUS);
@@ -175,28 +176,24 @@ public class ExpectedTypeUtils {
         expectedType = unaryNumericPromotion(wrappedExpressionType);
       }
       else if (ComparisonUtils.isEqualityComparison(polyadicExpression)) {
-        // JLS 15.21.1 Numerical Equality Operators == and !=
-        if (TypeConversionUtil.isPrimitiveAndNotNull(wrappedExpressionType)) {
-          expectedType = wrappedExpressionType;
-        }
-        else if (operands[0] == wrappedExpression) {
-          if (TypeConversionUtil.isPrimitiveAndNotNull(operands[1].getType())) {
-            expectedType = PsiPrimitiveType.getUnboxedType(wrappedExpressionType);
+        final PsiExpression operand1 = operands[0];
+        final PsiExpression operand2 = operands[1];
+        if (operand1 == wrappedExpression || operand2 == wrappedExpression) {
+          final PsiType type1 = operand1.getType();
+          final PsiType type2 = operand2.getType();
+          if (type1 instanceof PsiPrimitiveType) {
+            expectedType = expectedPrimitiveType((PsiPrimitiveType)type1, type2);
+          }
+          else if (type2 instanceof PsiPrimitiveType) {
+            expectedType = expectedPrimitiveType((PsiPrimitiveType)type2, type1);
           }
           else {
             expectedType = TypeUtils.getObjectType(wrappedExpression);
           }
         }
-        else if (operands[1] == wrappedExpression) {
-         if (TypeConversionUtil.isPrimitiveAndNotNull(operands[0].getType())) {
-            expectedType = PsiPrimitiveType.getUnboxedType(wrappedExpressionType);
-         }
-          else {
-           expectedType = TypeUtils.getObjectType(wrappedExpression);
-         }
-        }
         else {
-          expectedType = PsiPrimitiveType.getUnboxedType(wrappedExpressionType);
+          // third or more operand must always be boolean or does not compile
+          expectedType = TypeConversionUtil.isBooleanType(wrappedExpressionType) ? PsiType.BOOLEAN : null;
         }
       }
       else if (ComparisonUtils.isComparisonOperation(tokenType)) {
@@ -214,6 +211,22 @@ public class ExpectedTypeUtils {
       else {
         expectedType = null;
       }
+    }
+
+    private PsiType expectedPrimitiveType(PsiPrimitiveType type1, PsiType type2) {
+      if (TypeConversionUtil.isNumericType(type1)) {
+        // JLS 15.21.1. Numerical Equality Operators == and !=
+        return TypeConversionUtil.isNumericType(type2) ? TypeConversionUtil.binaryNumericPromotion(type1, type2) : null;
+      }
+      else if (PsiType.BOOLEAN.equals(type1)) {
+        // JLS 15.21.2. Boolean Equality Operators == and !=
+        return TypeConversionUtil.isBooleanType(type2) ? PsiType.BOOLEAN : null;
+      }
+      else if (PsiType.NULL.equals(type1)) {
+        return TypeUtils.getObjectType(wrappedExpression);
+      }
+      // void
+      return null;
     }
 
     /**
@@ -387,10 +400,18 @@ public class ExpectedTypeUtils {
 
     @Override
     public void visitReturnStatement(@NotNull PsiReturnStatement returnStatement) {
-      final PsiMethod method = PsiTreeUtil.getParentOfType(returnStatement, PsiMethod.class);
-      if (method != null) {
-        expectedType = method.getReturnType();
+      final PsiElement method = PsiTreeUtil.getParentOfType(returnStatement, PsiMethod.class, PsiLambdaExpression.class);
+      if (method instanceof PsiMethod) {
+        expectedType = ((PsiMethod)method).getReturnType();
       }
+      else if (method instanceof PsiLambdaExpression) {
+        expectedType = LambdaUtil.getFunctionalInterfaceReturnType((PsiLambdaExpression)method);
+      }
+    }
+
+    @Override
+    public void visitLambdaExpression(PsiLambdaExpression expression) {
+      expectedType = LambdaUtil.getFunctionalInterfaceReturnType(expression);
     }
 
     @Override
@@ -599,13 +620,7 @@ public class ExpectedTypeUtils {
     }
 
     private static int getParameterPosition(@NotNull PsiExpressionList expressionList, PsiExpression expression) {
-      final PsiExpression[] expressions = expressionList.getExpressions();
-      for (int i = 0; i < expressions.length; i++) {
-        if (expressions[i].equals(expression)) {
-          return i;
-        }
-      }
-      return -1;
+      return ArrayUtil.indexOf(expressionList.getExpressions(), expression);
     }
 
     @Nullable

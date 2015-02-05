@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2012 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jetbrains.jps.model.java.impl;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.util.containers.ContainerUtil;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -30,15 +31,8 @@ import java.util.Set;
  * @author nik
  */
 public class JavaSdkUtil {
-  public static List<File> getJdkClassesRoots(File home, boolean isJre) {
-    FileFilter jarFileFilter = new FileFilter() {
-      @Override
-      @SuppressWarnings({"HardCodedStringLiteral"})
-      public boolean accept(File f) {
-        return !f.isDirectory() && f.getName().endsWith(".jar");
-      }
-    };
-
+  @NotNull
+  public static List<File> getJdkClassesRoots(@NotNull File home, boolean isJre) {
     File[] jarDirs;
     if (SystemInfo.isMac && !home.getName().startsWith("mockJDK")) {
       File openJdkRtJar = new File(home, "jre/lib/rt.jar");
@@ -57,6 +51,10 @@ public class JavaSdkUtil {
         jarDirs = new File[]{libEndorsedDir, libDir, classesDir, libExtDir};
       }
     }
+    else if (new File(home, "lib/modules").isDirectory()) {
+      File libDir = new File(home, "lib");
+      jarDirs = new File[]{libDir};
+    }
     else {
       File libDir = isJre ? new File(home, "lib") : new File(home, "jre/lib");
       File libExtDir = new File(libDir, "ext");
@@ -64,6 +62,12 @@ public class JavaSdkUtil {
       jarDirs = new File[]{libEndorsedDir, libDir, libExtDir};
     }
 
+    FileFilter jarFileFilter = new FileFilter() {
+      @Override
+      public boolean accept(@NotNull File f) {
+        return !f.isDirectory() && f.getName().endsWith(".jar");
+      }
+    };
     Set<String> pathFilter = ContainerUtil.newTroveSet(FileUtil.PATH_HASHING_STRATEGY);
     List<File> rootFiles = ContainerUtil.newArrayList();
     for (File jarDir : jarDirs) {
@@ -99,9 +103,11 @@ public class JavaSdkUtil {
       }
     }
 
-    File classesDir = new File(home, "classes");
-    if (rootFiles.isEmpty() && classesDir.isDirectory()) {
-      rootFiles.add(classesDir);
+    if (rootFiles.isEmpty()) {
+      File classesDir = new File(home, "classes");
+      if (classesDir.isDirectory()) {
+        rootFiles.add(classesDir);
+      }
     }
 
     return rootFiles;

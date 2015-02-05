@@ -11,7 +11,6 @@ import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.StreamUtil;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.rt.execution.junit.FileComparisonFailure;
 import com.intellij.util.ui.UIUtil;
@@ -32,6 +31,7 @@ import org.junit.Assert;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -128,9 +128,9 @@ class SkeletonTestTask extends PyExecutionFixtureTestTask {
 
     FileUtil.copy(skeletonFile, new File(myFixture.getTempDirPath(), skeletonFile.getName()));
     if (myExpectedSkeletonFile != null) {
-      final String actual = StreamUtil.readText(new FileInputStream(skeletonFile), CharsetToolkit.UTF8);
+      final String actual = StreamUtil.readText(new FileInputStream(skeletonFile), Charset.defaultCharset());
       final String skeletonText =
-        StreamUtil.readText(new FileInputStream(new File(getTestDataPath(), myExpectedSkeletonFile)), CharsetToolkit.UTF8);
+        StreamUtil.readText(new FileInputStream(new File(getTestDataPath(), myExpectedSkeletonFile)), Charset.defaultCharset());
 
       // TODO: Move to separate method ?
       if (!Matchers.equalToIgnoringWhiteSpace(removeGeneratorVersion(skeletonText)).matches(removeGeneratorVersion(actual))) {

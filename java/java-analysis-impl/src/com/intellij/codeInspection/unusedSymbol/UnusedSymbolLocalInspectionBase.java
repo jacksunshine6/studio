@@ -15,9 +15,14 @@
  */
 package com.intellij.codeInspection.unusedSymbol;
 
+import com.intellij.codeInsight.daemon.GroupNames;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoType;
 import com.intellij.codeInspection.BaseJavaLocalInspectionTool;
+import com.intellij.codeInspection.deadCode.UnusedDeclarationInspectionBase;
+import com.intellij.codeInspection.ex.PairedUnfairLocalInspectionTool;
+import org.intellij.lang.annotations.Pattern;
 import org.jetbrains.annotations.NonNls;
+import org.jetbrains.annotations.NotNull;
 
 public class UnusedSymbolLocalInspectionBase extends BaseJavaLocalInspectionTool {
   @NonNls public static final String SHORT_NAME = HighlightInfoType.UNUSED_SYMBOL_SHORT_NAME;
@@ -30,4 +35,43 @@ public class UnusedSymbolLocalInspectionBase extends BaseJavaLocalInspectionTool
   public boolean CLASS = true;
   public boolean PARAMETER = true;
   public boolean REPORT_PARAMETER_FOR_PUBLIC_METHODS = true;
+
+
+  @Override
+  @NotNull
+  public String getGroupDisplayName() {
+    return GroupNames.DECLARATION_REDUNDANCY;
+  }
+
+  @Override
+  @NotNull
+  public String getDisplayName() {
+    return DISPLAY_NAME;
+  }
+
+  @Override
+  @NotNull
+  @NonNls
+  public String getShortName() {
+    return SHORT_NAME;
+  }
+
+  @Override
+  @Pattern(VALID_ID_PATTERN)
+  @NotNull
+  @NonNls
+  public String getID() {
+    return "unused";
+  }
+
+  @Override
+  public String getAlternativeID() {
+    return UnusedDeclarationInspectionBase.ALTERNATIVE_ID;
+  }
+
+  @Override
+  public boolean isEnabledByDefault() {
+    return true;
+  }
+
 }
