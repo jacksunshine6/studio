@@ -21,7 +21,9 @@ import com.intellij.codeInsight.folding.impl.JavaFoldingBuilder
 import com.intellij.find.FindManager
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.application.ex.PathManagerEx
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.FoldRegion
+import com.intellij.openapi.editor.ex.DocumentEx
 import com.intellij.openapi.editor.ex.FoldingModelEx
 import com.intellij.openapi.editor.impl.FoldingModelImpl
 import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
@@ -31,6 +33,7 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiLiteralExpression
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.testFramework.EditorTestUtil
 import com.intellij.testFramework.LightProjectDescriptor
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase
 
@@ -397,7 +400,7 @@ class Test {
   public void testCustomFolding() {
     myFixture.testFolding("$PathManagerEx.testDataPath/codeInsight/folding/${getTestName(false)}.java");
   }
-  
+
   public void "test custom folding IDEA-122715 and IDEA-87312"() {
     def text = """\
 public class Test {
@@ -429,7 +432,7 @@ public class Test {
         assert region.placeholderText == "Bar"
         count ++;
       }
-    }  
+    }
     assert count == 2 : "Not all custom regions are found";
   }
 
@@ -452,7 +455,7 @@ class Foo {
     assertEquals 1, foldRegionsCount
     assertEquals "Some", foldingModel.allFoldRegions[0].placeholderText
   }
-  
+
   public void "test custom folding collapsed by default"() {
     def text = """\
 class Test {
@@ -1052,6 +1055,66 @@ class Foo {
     finally {
       Registry.get("editor.durable.folding.state").setValue(oldValue)
     }
+  }
+
+  public void "test folding state is preserved for unchanged text in bulk mode"() {
+    def text = """
+class Foo {
+    void m1() {
+
+    }
+    void m2() {
+
+    }
+}
+"""
+    configure text
+    assertEquals 2, foldRegionsCount
+    assertEquals 2, expandedFoldRegionsCount
+    myFixture.performEditorAction(IdeActions.ACTION_COLLAPSE_ALL_REGIONS)
+    assertEquals 0, expandedFoldRegionsCount
+
+    def document = (DocumentEx)myFixture.editor.document
+    WriteCommandAction.runWriteCommandAction myFixture.project, {
+      document.inBulkUpdate = true;
+      try {
+        document.insertString(document.getText().indexOf("}") + 1, "\n");
+      }
+      finally {
+        document.inBulkUpdate = false;
+      }
+    }
+    assertEquals 2, foldRegionsCount
+    assertEquals 0, expandedFoldRegionsCount
+  }
+
+  public void "test processing of tabs inside fold regions"() {
+    String text = """public class Foo {
+\tpublic static void main(String[] args) {
+\t\tjavax.swing.SwingUtilities.invokeLater(new Runnable() {
+\t\t\t@Override
+\t\t\tpublic void run() {
+\t\t\t\tSystem.out.println();
+\t\t\t}
+\t\t});
+\t}
+}""";
+    configure text
+    assert myFixture.editor.getFoldingModel().getCollapsedRegionAtOffset(text.indexOf("new"))
+    myFixture.editor.settings.useTabCharacter = true
+    EditorTestUtil.configureSoftWraps(myFixture.editor, 1000)
+    myFixture.editor.caretModel.moveToOffset(text.indexOf("System"))
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_TAB)
+    myFixture.checkResult("""public class Foo {
+\tpublic static void main(String[] args) {
+\t\tjavax.swing.SwingUtilities.invokeLater(new Runnable() {
+\t\t\t@Override
+\t\t\tpublic void run() {
+\t\t\t\t\t<caret>System.out.println();
+\t\t\t}
+\t\t});
+\t}
+}""");
   }
 
   private int getFoldRegionsCount() {

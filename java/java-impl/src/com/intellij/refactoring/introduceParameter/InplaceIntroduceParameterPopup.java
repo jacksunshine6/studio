@@ -38,7 +38,6 @@ import com.intellij.refactoring.JavaRefactoringSettings;
 import com.intellij.refactoring.RefactoringActionHandler;
 import com.intellij.refactoring.ui.TypeSelectorManagerImpl;
 import com.intellij.ui.JBColor;
-import com.intellij.usageView.UsageInfo;
 import gnu.trove.TIntArrayList;
 import gnu.trove.TIntProcedure;
 import org.jetbrains.annotations.NotNull;
@@ -66,7 +65,6 @@ public class InplaceIntroduceParameterPopup extends AbstractJavaInplaceIntroduce
 
   InplaceIntroduceParameterPopup(final Project project,
                                  final Editor editor,
-                                 final List<UsageInfo> classMemberRefs,
                                  final TypeSelectorManagerImpl typeSelectorManager,
                                  final PsiExpression expr,
                                  final PsiLocalVariable localVar,
@@ -99,9 +97,11 @@ public class InplaceIntroduceParameterPopup extends AbstractJavaInplaceIntroduce
 
       protected TIntArrayList getParametersToRemove() {
         TIntArrayList parameters = new TIntArrayList();
-        for (int i = 0; i < myParametersToRemove.length; i++) {
-          if (myParametersToRemove[i] != null) {
-            parameters.add(i);
+        if (myCbReplaceAllOccurences == null || myCbReplaceAllOccurences.isSelected()) {
+          for (int i = 0; i < myParametersToRemove.length; i++) {
+            if (myParametersToRemove[i] != null) {
+              parameters.add(i);
+            }
           }
         }
         return parameters;
@@ -174,7 +174,7 @@ public class InplaceIntroduceParameterPopup extends AbstractJavaInplaceIntroduce
 
   @Override
   protected boolean startsOnTheSameElement(RefactoringActionHandler handler, PsiElement element) {
-    return super.startsOnTheSameElement(handler, element) && handler instanceof IntroduceParameterHandler;
+    return handler instanceof IntroduceParameterHandler && super.startsOnTheSameElement(handler, element);
   }
 
 

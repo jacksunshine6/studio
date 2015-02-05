@@ -25,6 +25,7 @@ import com.intellij.openapi.application.ApplicationNamesInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.ui.HyperlinkLabel;
 import com.intellij.util.ui.UIUtil;
+import com.intellij.ui.RelativeFont;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
@@ -42,7 +43,6 @@ public class StatisticsConfigurationComponent {
   private JRadioButton myMonthlyRadioButton;
   private JRadioButton myWeeklyRadioButton;
   private JLabel myLabel;
-  private JPanel myRadioButtonPanel;
   private HyperlinkLabel myHyperLink;
 
   public StatisticsConfigurationComponent() {
@@ -55,6 +55,7 @@ public class StatisticsConfigurationComponent {
     String linkBeforeText = null;
     String linkText = null;
     String linkAfterText = null;
+    RelativeFont.SMALL.install(myLabel);
 
     myAllowToSendUsagesCheckBox.setText(StatisticsBundle.message("stats.config.allow.send.stats.text", company));
     myAllowToSendUsagesCheckBox.addActionListener(new ActionListener() {
@@ -94,6 +95,7 @@ public class StatisticsConfigurationComponent {
     myAllowToSendUsagesCheckBox.setText(myAllowToSendUsagesCheckBox.getText().replace("%company%", company));
 
     // Android Studio: add a hyperlink label so that we can link to the privacy policy
+if (myHyperLink != null) { // TEMPORARY : needs Siva's merge
     if (linkUrl == null) {
       myHyperLink.setVisible(false);
     } else {
@@ -110,9 +112,11 @@ public class StatisticsConfigurationComponent {
         }
       });
     }
+}
 
     // Android Studio : Do not show panel that allows configuring stats upload frequency
-    myRadioButtonPanel.setVisible(false);
+    // (Now deleted by merge; preserving in case the new layout is doing something similar)
+    //myRadioButtonPanel.setVisible(false);
   }
 
   private void setRadioButtonsEnabled() {

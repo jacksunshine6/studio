@@ -246,20 +246,24 @@ public class BuildDataManager implements StorageOwner {
     finally {
       try {
         closeSourceToOutputStorages();
-        myOutputToTargetRegistry.close();
       }
       finally {
         try {
-          closeStorage(mySrcToFormMap);
+          myOutputToTargetRegistry.close();
         }
         finally {
-          final Mappings mappings = myMappings;
-          if (mappings != null) {
-            try {
-              mappings.close();
-            }
-            catch (BuildDataCorruptedException e) {
-              throw e.getCause();
+          try {
+            closeStorage(mySrcToFormMap);
+          }
+          finally {
+            final Mappings mappings = myMappings;
+            if (mappings != null) {
+              try {
+                mappings.close();
+              }
+              catch (BuildDataCorruptedException e) {
+                throw e.getCause();
+              }
             }
           }
         }
@@ -439,25 +443,11 @@ public class BuildDataManager implements StorageOwner {
     }
 
     public void remove(@NotNull String srcPath) throws IOException {
-      final Collection<String> outputs = myDelegate.getOutputs(srcPath);
-      if (outputs == null) {
-        return;
-      }
-      try {
-        myDelegate.remove(srcPath);
-      }
-      finally {
-        myOutputToTargetRegistry.removeMapping(outputs, myBuildTargetId);
-      }
+      myDelegate.remove(srcPath);
     }
 
     public void removeOutput(@NotNull String sourcePath, @NotNull String outputPath) throws IOException {
-      try {
-        myDelegate.removeOutput(sourcePath, outputPath);
-      }
-      finally {
-        myOutputToTargetRegistry.removeMapping(outputPath, myBuildTargetId);
-      }
+      myDelegate.removeOutput(sourcePath, outputPath);
     }
 
     @NotNull 

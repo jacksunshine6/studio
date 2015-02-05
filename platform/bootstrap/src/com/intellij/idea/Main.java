@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,21 @@ package com.intellij.idea;
 
 import com.intellij.ide.Bootstrap;
 import com.intellij.openapi.application.PathManager;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.SystemInfoRt;
 import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.util.ArrayUtilRt;
 import com.intellij.util.Restarter;
+import com.intellij.util.ui.JBUI;
+import com.intellij.util.ui.UIUtil;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-
 
 @SuppressWarnings({"UseOfSystemOutOrSystemErr", "MethodNamesDifferingOnlyByCase"})
 public class Main {
@@ -45,8 +44,6 @@ public class Main {
   private static final String AWT_HEADLESS = "java.awt.headless";
   private static final String PLATFORM_PREFIX_PROPERTY = "idea.platform.prefix";
   private static final String[] NO_ARGS = {};
-
-  private static final String MAIN_LOG_PROPERTY = "com.intellij.idea.Main.DelayedLog";
 
   private static boolean isHeadless;
   private static boolean isCommandLine;
@@ -73,9 +70,8 @@ public class Main {
           installPatch();
         }
         catch (Throwable t) {
-          appendLog("Exception: " + t.toString() + '\n');
           showMessage("Update Failed", t);
-          exit(UPDATE_FAILED);
+          System.exit(UPDATE_FAILED);
         }
       }
     }
@@ -85,13 +81,8 @@ public class Main {
     }
     catch (Throwable t) {
       showMessage("Start Failed", t);
-      exit(STARTUP_EXCEPTION);
+      System.exit(STARTUP_EXCEPTION);
     }
-  }
-
-  private static void exit(int code) {
-    dumpDelayedLogging();
-    System.exit(code);
   }
 
   public static boolean isHeadless() {
@@ -143,32 +134,20 @@ public class Main {
     File jnaUtilsCopy = new File(tempDir, "jna-utils.jar." + platform + "_copy");
     File jnaCopy = new File(tempDir, "jna.jar." + platform + "_copy");
     if (!FileUtilRt.delete(patchCopy) || !FileUtilRt.delete(log4jCopy) || !FileUtilRt.delete(jnaUtilsCopy) || !FileUtilRt.delete(jnaCopy)) {
-      appendLog("Cannot delete temporary files in " + tempDir);
       throw new IOException("Cannot delete temporary files in " + tempDir);
     }
 
     File patch = new File(tempDir, patchFileName);
-    appendLog("[Patch] Original patch %s: %s\n", patch.exists() ? "exists" : "does not exist",
-              patch.getAbsolutePath());
     if (!patch.exists()) return;
 
     File log4j = new File(PathManager.getLibPath(), "log4j.jar");
-    if (!log4j.exists()) {
-      appendLog("Log4J missing: " + log4j);
-      throw new IOException("Log4J missing: " + log4j);
-    }
+    if (!log4j.exists()) throw new IOException("Log4J is missing: " + log4j);
 
     File jnaUtils = new File(PathManager.getLibPath(), "jna-utils.jar");
-    if (!jnaUtils.exists()) {
-      appendLog("jna-utils.jar is missing: " + jnaUtils);
-      throw new IOException("jna-utils.jar is missing: " + jnaUtils);
-    }
+    if (!jnaUtils.exists()) throw new IOException("jna-utils.jar is missing: " + jnaUtils);
 
     File jna = new File(PathManager.getLibPath(), "jna.jar");
-    if (!jna.exists()) {
-      appendLog("jna is missing: " + jna);
-      throw new IOException("jna is missing: " + jna);
-    }
+    if (!jna.exists()) throw new IOException("jna is missing: " + jna);
 
     copyFile(patch, patchCopy, true);
     copyFile(log4j, log4jCopy, false);
@@ -186,12 +165,8 @@ public class Main {
 
       //noinspection SpellCheckingInspection
       Collections.addAll(args,
-                         System.getProperty("java.home") + "/bin/java".replace('/', File.separatorChar),
+                         System.getProperty("java.home") + "/bin/java",
                          "-Xmx500m",
-                         "-Djna.nosys=true",
-                         "-Djna.boot.library.path=",
-                         "-Djna.debug_load=true",
-                         "-Djna.debug_load.jna=true",
                          "-classpath",
                          patchCopy.getPath() + File.pathSeparator + log4jCopy.getPath() + File.pathSeparator + jnaCopy.getPath() + File.pathSeparator + jnaUtilsCopy.getPath(),
                          "-Djava.io.tmpdir=" + tempDir,
@@ -201,19 +176,14 @@ public class Main {
                          "install",
                          PathManager.getHomePath());
 
-      appendLog("[Patch] Restarted cmd: %s\n", args.toString());
-
       status = Restarter.scheduleRestart(ArrayUtilRt.toStringArray(args));
-
-      appendLog("[Patch] Restarted status: %d\n", status);
     }
     else {
-      appendLog("[Patch] Restart is not supported\n");
       String message = "Patch update is not supported - please do it manually";
       showMessage("Update Error", message, true);
     }
 
-    exit(status);
+    System.exit(status);
   }
 
   private static void copyFile(File original, File copy, boolean move) throws IOException {
@@ -237,12 +207,6 @@ public class Main {
     message.append(studio ? "code.google.com/p/android/issues" : "youtrack.jetbrains.com");
     message.append("\n\n");
     t.printStackTrace(new PrintWriter(message));
-
-    String p = System.getProperty(MAIN_LOG_PROPERTY);
-    if (p != null) {
-      message.append('\n').append(p);
-    }
-
     showMessage(title, message.toString(), true);
   }
 
@@ -259,12 +223,13 @@ public class Main {
       JTextPane textPane = new JTextPane();
       textPane.setEditable(false);
       textPane.setText(message.replaceAll("\t", "    "));
-      textPane.setBackground(Color.white);
+      textPane.setBackground(UIUtil.getPanelBackground());
       textPane.setCaretPosition(0);
       JScrollPane scrollPane = new JScrollPane(
         textPane, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+      scrollPane.setBorder(null);
 
-      int maxHeight = Toolkit.getDefaultToolkit().getScreenSize().height - 150;
+      int maxHeight = Math.min(JBUI.scale(600), Toolkit.getDefaultToolkit().getScreenSize().height - 150);
       Dimension component = scrollPane.getPreferredSize();
       if (component.height >= maxHeight) {
         Object setting = UIManager.get("ScrollBar.width");
@@ -274,62 +239,6 @@ public class Main {
 
       int type = error ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE;
       JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), scrollPane, title, type);
-    }
-  }
-
-
-  /**
-   * Appends the non-null string to an internal log property because at
-   * this point when the updater runs the main logger hasn't been setup yet.
-   *
-   * We use a system property rather than a global static variable because
-   * both codes do not run in the same ClassLoader and don't have the same
-   * globals.
-   */
-  private static void appendLog(String message, Object...params) {
-    String p = System.getProperty(MAIN_LOG_PROPERTY);
-    DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss ");
-    String s = dateFormat.format(new Date()) + String.format(message, params);
-    if (p == null) {
-      p = s;
-    } else {
-      p += s;
-    }
-    System.setProperty(MAIN_LOG_PROPERTY, p);
-  }
-
-  /** Invoked by Main to dump the log when the Main is exiting right away.
-   * The normal IDE log will not be used. */
-  public static void dumpDelayedLogging() {
-    String p = System.getProperty(MAIN_LOG_PROPERTY);
-    if (p != null) {
-      System.clearProperty(MAIN_LOG_PROPERTY);
-      File log = new File(PathManager.getLogPath());
-      //noinspection ResultOfMethodCallIgnored
-      log.mkdirs();
-      log = new File(log, "idea_patch.log");
-      FileOutputStream fos = null;
-      try {
-        //noinspection IOResourceOpenedButNotSafelyClosed
-        fos = new FileOutputStream(log, true /*append*/);
-        fos.write(p.getBytes("UTF-8"));
-      } catch (IOException ignore) {
-      } finally {
-        if (fos != null) {
-          try { fos.close(); } catch (IOException ignored) {}
-        }
-      }
-    }
-  }
-
-  /** Invoked by StartupUtil once the main logger is setup. */
-  public static void dumpDelayedLogging(Logger log) {
-    if (log != null) {
-      String p = System.getProperty(MAIN_LOG_PROPERTY);
-      if (p != null) {
-        log.info(p);
-        System.clearProperty(MAIN_LOG_PROPERTY);
-      }
     }
   }
 }

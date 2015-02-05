@@ -5,9 +5,11 @@ import gnu.trove.TIntArrayList;
 import gnu.trove.TIntHashSet;
 import gnu.trove.TIntProcedure;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.io.JsonUtil;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -55,7 +57,7 @@ public abstract class OutMessage {
     }
   }
 
-  protected final void writeInt(String name, int value) {
+  public final void writeInt(String name, int value) {
     try {
       beginArguments();
       writer.name(name).value(value);
@@ -206,7 +208,7 @@ public abstract class OutMessage {
     }
   }
 
-  protected final void writeStringList(String name, List<String> value) {
+  protected final void writeStringList(@NotNull String name, @NotNull Collection<String> value) {
     try {
       beginArguments();
       JsonWriters.writeStringList(writer, name, value);
@@ -279,7 +281,7 @@ public abstract class OutMessage {
     }
   }
 
-  protected final void writeString(String name, String value) {
+  protected final void writeString(@NotNull String name, @Nullable String value) {
     if (value != null) {
       writeNullableString(name, value);
     }
@@ -297,7 +299,7 @@ public abstract class OutMessage {
     }
   }
 
-  protected final void writeNullableString(String name, String value) {
+  protected final void writeNullableString(@NotNull String name, @Nullable String value) {
     try {
       beginArguments();
       writer.name(name).value(value);

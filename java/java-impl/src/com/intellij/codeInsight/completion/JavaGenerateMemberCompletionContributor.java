@@ -18,24 +18,20 @@ package com.intellij.codeInsight.completion;
 import com.intellij.codeInsight.generation.*;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.codeInspection.ex.GlobalInspectionContextBase;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.util.Iconable;
 import com.intellij.openapi.util.Key;
 import com.intellij.psi.*;
 import com.intellij.psi.infos.CandidateInfo;
-import com.intellij.psi.util.MethodSignature;
-import com.intellij.psi.util.PsiFormatUtil;
-import com.intellij.psi.util.PsiFormatUtilBase;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.*;
 import com.intellij.ui.RowIcon;
+import com.intellij.util.ObjectUtils;
 import com.intellij.util.VisibilityUtil;
 import com.intellij.util.containers.ContainerUtil;
 
 import javax.swing.*;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.intellij.patterns.PlatformPatterns.psiElement;
 
@@ -54,15 +50,24 @@ public class JavaGenerateMemberCompletionContributor {
     if (psiElement(PsiIdentifier.class).withParents(PsiJavaCodeReferenceElement.class, PsiTypeElement.class, PsiClass.class).
       andNot(JavaCompletionData.AFTER_DOT).
       andNot(psiElement().afterLeaf(psiElement().inside(PsiModifierList.class))).accepts(position)) {
-      final PsiClass parent = CompletionUtil.getOriginalElement((PsiClass)position.getParent().getParent().getParent());
-      if (parent != null) {
-        Set<MethodSignature> addedSignatures = ContainerUtil.newHashSet();
-        addGetterSetterElements(result, parent, addedSignatures);
-        addSuperSignatureElements(parent, true, result, addedSignatures);
-        addSuperSignatureElements(parent, false, result, addedSignatures);
-      }
+      suggestGeneratedMethods(result, position);
+    } else if (psiElement(PsiIdentifier.class)
+      .withParents(PsiJavaCodeReferenceElement.class, PsiAnnotation.class, PsiModifierList.class, PsiClass.class).accepts(position)) {
+      PsiAnnotation annotation = ObjectUtils.assertNotNull(PsiTreeUtil.getParentOfType(position, PsiAnnotation.class));
+      int annoStart = annotation.getTextRange().getStartOffset();
+      suggestGeneratedMethods(result.withPrefixMatcher(annotation.getText().substring(0, parameters.getOffset() - annoStart)), position);
     }
 
+  }
+
+  private static void suggestGeneratedMethods(CompletionResultSet result, PsiElement position) {
+    PsiClass parent = CompletionUtil.getOriginalElement(ObjectUtils.assertNotNull(PsiTreeUtil.getParentOfType(position, PsiClass.class)));
+    if (parent != null) {
+      Set<MethodSignature> addedSignatures = ContainerUtil.newHashSet();
+      addGetterSetterElements(result, parent, addedSignatures);
+      addSuperSignatureElements(parent, true, result, addedSignatures);
+      addSuperSignatureElements(parent, false, result, addedSignatures);
+    }
   }
 
   private static void addGetterSetterElements(CompletionResultSet result, PsiClass parent, Set<MethodSignature> addedSignatures) {
@@ -130,6 +135,17 @@ public class JavaGenerateMemberCompletionContributor {
     List<PsiGenerationInfo<PsiMethod>> newInfos = GenerateMembersUtil
       .insertMembersAtOffset(context.getFile(), context.getStartOffset(), infos);
     if (!newInfos.isEmpty()) {
+      final List<PsiElement> elements = new ArrayList<PsiElement>();
+      for (GenerationInfo member : newInfos) {
+        if (!(member instanceof TemplateGenerationInfo)) {
+          final PsiMember psiMember = member.getPsiMember();
+          if (psiMember != null) {
+            elements.add(psiMember);
+          }
+        }
+      }
+
+      GlobalInspectionContextBase.cleanupElements(context.getProject(), null, elements.toArray(new PsiElement[elements.size()]));
       newInfos.get(0).positionCaret(context.getEditor(), true);
     }
   }
@@ -148,8 +164,9 @@ public class JavaGenerateMemberCompletionContributor {
 
     String parameters = PsiFormatUtil.formatMethod(prototype, substitutor, PsiFormatUtilBase.SHOW_PARAMETERS, PsiFormatUtilBase.SHOW_NAME);
 
+    String overrideSignature = " @Override " + signature; // leading space to make it a middle match, under all annotation suggestions
     LookupElementBuilder element = LookupElementBuilder.create(prototype, signature).withLookupString(methodName).
-      withLookupString(signature).withInsertHandler(insertHandler).
+      withLookupString(signature).withLookupString(overrideSignature).withInsertHandler(insertHandler).
       appendTailText(parameters, false).appendTailText(" {...}", true).withTypeText(typeText).withIcon(icon);
     element.putUserData(GENERATE_ELEMENT, true);
     return element;

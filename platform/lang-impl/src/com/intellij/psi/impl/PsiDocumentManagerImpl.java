@@ -69,7 +69,7 @@ public class PsiDocumentManagerImpl extends PsiDocumentManagerBase implements Se
         PsiFile psiFile = ApplicationManager.getApplication().runReadAction(new Computable<PsiFile>() {
           @Override
           public PsiFile compute() {
-            return myProject.isDisposed() ? null : getCachedPsiFile(virtualFile);
+            return myProject.isDisposed() || !virtualFile.isValid() ? null : getCachedPsiFile(virtualFile);
           }
         });
         fireDocumentCreated(document, psiFile);
@@ -107,6 +107,7 @@ public class PsiDocumentManagerImpl extends PsiDocumentManagerBase implements Se
     // avoid documents piling up during batch processing
     if (FileDocumentManagerImpl.areTooManyDocumentsInTheQueue(myUncommittedDocuments)) {
       if (myUnitTestMode) {
+        myStopTrackingDocuments = true;
         try {
           LOG.error("Too many uncommitted documents for " + myProject + ":\n" + myUncommittedDocuments);
         }

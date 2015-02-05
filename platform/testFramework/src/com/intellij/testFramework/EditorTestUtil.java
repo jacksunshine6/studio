@@ -15,10 +15,7 @@
  */
 package com.intellij.testFramework;
 
-import com.intellij.codeHighlighting.TextEditorHighlightingPass;
-import com.intellij.codeHighlighting.TextEditorHighlightingPassFactory;
 import com.intellij.ide.DataManager;
-import com.intellij.mock.MockProgressIndicator;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.command.WriteCommandAction;
@@ -34,13 +31,9 @@ import com.intellij.openapi.editor.impl.SoftWrapModelImpl;
 import com.intellij.openapi.editor.impl.softwrap.SoftWrapDrawingType;
 import com.intellij.openapi.editor.impl.softwrap.SoftWrapPainter;
 import com.intellij.openapi.editor.impl.softwrap.mapping.SoftWrapApplianceManager;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -201,6 +194,9 @@ public class EditorTestUtil {
       public boolean canUse() {
         return true;
       }
+
+      @Override
+      public void reinit() {}
     });
     model.reinitSettings();
 
@@ -229,7 +225,7 @@ public class EditorTestUtil {
   /**
    * Equivalent to <code>extractCaretAndSelectionMarkers(document, true)</code>.
    *
-   * @see #extractCaretAndSelectionMarkers(com.intellij.openapi.editor.Document, boolean)
+   * @see #extractCaretAndSelectionMarkers(Document, boolean)
    */
   public static CaretAndSelectionState extractCaretAndSelectionMarkers(Document document) {
     return extractCaretAndSelectionMarkers(document, true);
@@ -394,10 +390,8 @@ public class EditorTestUtil {
       int actualCaretLine = editor.getDocument().getLineNumber(currentCaret.getOffset());
       int actualCaretColumn = currentCaret.getOffset() - editor.getDocument().getLineStartOffset(actualCaretLine);
       LogicalPosition actualCaretPosition = new LogicalPosition(actualCaretLine, actualCaretColumn);
-      int[] selectionStarts = editor.getSelectionModel().getBlockSelectionStarts();
-      int[] selectionEnds = editor.getSelectionModel().getBlockSelectionEnds();
-      int selectionStart = editor.getSelectionModel().hasBlockSelection() ? selectionStarts[selectionStarts.length - 1] : currentCaret.getSelectionStart();
-      int selectionEnd = editor.getSelectionModel().hasBlockSelection() ? selectionEnds[selectionEnds.length - 1] : currentCaret.getSelectionEnd();
+      int selectionStart = currentCaret.getSelectionStart();
+      int selectionEnd = currentCaret.getSelectionEnd();
       LogicalPosition actualSelectionStart = editor.offsetToLogicalPosition(selectionStart);
       LogicalPosition actualSelectionEnd = editor.offsetToLogicalPosition(selectionEnd);
       CaretInfo expected = caretState.carets.get(i);
@@ -418,14 +412,6 @@ public class EditorTestUtil {
     }
   }
 
-  public static void enableMultipleCarets() {
-    Registry.get("editor.allow.multiple.carets").setValue(true);
-  }
-
-  public static void disableMultipleCarets() {
-    Registry.get("editor.allow.multiple.carets").setValue(false);
-  }
-
   public static FoldRegion addFoldRegion(@NotNull Editor editor, final int startOffset, final int endOffset, final String placeholder, final boolean collapse) {
     final FoldingModel foldingModel = editor.getFoldingModel();
     final Ref<FoldRegion> ref = new Ref<FoldRegion>();
@@ -439,20 +425,6 @@ public class EditorTestUtil {
       }
     });
     return ref.get();
-  }
-
-  public static <T extends TextEditorHighlightingPassFactory> void runTextEditorHighlightingPass(@NotNull Editor editor, @NotNull Class<T> passFactory) {
-    Project project = editor.getProject();
-    assertNotNull(project);
-    PsiDocumentManager psiDocumentManager = PsiDocumentManager.getInstance(project);
-    PsiFile psiFile = psiDocumentManager.getPsiFile(editor.getDocument());
-    assertNotNull(psiFile);
-
-    T factory = project.getComponent(passFactory);
-    TextEditorHighlightingPass pass = factory.createHighlightingPass(psiFile, editor);
-    assertNotNull(pass);
-    pass.collectInformation(new MockProgressIndicator());
-    pass.applyInformationToEditor();
   }
 
   public static class CaretAndSelectionState {

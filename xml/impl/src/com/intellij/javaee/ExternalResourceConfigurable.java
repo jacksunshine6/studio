@@ -95,6 +95,7 @@ public class ExternalResourceConfigurable extends BaseConfigurable
         return editExtLocation(o);
       }
     };
+    myExtPanel.getTable().setShowColumns(true);
 
     myExtPanel.setRenderer(1, new PathRenderer());
 
@@ -259,8 +260,9 @@ public class ExternalResourceConfigurable extends BaseConfigurable
   @Nullable
   private NameLocationPair addExtLocation() {
     MapExternalResourceDialog dialog = new MapExternalResourceDialog(null, myProject, null, null);
-    dialog.show();
-    if (!dialog.isOK()) return null;
+    if (!dialog.showAndGet()) {
+      return null;
+    }
     setModified(true);
     return new NameLocationPair(dialog.getUri(), dialog.getResourceLocation(), false);
   }
@@ -269,8 +271,7 @@ public class ExternalResourceConfigurable extends BaseConfigurable
   private NameLocationPair editExtLocation(Object o) {
     NameLocationPair pair = (NameLocationPair)o;
     MapExternalResourceDialog dialog = new MapExternalResourceDialog(pair.getName(), myProject, null, pair.getLocation());
-    dialog.show();
-    if (!dialog.isOK()) {
+    if (!dialog.showAndGet()) {
       return null;
     }
     setModified(true);
@@ -280,8 +281,9 @@ public class ExternalResourceConfigurable extends BaseConfigurable
   @Nullable
   private String addIgnoreLocation() {
     EditLocationDialog dialog = new EditLocationDialog(null, false);
-    dialog.show();
-    if (!dialog.isOK()) return null;
+    if (!dialog.showAndGet()) {
+      return null;
+    }
     setModified(true);
     return dialog.getPair().myName;
   }
@@ -290,8 +292,9 @@ public class ExternalResourceConfigurable extends BaseConfigurable
   private String editIgnoreLocation(Object o) {
     EditLocationDialog dialog = new EditLocationDialog(null, false);
     dialog.init(new NameLocationPair(o.toString(), null, false));
-    dialog.show();
-    if (!dialog.isOK()) return null;
+    if (!dialog.showAndGet()) {
+      return null;
+    }
     setModified(true);
     return dialog.getPair().myName;
   }

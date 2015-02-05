@@ -23,12 +23,11 @@ import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.codeInsight.lookup.impl.LookupImpl
 import com.intellij.lang.java.JavaLanguage
 import com.intellij.openapi.actionSystem.IdeActions
-import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.codeStyle.CodeStyleSettingsManager
 import com.intellij.psi.codeStyle.CommonCodeStyleSettings
-import com.intellij.testFramework.EditorTestUtil
+import com.siyeh.ig.style.UnqualifiedFieldAccessInspection
 
 public class NormalCompletionTest extends LightFixtureCompletionTestCase {
   @Override
@@ -1147,6 +1146,12 @@ class XInternalError {}
     assertFirstStringItems "XInternalError", "XInternalTimerServiceController"
   }
 
+  public void testMetaAnnotation() {
+    myFixture.configureByText "a.java", "@<caret> @interface Anno {}"
+    myFixture.complete(CompletionType.BASIC)
+    assert myFixture.lookup.items.find { it.lookupString == 'Retention' }
+  }
+
   public void testAnnotationClassFromWithinAnnotation() { doTest() }
 
   public void testStaticallyImportedFieldsTwice() {
@@ -1349,6 +1354,14 @@ class XInternalError {}
     checkResult()
   }
 
+  public void testImplementViaOverrideCompletion() {
+    configure()
+    myFixture.assertPreferredCompletionItems 0, 'Override', 'public void run'
+    lookup.currentItem = lookup.items[1]
+    myFixture.type('\n')
+    checkResult()
+  }
+
   public void testAccessorViaCompletion() {
     configure()
 
@@ -1380,30 +1393,6 @@ class XInternalError {}
   public void testDoForceBraces() {
     codeStyleSettings.DOWHILE_BRACE_FORCE = CommonCodeStyleSettings.FORCE_BRACES_ALWAYS
     doTest('\n')
-  }
-
-  public void "test block selection from bottom to top with single-item insertion"() {
-    EditorTestUtil.disableMultipleCarets()
-    try {
-      myFixture.configureByText "a.java", """
-  class Foo {{
-    ret<caret>;
-    ret;
-  }}"""
-      edt {
-        def caret = myFixture.editor.offsetToLogicalPosition(myFixture.editor.caretModel.offset)
-        myFixture.editor.selectionModel.setBlockSelection(new LogicalPosition(caret.line + 1, caret.column), caret)
-      }
-      myFixture.completeBasic()
-      myFixture.checkResult '''
-  class Foo {{
-    return<caret>;
-    return;
-  }}'''
-    }
-    finally {
-      EditorTestUtil.enableMultipleCarets()
-    }
   }
 
   public void testMulticaretSingleItemInsertion() {
@@ -1496,5 +1485,15 @@ class Bar {
     myFixture.assertPreferredCompletionItems(0, "xcreateZoo", "xcreateElephant");
   }
 
+  public void "test code cleanup during completion generation"() {
+    myFixture.configureByText "a.java", "class Foo {int i; ge<caret>}"
+    myFixture.enableInspections(new UnqualifiedFieldAccessInspection())
+    myFixture.complete(CompletionType.BASIC)
+    myFixture.checkResult '''class Foo {int i;
 
+    public int getI() {
+        return this.i;
+    }
+}'''
+  }
 }

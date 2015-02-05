@@ -91,7 +91,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
     myToolbar = createActionsToolbar();
 
     myDetailsSplitter = new Splitter(true, 0.7f);
-    myDetailsSplitter.setFirstComponent(ScrollPaneFactory.createScrollPane(myGraphTable));
+    myDetailsSplitter.setFirstComponent(setupScrolledGraph());
     setupDetailsSplitter(myUiProperties.isShowDetails());
 
     JComponent toolbars = new JPanel(new BorderLayout());
@@ -156,6 +156,12 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
     myDetailsSplitter.setSecondComponent(state ? myDetailsPanel : null);
   }
 
+  private JScrollPane setupScrolledGraph() {
+    JScrollPane scrollPane = ScrollPaneFactory.createScrollPane(myGraphTable);
+    myGraphTable.viewportSet(scrollPane.getViewport());
+    return scrollPane;
+  }
+
   private static void setDefaultEmptyText(ChangesBrowser changesBrowser) {
     changesBrowser.getViewer().setEmptyText("");
   }
@@ -212,7 +218,7 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
     mainGroup.add(myFilterUi.createActionGroup());
     mainGroup.addSeparator();
     mainGroup.add(toolbarGroup);
-    ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(ActionPlaces.UNKNOWN, mainGroup, true);
+    ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(ActionPlaces.CHANGES_VIEW_TOOLBAR, mainGroup, true);
     toolbar.setTargetComponent(this);
     return toolbar.getComponent();
   }
@@ -265,6 +271,10 @@ public class MainFrame extends JPanel implements TypeSafeDataProvider {
 
   public boolean areGraphActionsEnabled() {
     return myGraphTable.getModel() instanceof GraphTableModel && myGraphTable.getRowCount() > 0;
+  }
+
+  public void onFiltersChange(@NotNull VcsLogFilterCollection filters) {
+    myBranchesPanel.onFiltersChange(filters);
   }
 
   private class CommitSelectionListener implements ListSelectionListener {

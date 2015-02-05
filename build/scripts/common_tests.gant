@@ -31,7 +31,7 @@ target(compile: "Compile project") {
   }
 
   loadProject()
-  projectBuilder.targetFolder = out
+  projectBuilder.targetFolder = projectBuilder.buildIncrementally ? "$home/out/incremental-build" : out
   projectBuilder.cleanOutput()
   projectBuilder.buildAll()
 }

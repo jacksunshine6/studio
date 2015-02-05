@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import com.intellij.codeInsight.intention.impl.config.IntentionActionWrapper;
 import com.intellij.codeInsight.intention.impl.config.IntentionManagerSettings;
 import com.intellij.codeInspection.IntentionWrapper;
 import com.intellij.codeInspection.LocalQuickFix;
+import com.intellij.codeInspection.SuppressIntentionActionFromFix;
 import com.intellij.codeInspection.ex.QuickFixWrapper;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
@@ -39,7 +40,8 @@ import com.intellij.openapi.util.Iconable;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.tree.injected.InjectedLanguageUtil;
 import com.intellij.psi.util.PsiUtilBase;
-import com.intellij.util.containers.ConcurrentHashSet;
+import com.intellij.util.ThreeState;
+import com.intellij.util.containers.ContainerUtil;
 import gnu.trove.THashSet;
 import gnu.trove.TObjectHashingStrategy;
 import org.jetbrains.annotations.NotNull;
@@ -54,10 +56,12 @@ import java.util.*;
 class IntentionListStep implements ListPopupStep<IntentionActionWithTextCaching>, SpeedSearchFilter<IntentionActionWithTextCaching> {
   private static final Logger LOG = Logger.getInstance("#com.intellij.codeInsight.intention.impl.IntentionListStep");
 
-  private final Set<IntentionActionWithTextCaching> myCachedIntentions = new ConcurrentHashSet<IntentionActionWithTextCaching>(ACTION_TEXT_AND_CLASS_EQUALS);
-  private final Set<IntentionActionWithTextCaching> myCachedErrorFixes = new ConcurrentHashSet<IntentionActionWithTextCaching>(ACTION_TEXT_AND_CLASS_EQUALS);
-  private final Set<IntentionActionWithTextCaching> myCachedInspectionFixes = new ConcurrentHashSet<IntentionActionWithTextCaching>(ACTION_TEXT_AND_CLASS_EQUALS);
-  private final Set<IntentionActionWithTextCaching> myCachedGutters = new ConcurrentHashSet<IntentionActionWithTextCaching>(ACTION_TEXT_AND_CLASS_EQUALS);
+  private final Set<IntentionActionWithTextCaching> myCachedIntentions =
+    ContainerUtil.newConcurrentSet(ACTION_TEXT_AND_CLASS_EQUALS);
+  private final Set<IntentionActionWithTextCaching> myCachedErrorFixes =
+    ContainerUtil.newConcurrentSet(ACTION_TEXT_AND_CLASS_EQUALS);
+  private final Set<IntentionActionWithTextCaching> myCachedInspectionFixes = ContainerUtil.newConcurrentSet(ACTION_TEXT_AND_CLASS_EQUALS);
+  private final Set<IntentionActionWithTextCaching> myCachedGutters = ContainerUtil.newConcurrentSet(ACTION_TEXT_AND_CLASS_EQUALS);
   private final IntentionManagerSettings mySettings;
   @Nullable
   private final IntentionHintComponent myIntentionHintComponent;
@@ -318,6 +322,11 @@ class IntentionListStep implements ListPopupStep<IntentionActionWithTextCaching>
     }
     if (a instanceof LowPriorityAction) {
       return group - 3;
+    }
+    if (a instanceof SuppressIntentionActionFromFix) {
+      if (((SuppressIntentionActionFromFix)a).isShouldBeAppliedToInjectionHost() == ThreeState.NO) {
+        return group - 1;
+      }
     }
     if (a instanceof QuickFixWrapper) {
       final LocalQuickFix quickFix = ((QuickFixWrapper)a).getFix();

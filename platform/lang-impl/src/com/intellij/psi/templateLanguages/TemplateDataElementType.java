@@ -72,7 +72,8 @@ public class TemplateDataElementType extends IFileElementType implements ITempla
   public ASTNode parseContents(ASTNode chameleon) {
     final CharTable table = SharedImplUtil.findCharTableByTree(chameleon);
     final FileElement treeElement = new DummyHolder(((TreeElement)chameleon).getManager(), null, table).getTreeElement();
-    final PsiFile file = (PsiFile)TreeUtil.getFileElement((TreeElement)chameleon).getPsi();
+    final FileElement fileElement = TreeUtil.getFileElement((TreeElement)chameleon);
+    final PsiFile file = (PsiFile)fileElement.getPsi();
     PsiFile originalFile = file.getOriginalFile();
 
     final TemplateLanguageFileViewProvider viewProvider = (TemplateLanguageFileViewProvider)originalFile.getViewProvider();
@@ -112,8 +113,10 @@ public class TemplateDataElementType extends IFileElementType implements ITempla
     DebugUtil.checkTreeStructure(parsed);
     DebugUtil.checkTreeStructure(treeElement);
     DebugUtil.checkTreeStructure(chameleon);
-    DebugUtil.checkTreeStructure(file.getNode());
-    DebugUtil.checkTreeStructure(originalFile.getNode());
+    if (fileElement != chameleon) {
+      DebugUtil.checkTreeStructure(file.getNode());
+      DebugUtil.checkTreeStructure(originalFile.getNode());
+    }
 
     return childNode;
   }

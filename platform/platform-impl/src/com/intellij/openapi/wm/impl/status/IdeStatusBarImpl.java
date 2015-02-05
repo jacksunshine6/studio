@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import com.intellij.ui.popup.NotificationPopup;
 import com.intellij.util.ArrayUtil;
 import com.intellij.util.Consumer;
 import com.intellij.util.containers.HashMap;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -152,8 +153,8 @@ public class IdeStatusBarImpl extends JComponent implements StatusBarEx {
   }
 
   IdeStatusBarImpl(@Nullable IdeStatusBarImpl master) {
-    setLayout(new BorderLayout(2, 0));
-    setBorder(BorderFactory.createEmptyBorder(1, 4, 0, SystemInfo.isMac ? 2 : 0));
+    setLayout(new BorderLayout(JBUI.scale(2), 0));
+    setBorder(JBUI.Borders.empty(1, 4, 0, SystemInfo.isMac ? 2 : 0));
 
     myInfoAndProgressPanel = new InfoAndProgressPanel();
     addWidget(myInfoAndProgressPanel, Position.CENTER);
@@ -393,7 +394,7 @@ public class IdeStatusBarImpl extends JComponent implements StatusBarEx {
     }
 
     if (Position.LEFT == pos && panel.getComponentCount() == 0) {
-      c.setBorder(SystemInfo.isMac ? BorderFactory.createEmptyBorder(2, 0, 2, 4) : BorderFactory.createEmptyBorder());
+      c.setBorder(SystemInfo.isMac ? JBUI.Borders.empty(2, 0, 2, 4) : JBUI.Borders.empty());
     }
 
     panel.add(c);
@@ -427,8 +428,8 @@ public class IdeStatusBarImpl extends JComponent implements StatusBarEx {
       final boolean nextIcon = n instanceof IconPresentationWrapper || n instanceof IconLikeCustomStatusBarWidget;
 
       // 2peter: please do not touch it anymore :)
-      self.setBorder(prevIcon ? BorderFactory.createEmptyBorder(2, 2, 2, 2) : StatusBarWidget.WidgetBorder.INSTANCE);
-      if (nextIcon) n.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+      self.setBorder(prevIcon ? JBUI.Borders.empty(2, 2, 2, 2) : StatusBarWidget.WidgetBorder.INSTANCE);
+      if (nextIcon) n.setBorder(JBUI.Borders.empty(2, 2, 2, 2));
     }
   }
 
@@ -838,7 +839,7 @@ public class IdeStatusBarImpl extends JComponent implements StatusBarEx {
     @Override
     protected void paintComponent(final Graphics g) {
       final Rectangle bounds = getBounds();
-      final Insets insets = getInsets();
+      final Insets insets = JBUI.insets(getInsets());
 
       if (myIcon != null) {
         final int iconWidth = myIcon.getIconWidth();
@@ -851,7 +852,7 @@ public class IdeStatusBarImpl extends JComponent implements StatusBarEx {
 
     @Override
     public Dimension getMinimumSize() {
-      return new Dimension(24, MIN_ICON_HEIGHT);
+      return JBUI.size(24, MIN_ICON_HEIGHT);
     }
 
     @Override

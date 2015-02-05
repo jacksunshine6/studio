@@ -2,59 +2,72 @@ package org.jetbrains.protocolReader;
 
 import gnu.trove.THashMap;
 import gnu.trove.THashSet;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 public class GlobalScope {
   private final State state;
 
-  public GlobalScope(Collection<TypeHandler<?>> typeHandlers, Collection<GeneratedCodeMap> basePackages) {
-    state = new State(typeHandlers, basePackages);
+  public GlobalScope(Collection<TypeWriter<?>> typeWriters, Collection<Map<Class<?>, String>> basePackages) {
+    state = new State(typeWriters, basePackages);
   }
 
   public GlobalScope(GlobalScope globalScope) {
     state = globalScope.state;
   }
 
-  public String getTypeImplReference(TypeHandler<?> typeHandler) {
-    return state.getTypeImplReference(typeHandler);
+  public String getTypeImplReference(TypeWriter<?> typeWriter) {
+    return state.getTypeImplReference(typeWriter);
   }
 
-  public String requireFactoryGenerationAndGetName(TypeHandler<?> typeHandler) {
-    return state.requireFactoryGenerationAndGetName(typeHandler);
+  public String requireFactoryGenerationAndGetName(TypeWriter<?> typeWriter) {
+    return state.requireFactoryGenerationAndGetName(typeWriter);
   }
 
-  public String getTypeImplShortName(TypeHandler<?> typeHandler) {
-    return state.getTypeImplShortName(typeHandler);
+  public String getTypeImplShortName(TypeWriter<?> typeWriter) {
+    return state.getTypeImplShortName(typeWriter);
   }
 
   public FileScope newFileScope(StringBuilder output) {
     return new FileScope(this, output);
   }
 
-  public List<TypeHandler<?>> getTypeFactories() {
+  public List<TypeWriter<?>> getTypeFactories() {
     return state.typesWithFactoriesList;
   }
 
   private static class State {
-    private final Map<TypeHandler<?>, String> typeToName;
-    private final Collection<GeneratedCodeMap> basePackages;
-    private final THashSet<TypeHandler<?>> typesWithFactories = new THashSet<>();
-    private final List<TypeHandler<?>> typesWithFactoriesList = new ArrayList<>();
+    private final Map<TypeWriter<?>, String> typeToName;
+    private final Collection<Map<Class<?>, String>> basePackages;
+    private final THashSet<TypeWriter<?>> typesWithFactories = new THashSet<>();
+    private final List<TypeWriter<?>> typesWithFactoriesList = new ArrayList<>();
 
-    State(Collection<TypeHandler<?>> typeHandlers, Collection<GeneratedCodeMap> basePackages) {
+    State(Collection<TypeWriter<?>> typeWriters, Collection<Map<Class<?>, String>> basePackages) {
       this.basePackages = basePackages;
-      typeToName = buildLocalTypeNameMap(typeHandlers);
+
+      int uniqueCode = 0;
+      Map<TypeWriter<?>, String> result = new THashMap<>(typeWriters.size());
+      for (TypeWriter<?> handler : typeWriters) {
+        String conflict = result.put(handler, Util.TYPE_NAME_PREFIX + Integer.toString(uniqueCode++));
+        if (conflict != null) {
+          throw new RuntimeException();
+        }
+      }
+      typeToName = result;
     }
 
-    String getTypeImplReference(TypeHandler<?> typeHandler) {
-      String localName = typeToName.get(typeHandler);
+    String getTypeImplReference(TypeWriter<?> typeWriter) {
+      String localName = typeToName.get(typeWriter);
       if (localName != null) {
         return localName;
       }
 
-      for (GeneratedCodeMap base : basePackages) {
-        String result = base.getTypeImplementationReference(typeHandler.getTypeClass());
+      for (Map<Class<?>, String> base : basePackages) {
+        String result = base.get(typeWriter.typeClass);
         if (result != null) {
           return result;
         }
@@ -63,45 +76,17 @@ public class GlobalScope {
       throw new RuntimeException();
     }
 
-    public String requireFactoryGenerationAndGetName(TypeHandler<?> typeHandler) {
-      String name = getTypeImplShortName(typeHandler);
-      if (typesWithFactories.add(typeHandler)) {
-        typesWithFactoriesList.add(typeHandler);
+    public String requireFactoryGenerationAndGetName(TypeWriter<?> typeWriter) {
+      String name = getTypeImplShortName(typeWriter);
+      if (typesWithFactories.add(typeWriter)) {
+        typesWithFactoriesList.add(typeWriter);
       }
       return name;
     }
 
-    String getTypeImplShortName(TypeHandler<?> typeHandler) {
-      String result = typeToName.get(typeHandler);
-      if (result == null) {
-        throw new RuntimeException();
-      }
-      return result;
-    }
-
-    private static Map<TypeHandler<?>, String> buildLocalTypeNameMap(Collection<TypeHandler<?>> typeHandlers) {
-      List<TypeHandler<?>> list = new ArrayList<>(typeHandlers);
-      // Sort to produce consistent GeneratedCodeMap later.
-      Collections.sort(list, new Comparator<TypeHandler<?>>() {
-        @Override
-        public int compare(TypeHandler<?> o1, TypeHandler<?> o2) {
-          return getName(o1).compareTo(getName(o2));
-        }
-
-        private String getName(TypeHandler<?> handler) {
-          return handler.getTypeClass().getName();
-        }
-      });
-
-      int uniqueCode = 0;
-      Map<TypeHandler<?>, String> result = new THashMap<>(list.size());
-      for (TypeHandler<?> handler : list) {
-        String conflict = result.put(handler, Util.TYPE_NAME_PREFIX + Integer.toString(uniqueCode++));
-        if (conflict != null) {
-          throw new RuntimeException();
-        }
-      }
-      return result;
+    @NotNull
+    String getTypeImplShortName(TypeWriter<?> typeWriter) {
+      return typeToName.get(typeWriter);
     }
   }
 }

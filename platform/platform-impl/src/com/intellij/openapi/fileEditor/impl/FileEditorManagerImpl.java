@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.ex.ApplicationManagerEx;
-import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.diagnostic.Logger;
@@ -75,7 +74,7 @@ import com.intellij.util.SmartList;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.messages.MessageBusConnection;
 import com.intellij.util.messages.impl.MessageListenerList;
-import com.intellij.util.ui.JBInsets;
+import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import com.intellij.util.ui.update.MergingUpdateQueue;
 import com.intellij.util.ui.update.Update;
@@ -244,11 +243,12 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
     if (myPanels == null) {
       synchronized (myInitLock) {
         if (myPanels == null) {
-          myPanels = new JPanel(new BorderLayout());
-          myPanels.setOpaque(false);
-          myPanels.setBorder(new MyBorder());
+          final JPanel panel = new JPanel(new BorderLayout());
+          panel.setOpaque(false);
+          panel.setBorder(new MyBorder());
           mySplitters = new EditorsSplitters(this, myDockManager, true);
-          myPanels.add(mySplitters, BorderLayout.CENTER);
+          panel.add(mySplitters, BorderLayout.CENTER);
+          myPanels = panel;
         }
       }
     }
@@ -269,7 +269,7 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
     @NotNull
     @Override
     public Insets getBorderInsets(Component c) {
-      return JBInsets.NONE;
+      return JBUI.emptyInsets();
     }
 
     @Override
@@ -636,14 +636,12 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
     }
 
     if (wndToOpenIn == null || !wndToOpenIn.isFileOpen(file)) {
-      PreviewManager previewManager = PreviewManager.SERVICE.getInstance(myProject);
-      if (previewManager != null) {
-        Pair<FileEditor[], FileEditorProvider[]> previewResult = previewManager.preview(FilePreviewPanelProvider.ID, file, focusEditor);
+      Pair<FileEditor[], FileEditorProvider[]> previewResult =
+        PreviewManager.SERVICE.preview(myProject, FilePreviewPanelProvider.ID, file, focusEditor);
         if (previewResult != null) {
           return previewResult;
         }
       }
-    }
 
     EditorsSplitters splitters = getSplitters();
 
@@ -748,7 +746,7 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
                                                          final boolean focusEditor,
                                                          final Boolean pin,
                                                          final int index) {
-    ApplicationManager.getApplication().assertReadAccessAllowed();
+    assert ApplicationManager.getApplication().isDispatchThread() || !ApplicationManager.getApplication().isReadAccessAllowed() : "must not open files under read action since we are doing a lot of invokeAndWaits here";
 
     final Ref<EditorWithProviderComposite> compositeRef = new Ref<EditorWithProviderComposite>();
 
@@ -764,7 +762,7 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
     if (compositeRef.isNull()) {
       // File is not opened yet. In this case we have to create editors
       // and select the created EditorComposite.
-      newProviders = getAvailableProviders(file);
+      newProviders = FileEditorProviderManager.getInstance().getProviders(myProject, file);
       if (newProviders.length == 0) {
         return Pair.create(EMPTY_EDITOR_ARRAY, EMPTY_PROVIDER_ARRAY);
       }
@@ -774,10 +772,16 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
         try {
           final FileEditorProvider provider = newProviders[i];
           LOG.assertTrue(provider != null, "Provider for file "+file+" is null. All providers: "+Arrays.asList(newProviders));
-          LOG.assertTrue(provider.accept(myProject, file), "Provider " + provider + " doesn't accept file " + file);
-          if (provider instanceof AsyncFileEditorProvider) {
-            builders[i] = ((AsyncFileEditorProvider)provider).createEditorAsync(myProject, file);
-          }
+          builders[i] = ApplicationManager.getApplication().runReadAction(new Computable<AsyncFileEditorProvider.Builder>() {
+            @Override
+            public AsyncFileEditorProvider.Builder compute() {
+              if (myProject.isDisposed() || !file.isValid()) {
+                return null;
+              }
+              LOG.assertTrue(provider.accept(myProject, file), "Provider " + provider + " doesn't accept file " + file);
+              return provider instanceof AsyncFileEditorProvider ? ((AsyncFileEditorProvider)provider).createEditorAsync(myProject, file) : null;
+            }
+          });
         }
         catch (ProcessCanceledException e) {
           throw e;
@@ -954,22 +958,6 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
         editor.setState(state);
       }
     }
-  }
-
-  @NotNull
-  private FileEditorProvider[] getAvailableProviders(@NotNull VirtualFile file) {
-    final FileEditorProviderManager editorProviderManager = FileEditorProviderManager.getInstance();
-    FileEditorProvider[] providers = editorProviderManager.getProviders(myProject, file);
-    if (DumbService.getInstance(myProject).isDumb()) {
-      final List<FileEditorProvider> dumbAware = ContainerUtil.findAll(providers, new Condition<FileEditorProvider>() {
-        @Override
-        public boolean value(FileEditorProvider fileEditorProvider) {
-          return DumbService.isDumbAware(fileEditorProvider);
-        }
-      });
-      providers = dumbAware.toArray(new FileEditorProvider[dumbAware.size()]);
-    }
-    return providers;
   }
 
   @NotNull
@@ -1435,7 +1423,7 @@ public class FileEditorManagerImpl extends FileEditorManagerEx implements Projec
               @Override
               public void run() {
 
-                LaterInvocator.invokeLater(new Runnable() {
+                ApplicationManager.getApplication().invokeLater(new Runnable() {
                   @Override
                   public void run() {
                     long currentTime = System.nanoTime();

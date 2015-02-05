@@ -274,12 +274,21 @@ public class JavaArrangementVisitor extends JavaRecursiveElementVisitor {
 
     final Set<PsiField> containingClassFields = classFields;
     fieldInitializer.accept(new JavaRecursiveElementVisitor() {
+      public int myCurrentMethodLookupDepth;
+      private static final int MAX_METHOD_LOOKUP_DEPTH = 3;
+
       @Override
       public void visitReferenceExpression(PsiReferenceExpression expression) {
         PsiElement ref = expression.resolve();
         if (ref instanceof PsiField && containingClassFields.contains(ref)) {
           referencedElements.add((PsiField)ref);
         }
+        else if (ref instanceof PsiMethod && myCurrentMethodLookupDepth < MAX_METHOD_LOOKUP_DEPTH) {
+          myCurrentMethodLookupDepth++;
+          visitMethod((PsiMethod)ref);
+          myCurrentMethodLookupDepth--;
+        }
+
         super.visitReferenceExpression(expression);
       }
     });
@@ -341,31 +350,11 @@ public class JavaArrangementVisitor extends JavaRecursiveElementVisitor {
 
   @Override
   public void visitClassInitializer(PsiClassInitializer initializer) {
-    JavaElementArrangementEntry entry = createNewEntry(initializer, initializer.getTextRange(), FIELD, null, true);
+    JavaElementArrangementEntry entry = createNewEntry(initializer, initializer.getTextRange(), INIT_BLOCK, null, true);
     if (entry == null) {
       return;
     }
-
-    PsiElement classLBrace = null;
-    PsiClass clazz = initializer.getContainingClass();
-    if (clazz != null) {
-      classLBrace = clazz.getLBrace();
-    }
-    for (PsiElement e = initializer.getPrevSibling(); e != null; e = e.getPrevSibling()) {
-      JavaElementArrangementEntry prevEntry;
-      if (e == classLBrace) {
-        prevEntry = myEntries.get(clazz);
-      }
-      else {
-        prevEntry = myEntries.get(e);
-      }
-      if (prevEntry != null) {
-        entry.addDependency(prevEntry);
-      }
-      if (!(e instanceof PsiWhiteSpace)) {
-        break;
-      }
-    }
+    parseModifiers(initializer.getModifierList(), entry);
   }
 
   @NotNull

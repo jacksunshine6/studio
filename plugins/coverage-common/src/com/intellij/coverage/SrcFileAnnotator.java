@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2000-2006 JetBrains s.r.o. All Rights Reserved.
+ * Copyright 2000-2015 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.intellij.coverage;
@@ -34,6 +46,12 @@ import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.LineTokenizer;
+import com.intellij.openapi.vcs.AbstractVcs;
+import com.intellij.openapi.vcs.FilePath;
+import com.intellij.openapi.vcs.actions.VcsContextFactory;
+import com.intellij.openapi.vcs.history.VcsFileRevision;
+import com.intellij.openapi.vcs.history.VcsHistoryProvider;
+import com.intellij.openapi.vcs.history.VcsHistorySession;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.reference.SoftReference;
@@ -46,6 +64,7 @@ import com.intellij.util.Alarm;
 import com.intellij.util.Function;
 import com.intellij.util.diff.Diff;
 import com.intellij.util.diff.FilesTooBigForDiffException;
+import com.intellij.vcsUtil.VcsUtil;
 import gnu.trove.TIntIntHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -194,11 +213,16 @@ public class SrcFileAnnotator implements Disposable {
     synchronized (LOCK) {
       if (myOldContent == null) {
         if (ApplicationManager.getApplication().isDispatchThread()) return null;
-        final byte[] byteContent = LocalHistory.getInstance().getByteContent(f, new FileRevisionTimestampComparator() {
+        final LocalHistory localHistory = LocalHistory.getInstance();
+        byte[] byteContent = localHistory.getByteContent(f, new FileRevisionTimestampComparator() {
           public boolean isSuitable(long revisionTimestamp) {
             return revisionTimestamp < date;
           }
         });
+
+        if (byteContent == null && f.getTimeStamp() > date) {
+          byteContent = loadFromVersionControl(date, f);
+        } 
         myOldContent = new SoftReference<byte[]>(byteContent);
       }
       oldContent = myOldContent.get();
@@ -211,7 +235,7 @@ public class SrcFileAnnotator implements Disposable {
     String[] oldLines = oldToNew ? coveredLines : currentLines;
     String[] newLines = oldToNew ? currentLines : coveredLines;
 
-    Diff.Change change = null;
+    Diff.Change change;
     try {
       change = Diff.buildChanges(oldLines, newLines);
     }
@@ -222,8 +246,46 @@ public class SrcFileAnnotator implements Disposable {
     return new SoftReference<TIntIntHashMap>(getCoverageVersionToCurrentLineMapping(change, oldLines.length));
   }
 
+  @Nullable
+  private byte[] loadFromVersionControl(long date, VirtualFile f) {
+    try {
+      final AbstractVcs vcs = VcsUtil.getVcsFor(myProject, f);
+      if (vcs == null) return null;
+
+      final VcsHistoryProvider historyProvider = vcs.getVcsHistoryProvider();
+      if (historyProvider == null) return null;
+
+      final FilePath filePath = VcsContextFactory.SERVICE.getInstance().createFilePathOn(f);
+      final VcsHistorySession session = historyProvider.createSessionFor(filePath);
+      if (session == null) return null;
+
+      final List<VcsFileRevision> list = session.getRevisionList();
+
+      if (list != null) {
+        for (VcsFileRevision revision : list) {
+          final Date revisionDate = revision.getRevisionDate();
+          if (revisionDate == null) {
+            return null;
+          }
+
+          if (revisionDate.getTime() < date) {
+            return revision.loadContent();
+          }
+        }
+      }
+    }
+    catch (Exception e) {
+      LOG.info(e);
+      return null;
+    }
+    return null;
+  }
+
   public void showCoverageInformation(final CoverageSuitesBundle suite) {
-    if (myEditor == null || myFile == null) return;
+    // Store the values of myFile and myEditor in local variables to avoid an NPE after dispose() has been called in the EDT.
+    final PsiFile psiFile = myFile;
+    final Editor editor = myEditor;
+    if (editor == null || psiFile == null) return;
     final MarkupModel markupModel = DocumentMarkupModel.forDocument(myDocument, myProject, true);
     final List<RangeHighlighter> highlighters = new ArrayList<RangeHighlighter>();
     final ProjectData data = suite.getCoverageData();
@@ -232,12 +294,13 @@ public class SrcFileAnnotator implements Disposable {
       return;
     }
     final CoverageEngine engine = suite.getCoverageEngine();
-    final Set<String> qualifiedNames = engine.getQualifiedNames(myFile);
+    final Set<String> qualifiedNames = engine.getQualifiedNames(psiFile);
 
     // let's find old content in local history and build mapping from old lines to new one
     // local history doesn't index libraries, so let's distinguish libraries content with other one
     final ProjectFileIndex projectFileIndex = ProjectRootManager.getInstance(myProject).getFileIndex();
-    final VirtualFile file = getVirtualFile();
+    final VirtualFile file = psiFile.getVirtualFile();
+    LOG.assertTrue(file != null);
 
     final long fileTimeStamp = file.getTimeStamp();
     final long coverageTimeStamp = suite.getLastCoverageTimeStamp();
@@ -269,7 +332,7 @@ public class SrcFileAnnotator implements Disposable {
       }
     }
 
-    if (myEditor.getUserData(COVERAGE_HIGHLIGHTERS) != null) {
+    if (editor.getUserData(COVERAGE_HIGHLIGHTERS) != null) {
       //highlighters already collected - no need to do it twice
       return;
     }
@@ -278,7 +341,7 @@ public class SrcFileAnnotator implements Disposable {
       @Nullable
       @Override
       public Module compute() {
-        return ModuleUtilCore.findModuleForPsiElement(myFile);
+        return ModuleUtilCore.findModuleForPsiElement(psiFile);
       }
     });
     if (module != null) {
@@ -294,7 +357,7 @@ public class SrcFileAnnotator implements Disposable {
     // now if oldToNewLineMapping is null we should use f(x)=id(x) mapping
 
     // E.g. all *.class files for java source file with several classes
-    final Set<File> outputFiles = engine.getCorrespondingOutputFiles(myFile, module, suite);
+    final Set<File> outputFiles = engine.getCorrespondingOutputFiles(psiFile, module, suite);
 
     final boolean subCoverageActive = CoverageDataManager.getInstance(myProject).isSubCoverageActive();
     final boolean coverageByTestApplicable = suite.isCoverageByTestApplicable() && !(subCoverageActive && suite.isCoverageByTestEnabled());
@@ -307,7 +370,7 @@ public class SrcFileAnnotator implements Disposable {
         if (fileData != null) {
           final Object[] lines = fileData.getLines();
           if (lines != null) {
-            final Object[] postProcessedLines = suite.getCoverageEngine().postProcessExecutableLines(lines, myEditor);
+            final Object[] postProcessedLines = suite.getCoverageEngine().postProcessExecutableLines(lines, editor);
             for (Object lineData : postProcessedLines) {
               if (lineData instanceof LineData) {
                 final int line = ((LineData)lineData).getLineNumber() - 1;
@@ -344,7 +407,7 @@ public class SrcFileAnnotator implements Disposable {
         }
         else if (outputFile != null &&
                  !subCoverageActive &&
-                 engine.includeUntouchedFileInCoverage(qualifiedName, outputFile, myFile, suite)) {
+                 engine.includeUntouchedFileInCoverage(qualifiedName, outputFile, psiFile, suite)) {
           collectNonCoveredFileInfo(outputFile, highlighters, markupModel, executableLines, coverageByTestApplicable);
         }
       }
@@ -353,7 +416,7 @@ public class SrcFileAnnotator implements Disposable {
     final HighlightersCollector collector = new HighlightersCollector();
     if (!outputFiles.isEmpty()) {
       for (File outputFile : outputFiles) {
-        final String qualifiedName = engine.getQualifiedName(outputFile, myFile);
+        final String qualifiedName = engine.getQualifiedName(outputFile, psiFile);
         if (qualifiedName != null) {
           collector.collect(outputFile, qualifiedName);
         }
@@ -367,7 +430,7 @@ public class SrcFileAnnotator implements Disposable {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       public void run() {
         if (myEditor != null && highlighters.size() > 0) {
-          myEditor.putUserData(COVERAGE_HIGHLIGHTERS, highlighters);
+          editor.putUserData(COVERAGE_HIGHLIGHTERS, highlighters);
         }
       }
     });
@@ -377,7 +440,7 @@ public class SrcFileAnnotator implements Disposable {
       public void documentChanged(final DocumentEvent e) {
         myNewToOldLines = null;
         myOldToNewLines = null;
-        List<RangeHighlighter> rangeHighlighters = myEditor.getUserData(COVERAGE_HIGHLIGHTERS);
+        List<RangeHighlighter> rangeHighlighters = editor.getUserData(COVERAGE_HIGHLIGHTERS);
         if (rangeHighlighters == null) rangeHighlighters = new ArrayList<RangeHighlighter>();
         int offset = e.getOffset();
         final int lineNumber = myDocument.getLineNumber(offset);
@@ -413,7 +476,7 @@ public class SrcFileAnnotator implements Disposable {
                         highlighters.add(rangeHighlighter);
                       }
                     }
-                    myEditor.putUserData(COVERAGE_HIGHLIGHTERS, highlighters.size() > 0 ? highlighters : null);
+                    editor.putUserData(COVERAGE_HIGHLIGHTERS, highlighters.size() > 0 ? highlighters : null);
                   }
                 });
               }
@@ -423,7 +486,7 @@ public class SrcFileAnnotator implements Disposable {
       }
     };
     myDocument.addDocumentListener(documentListener);
-    myEditor.putUserData(COVERAGE_DOCUMENT_LISTENER, documentListener);
+    editor.putUserData(COVERAGE_DOCUMENT_LISTENER, documentListener);
   }
 
   private static boolean classesArePresentInCoverageData(ProjectData data, Set<String> qualifiedNames) {

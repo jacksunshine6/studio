@@ -49,16 +49,29 @@ public class ClassPath {
   private final boolean myCanUseCache;
   private final boolean myAcceptUnescapedUrls;
   private final boolean myPreloadJarContents;
+  private final boolean myCanHavePersistentIndex;
+  @Nullable private final CachePoolImpl myCachePool;
+  @Nullable private final UrlClassLoader.CachingCondition myCachingCondition;
 
-  public ClassPath(List<URL> urls, boolean canLockJars, boolean canUseCache, boolean acceptUnescapedUrls, boolean preloadJarContents) {
+  public ClassPath(List<URL> urls,
+                   boolean canLockJars,
+                   boolean canUseCache,
+                   boolean acceptUnescapedUrls,
+                   boolean preloadJarContents,
+                   boolean canHavePersistentIndex,
+                   @Nullable CachePoolImpl cachePool,
+                   @Nullable UrlClassLoader.CachingCondition cachingCondition) {
     myCanLockJars = canLockJars;
     myCanUseCache = canUseCache;
     myAcceptUnescapedUrls = acceptUnescapedUrls;
     myPreloadJarContents = preloadJarContents;
+    myCachePool = cachePool;
+    myCachingCondition = cachingCondition;
+    myCanHavePersistentIndex = canHavePersistentIndex;
     push(urls);
   }
 
-  // Accessed by reflection from PluginClassLoader // TODO: do we need it?
+  /** @deprecated to be removed in IDEA 15 */
   void addURL(URL url) {
     push(Collections.singletonList(url));
   }
@@ -173,7 +186,7 @@ public class ClassPath {
     if (path != null && URLUtil.FILE_PROTOCOL.equals(url.getProtocol())) {
       File file = new File(path);
       if (file.isDirectory()) {
-        loader = new FileLoader(url, index);
+        loader = new FileLoader(url, index, myCanHavePersistentIndex);
       }
       else if (file.isFile()) {
         loader = new JarLoader(url, myCanLockJars, index, myPreloadJarContents);
@@ -181,9 +194,14 @@ public class ClassPath {
     }
 
     if (loader != null && myCanUseCache) {
-      ClasspathCache.LoaderData loaderData = new ClasspathCache.LoaderData(loader);
-      loader.buildCache(loaderData);
-      myCache.applyLoaderData(loaderData);
+      ClasspathCache.LoaderData data = myCachePool == null ? null : myCachePool.getCachedData(url);
+      if (data == null) {
+        data = loader.buildData();
+        if (myCachePool != null && myCachingCondition != null && myCachingCondition.shouldCacheData(url)) {
+          myCachePool.cacheData(url, data);
+        }
+      }
+      myCache.applyLoaderData(data, loader);
     }
 
     return loader;
@@ -237,7 +255,7 @@ public class ClassPath {
         }
         else {
           while ((loader = getLoader(myIndex++)) != null) {
-            if (!myCache.loaderHasName(myName, myShortName, loader)) continue;
+            if (myCanUseCache && !myCache.loaderHasName(myName, myShortName, loader)) continue;
             myRes = loader.getResource(myName, myCheck);
             if (myRes != null) return true;
           }

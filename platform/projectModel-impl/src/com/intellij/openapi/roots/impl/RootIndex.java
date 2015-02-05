@@ -34,7 +34,6 @@ import com.intellij.openapi.vfs.newvfs.events.VFileEvent;
 import com.intellij.util.CollectionQuery;
 import com.intellij.util.EmptyQuery;
 import com.intellij.util.Query;
-import com.intellij.util.containers.ConcurrentHashSet;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.MultiMap;
 import gnu.trove.TObjectIntHashMap;
@@ -64,7 +63,7 @@ public class RootIndex {
   };
 
   private final Map<String, List<VirtualFile>> myDirectoriesByPackageNameCache = ContainerUtil.newConcurrentMap();
-  private final Set<String> myNonExistentPackages = new ConcurrentHashSet<String>();
+  private final Set<String> myNonExistentPackages = ContainerUtil.newConcurrentSet();
   private final InfoCache myInfoCache;
   private final List<JpsModuleSourceRootType<?>> myRootTypes = ContainerUtil.newArrayList();
   private final TObjectIntHashMap<JpsModuleSourceRootType<?>> myRootTypeId = new TObjectIntHashMap<JpsModuleSourceRootType<?>>();
@@ -175,9 +174,9 @@ public class RootIndex {
     Map<VirtualFile, OrderEntry[]> result = myOrderEntries;
     if (result != null) return result;
 
-    MultiMap<VirtualFile, OrderEntry> libClassRootEntries = MultiMap.createSmartList();
-    MultiMap<VirtualFile, OrderEntry> libSourceRootEntries = MultiMap.createSmartList();
-    MultiMap<VirtualFile, OrderEntry> depEntries = MultiMap.createSmartList();
+    MultiMap<VirtualFile, OrderEntry> libClassRootEntries = MultiMap.createSmart();
+    MultiMap<VirtualFile, OrderEntry> libSourceRootEntries = MultiMap.createSmart();
+    MultiMap<VirtualFile, OrderEntry> depEntries = MultiMap.createSmart();
 
     for (final Module module : ModuleManager.getInstance(myProject).getModules()) {
       final ModuleRootManager moduleRootManager = ModuleRootManager.getInstance(module);
@@ -443,9 +442,9 @@ public class RootIndex {
     @NotNull final Map<VirtualFile, Module> contentRootOf = ContainerUtil.newHashMap();
     @NotNull final MultiMap<VirtualFile, Module> sourceRootOf = MultiMap.createSet();
     @NotNull final TObjectIntHashMap<VirtualFile> rootTypeId = new TObjectIntHashMap<VirtualFile>();
-    @NotNull final MultiMap<VirtualFile, Library> excludedFromLibraries = MultiMap.createSmartList();
-    @NotNull final MultiMap<VirtualFile, Library> classOfLibraries = MultiMap.createSmartList();
-    @NotNull final MultiMap<VirtualFile, Library> sourceOfLibraries = MultiMap.createSmartList();
+    @NotNull final MultiMap<VirtualFile, Library> excludedFromLibraries = MultiMap.createSmart();
+    @NotNull final MultiMap<VirtualFile, Library> classOfLibraries = MultiMap.createSmart();
+    @NotNull final MultiMap<VirtualFile, Library> sourceOfLibraries = MultiMap.createSmart();
     @NotNull final Set<VirtualFile> excludedFromProject = ContainerUtil.newHashSet();
     @NotNull final Map<VirtualFile, Module> excludedFromModule = ContainerUtil.newHashMap();
     @NotNull final Map<VirtualFile, String> packagePrefix = ContainerUtil.newHashMap();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,14 @@
  */
 package org.jetbrains.java.decompiler.main;
 
+import org.jetbrains.java.decompiler.code.CodeConstants;
 import org.jetbrains.java.decompiler.main.rels.ClassWrapper;
 import org.jetbrains.java.decompiler.main.rels.MethodWrapper;
 import org.jetbrains.java.decompiler.modules.decompiler.exps.Exprent;
 import org.jetbrains.java.decompiler.modules.decompiler.exps.InvocationExprent;
 import org.jetbrains.java.decompiler.modules.decompiler.exps.VarExprent;
 import org.jetbrains.java.decompiler.modules.decompiler.stats.Statement;
-import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionPaar;
+import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionPair;
 import org.jetbrains.java.decompiler.struct.StructClass;
 import org.jetbrains.java.decompiler.struct.StructField;
 import org.jetbrains.java.decompiler.struct.StructMethod;
@@ -48,7 +49,7 @@ public class EnumProcessor {
           wrapper.getHiddenMembers().add(InterpreterUtil.makeUniqueKey(name, descriptor));
         }
       }
-      else if ("<init>".equals(name)) {
+      else if (CodeConstants.INIT_NAME.equals(name)) {
         Statement firstData = findFirstData(method.root);
         if (firstData != null && !firstData.getExprents().isEmpty()) {
           Exprent exprent = firstData.getExprents().get(0);
@@ -101,9 +102,9 @@ public class EnumProcessor {
     if (inv.getFunctype() == InvocationExprent.TYP_INIT) {
       if (inv.getInstance().type == Exprent.EXPRENT_VAR) {
         VarExprent instvar = (VarExprent)inv.getInstance();
-        VarVersionPaar varpaar = new VarVersionPaar(instvar);
+        VarVersionPair varpaar = new VarVersionPair(instvar);
 
-        String classname = meth.varproc.getThisvars().get(varpaar);
+        String classname = meth.varproc.getThisVars().get(varpaar);
 
         if (classname != null) { // any this instance. TODO: Restrict to current class?
           if (!wrapper.getClassStruct().qualifiedName.equals(inv.getClassname())) {
