@@ -16,9 +16,9 @@
 package com.intellij.codeInsight.daemon;
 
 import com.intellij.codeInspection.LocalInspectionTool;
+import com.intellij.codeInspection.deadCode.UnusedDeclarationInspection;
 import com.intellij.codeInspection.uncheckedWarnings.UncheckedWarningLocalInspection;
 import com.intellij.codeInspection.unusedImport.UnusedImportLocalInspection;
-import com.intellij.codeInspection.unusedSymbol.UnusedSymbolLocalInspection;
 import com.intellij.openapi.projectRoots.JavaSdkVersion;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.roots.LanguageLevelProjectExtension;
@@ -32,10 +32,16 @@ import org.jetbrains.annotations.NotNull;
 public class GenericsHighlightingTest extends LightDaemonAnalyzerTestCase {
   @NonNls private static final String BASE_PATH = "/codeInsight/daemonCodeAnalyzer/genericsHighlighting";
 
+  @Override
+  protected void setUp() throws Exception {
+    super.setUp();
+    enableInspectionTool(new UnusedDeclarationInspection());
+  }
+
   @NotNull
   @Override
   protected LocalInspectionTool[] configureLocalInspectionTools() {
-    return new LocalInspectionTool[]{new UncheckedWarningLocalInspection(), new UnusedSymbolLocalInspection(), new UnusedImportLocalInspection()};
+    return new LocalInspectionTool[]{new UncheckedWarningLocalInspection(), new UnusedImportLocalInspection()};
   }
 
   @Override
@@ -433,6 +439,18 @@ public class GenericsHighlightingTest extends LightDaemonAnalyzerTestCase {
   }
 
   public void testExpectedTypeFromOuterArrayCreation() throws Exception {
+    doTest(LanguageLevel.JDK_1_7, JavaSdkVersion.JDK_1_7, false);
+  }
+
+  public void testDistinguishWildcardCapturesAlsoByMethodCalls() throws Exception {
+    doTest(LanguageLevel.JDK_1_7, JavaSdkVersion.JDK_1_7, false);
+  }
+
+  public void testSubstituteTypeParameterOfCapturedWildcardOnSubstitution() throws Exception {
+    doTest(LanguageLevel.JDK_1_7, JavaSdkVersion.JDK_1_7, false);
+  }
+
+  public void testAssignabilityBetweenWildcardsAndArrays() throws Exception {
     doTest(LanguageLevel.JDK_1_7, JavaSdkVersion.JDK_1_7, false);
   }
 

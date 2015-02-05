@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,30 +17,42 @@ package org.jetbrains.java.decompiler;
 
 import com.intellij.codeInsight.daemon.impl.IdentifierHighlighterPassFactory;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction;
+import com.intellij.execution.filters.LineNumbersMapping;
+import com.intellij.ide.highlighter.ArchiveFileType;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.PluginPathManager;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileTypes.StdFileTypes;
-import com.intellij.openapi.util.SystemInfo;
-import com.intellij.openapi.vfs.StandardFileSystems;
-import com.intellij.openapi.vfs.VfsUtilCore;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileVisitor;
+import com.intellij.openapi.progress.ProcessCanceledException;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.util.registry.Registry;
+import com.intellij.openapi.util.registry.RegistryValue;
+import com.intellij.openapi.vfs.*;
 import com.intellij.pom.Navigatable;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.compiled.ClassFileDecompilers;
 import com.intellij.psi.impl.compiled.ClsFileImpl;
 import com.intellij.testFramework.PlatformTestUtil;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
-import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.Alarm;
+import com.intellij.util.ThrowableRunnable;
+import com.intellij.util.io.URLUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Set;
+import java.awt.*;
 
 public class IdeaDecompilerTest extends LightCodeInsightFixtureTestCase {
+  @Override
+  protected void setUp() throws Exception {
+    super.setUp();
+    myFixture.setTestDataPath(PluginPathManager.getPluginHomePath("java-decompiler") + "/plugin/testData");
+  }
+
   public void testSimple() {
     String path = PlatformTestUtil.getRtJarPath() + "!/java/lang/String.class";
-    VirtualFile file = StandardFileSystems.jar().findFileByPath(path);
-    assertNotNull(path, file);
-
+    VirtualFile file = getTestFile(path);
     String decompiled = new IdeaDecompiler().getText(file).toString();
     assertTrue(decompiled, decompiled.startsWith(IdeaDecompiler.BANNER + "package java.lang;\n"));
     assertTrue(decompiled, decompiled.contains("public final class String"));
@@ -51,58 +63,26 @@ public class IdeaDecompilerTest extends LightCodeInsightFixtureTestCase {
   }
 
   public void testStubCompatibility() {
+    Registry.get("decompiler.dump.original.lines").setValue(true);
     String path = PlatformTestUtil.getRtJarPath() + "!/java";
-    VirtualFile dir = StandardFileSystems.jar().findFileByPath(path);
-    assertNotNull(path, dir);
+    VirtualFile dir = getTestFile(path);
     doTestStubCompatibility(dir);
+    Registry.get("decompiler.dump.original.lines").setValue(false);
   }
 
   private void doTestStubCompatibility(VirtualFile root) {
-    VfsUtilCore.visitChildrenRecursively(root, new VirtualFileVisitor() {
-      @Override
-      public boolean visitFile(@NotNull VirtualFile file) {
-        if (file.isDirectory()) {
-          System.out.println(file.getPath());
-        }
-        else if (file.getFileType() == StdFileTypes.CLASS && !file.getName().contains("$") && !skip(file)) {
-          PsiFile clsFile = getPsiManager().findFile(file);
-          assertNotNull(file.getPath(), clsFile);
-          PsiElement mirror = ((ClsFileImpl)clsFile).getMirror();
-          String decompiled = mirror.getText();
-          assertTrue(file.getPath(), decompiled.contains(file.getNameWithoutExtension()));
-        }
-        return true;
-      }
-
-      private boolean skip(VirtualFile file) {
-        if (!SystemInfo.isJavaVersionAtLeast("1.8")) return false;
-        String path = file.getPath();
-        int p = path.indexOf("!/");
-        return p > 0 && knowProblems.contains(path.substring(p + 2));
-      }
-
-      // todo[r.sh] drop when IDEA-129734 get fixed
-      private final Set<String> knowProblems = ContainerUtil.newHashSet(
-        "java/lang/reflect/AnnotatedElement.class", "java/util/stream/Nodes.class", "java/util/stream/FindOps.class",
-        "java/util/stream/Collectors.class", "java/util/stream/DistinctOps.class", "java/util/stream/IntPipeline.class",
-        "java/util/stream/LongPipeline.class", "java/util/stream/DoublePipeline.class"
-      );
-    });
+    VfsUtilCore.visitChildrenRecursively(root, new MyFileVisitor());
   }
 
   public void testNavigation() {
-    VirtualFile file = getTestFile("Navigation.class");
-    myFixture.openFileInEditor(file);
-
+    myFixture.openFileInEditor(getTestFile("Navigation.class"));
     doTestNavigation(11, 14, 14, 10);  // to "m2()"
     doTestNavigation(15, 21, 14, 17);  // to "int i"
     doTestNavigation(16, 28, 15, 13);  // to "int r"
   }
 
   public void testHighlighting() {
-    VirtualFile file = getTestFile("Navigation.class");
-    myFixture.openFileInEditor(file);
-
+    myFixture.openFileInEditor(getTestFile("Navigation.class"));
     IdentifierHighlighterPassFactory.doWithHighlightingEnabled(new Runnable() {
       public void run() {
         myFixture.getEditor().getCaretModel().moveToOffset(offset(11, 14));  // m2(): usage, declaration
@@ -117,9 +97,10 @@ public class IdeaDecompilerTest extends LightCodeInsightFixtureTestCase {
     });
   }
 
-  private static VirtualFile getTestFile(String name) {
-    String path = PluginPathManager.getPluginHomePath("java-decompiler") + "/plugin/testData/" + name;
-    VirtualFile file = StandardFileSystems.local().findFileByPath(path);
+  private VirtualFile getTestFile(String name) {
+    String path = FileUtil.isAbsolute(name) ? name : myFixture.getTestDataPath() + "/" + name;
+    VirtualFileSystem fs = path.contains(URLUtil.JAR_SEPARATOR) ? StandardFileSystems.jar() : StandardFileSystems.local();
+    VirtualFile file = fs.refreshAndFindFileByPath(path);
     assertNotNull(path, file);
     return file;
   }
@@ -134,5 +115,101 @@ public class IdeaDecompilerTest extends LightCodeInsightFixtureTestCase {
 
   private int offset(int line, int column) {
     return myFixture.getEditor().getDocument().getLineStartOffset(line - 1) + column - 1;
+  }
+
+  public void testLineNumberMapping() {
+    RegistryValue value = Registry.get("decompiler.use.line.mapping");
+    boolean old = value.asBoolean();
+    try {
+      value.setValue(true);
+
+      VirtualFile file = getTestFile("LineNumbers.class");
+      assertNull(file.getUserData(LineNumbersMapping.LINE_NUMBERS_MAPPING_KEY));
+
+      new IdeaDecompiler().getText(file);
+
+      LineNumbersMapping mapping = file.getUserData(LineNumbersMapping.LINE_NUMBERS_MAPPING_KEY);
+      assertNotNull(mapping);
+      assertEquals(11, mapping.bytecodeToSource(3));
+      assertEquals(23, mapping.bytecodeToSource(13));
+    }
+    finally {
+      value.setValue(old);
+    }
+  }
+
+  public void testPerformance() {
+    final IdeaDecompiler decompiler = new IdeaDecompiler();
+    final VirtualFile file = getTestFile(PlatformTestUtil.getRtJarPath() + "!/javax/swing/JTable.class");
+    PlatformTestUtil.startPerformanceTest("decompiling JTable.class", 2500, new ThrowableRunnable() {
+      @Override
+      public void run() throws Throwable {
+        decompiler.getText(file);
+      }
+    }).cpuBound().assertTiming();
+  }
+
+  public void testCancellation() {
+    if (GraphicsEnvironment.isHeadless()) {
+      System.err.println("** skipped in headless env.");
+      return;
+    }
+
+    final VirtualFile file = getTestFile(PlatformTestUtil.getRtJarPath() + "!/javax/swing/JTable.class");
+
+    final IdeaDecompiler decompiler = (IdeaDecompiler)ClassFileDecompilers.find(file);
+    assertNotNull(decompiler);
+
+    final Alarm alarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, getProject());
+    alarm.addRequest(new Runnable() {
+      @Override
+      public void run() {
+        ProgressIndicator progress = decompiler.getProgress(file);
+        if (progress != null) {
+          progress.cancel();
+        }
+        else {
+          alarm.addRequest(this, 200, ModalityState.any());
+        }
+      }
+    }, 750, ModalityState.any());
+
+    try {
+      FileDocumentManager.getInstance().getDocument(file);
+      fail("should have been cancelled");
+    }
+    catch (ProcessCanceledException ignored) { }
+  }
+
+  private class MyFileVisitor extends VirtualFileVisitor {
+    @Override
+    public boolean visitFile(@NotNull VirtualFile file) {
+      if (file.isDirectory()) {
+        System.out.println(file.getPath());
+      }
+      else if (file.getFileType() == StdFileTypes.CLASS && !file.getName().contains("$")) {
+        PsiFile clsFile = getPsiManager().findFile(file);
+        assertNotNull(file.getPath(), clsFile);
+        PsiElement mirror = ((ClsFileImpl)clsFile).getMirror();
+        String decompiled = mirror.getText();
+        assertTrue(file.getPath(), decompiled.contains(file.getNameWithoutExtension()));
+
+        // check that no mapped line number is on an empty line
+        String prefix = "// ";
+        for (String s : decompiled.split("\n")) {
+          int pos = s.indexOf(prefix);
+          if (pos == 0 && prefix.length() < s.length() && Character.isDigit(s.charAt(prefix.length()))) {
+            fail("Incorrect line mapping in file " + file.getPath() + " line: " + s);
+          }
+        }
+      }
+      else if (ArchiveFileType.INSTANCE.equals(file.getFileType())) {
+        VirtualFile jarFile = StandardFileSystems.getJarRootForLocalFile(file);
+        if (jarFile != null) {
+          VfsUtilCore.visitChildrenRecursively(jarFile, new MyFileVisitor());
+        }
+      }
+      return true;
+    }
   }
 }

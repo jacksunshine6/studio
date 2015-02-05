@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import com.intellij.psi.codeStyle.VariableKind;
 import com.intellij.psi.controlFlow.ControlFlowUtil;
-import com.intellij.psi.impl.source.PsiImmediateClassType;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.LocalSearchScope;
 import com.intellij.psi.search.SearchScope;
@@ -46,8 +45,6 @@ import com.intellij.psi.util.PsiUtil;
 import com.intellij.psi.util.PsiUtilCore;
 import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.HelpID;
-import com.intellij.refactoring.changeSignature.ChangeSignatureProcessor;
-import com.intellij.refactoring.changeSignature.ParameterInfoImpl;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
 import com.intellij.refactoring.extractMethod.AbstractExtractDialog;
 import com.intellij.refactoring.extractMethod.ExtractMethodProcessor;
@@ -55,7 +52,6 @@ import com.intellij.refactoring.ui.MemberSelectionPanel;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.classMembers.MemberInfo;
 import com.intellij.refactoring.util.duplicates.Match;
-import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usageView.UsageViewDescriptor;
 import com.intellij.usageView.UsageViewUtil;
@@ -230,8 +226,7 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
           return panel;
         }
       };
-      dlg.show();
-      if (dlg.isOK()) {
+      if (dlg.showAndGet()) {
         ApplicationManager.getApplication().runWriteAction(new Runnable() {
           public void run() {
             for (MemberInfoBase<PsiMember> memberInfo : panel.getTable().getSelectedMemberInfos()) {
@@ -651,6 +646,10 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
   public PsiClass getInnerClass() {
     return myInnerClass;
   }
+  
+  protected boolean isFoldingApplicable() {
+    return true;
+  }
 
   public class MyExtractMethodProcessor extends ExtractMethodProcessor {
 
@@ -663,6 +662,16 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
                                         String helpId) {
       super(project, editor, elements, forcedReturnType, refactoringName, initialMethodName, helpId);
 
+    }
+
+    @Override
+    protected boolean insertNotNullCheckIfPossible() {
+      return false;
+    }
+
+    @Override
+    protected boolean isNeedToChangeCallContext() {
+      return false;
     }
 
     @Override
@@ -750,11 +759,6 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
     }
 
     @Override
-    protected boolean isNeedToChangeCallContext() {
-      return false;
-    }
-
-    @Override
     protected void declareNecessaryVariablesAfterCall(final PsiVariable outputVariable) throws IncorrectOperationException {
       if (myMultipleExitPoints) {
         final String object = JavaCodeStyleManager.getInstance(myProject).suggestUniqueVariableName(StringUtil.decapitalize(myInnerClassName), outputVariable, true);
@@ -781,8 +785,9 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
           PsiStatement st = null;
           final String pureName = getPureName(variable);
           final int varIdxInOutput = ArrayUtil.find(myOutputVariables, variable);
-          final String getterName = varIdxInOutput > -1 && myOutputFields[varIdxInOutput] != null ? PropertyUtil.suggestGetterName(
-            myOutputFields[varIdxInOutput]) : PropertyUtil.suggestGetterName(pureName, variable.getType());
+          final String getterName = varIdxInOutput > -1 && myOutputFields[varIdxInOutput] != null 
+                                    ? GenerateMembersUtil.suggestGetterName(myOutputFields[varIdxInOutput]) 
+                                    : GenerateMembersUtil.suggestGetterName(pureName, variable.getType(), myProject);
           if (isDeclaredInside(variable)) {
             st = myElementFactory.createStatementFromText(
               variable.getType().getCanonicalText() + " " + name + " = " + object + "." + getterName + "();",
@@ -816,6 +821,11 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
       }
     }
 
+    @Override
+    protected boolean isFoldingApplicable() {
+      return ExtractMethodObjectProcessor.this.isFoldingApplicable();
+    }
+
     private void rebindExitStatement(final String objectName) {
       final PsiStatement exitStatementCopy = myExtractProcessor.myFirstExitStatementCopy;
       if (exitStatementCopy != null) {
@@ -832,7 +842,8 @@ public class ExtractMethodObjectProcessor extends BaseRefactoringProcessor {
             if (expression.resolve() == null) {
               final PsiVariable variable = outVarsNames.get(expression.getReferenceName());
               if (variable != null) {
-                final String call2Getter = objectName + "." + PropertyUtil.suggestGetterName(getPureName(variable), variable.getType()) + "()";
+                final String call2Getter = objectName + "." + GenerateMembersUtil.suggestGetterName(getPureName(variable), variable.getType(),
+                                                                                                    myProject) + "()";
                 final PsiExpression callToGetter = myElementFactory.createExpressionFromText(call2Getter, variable);
                 replaceMap.put(expression, callToGetter);
               }

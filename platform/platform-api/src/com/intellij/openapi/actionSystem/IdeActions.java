@@ -33,11 +33,15 @@ public interface IdeActions {
   @NonNls String ACTION_EDITOR_SPLIT = "EditorSplitLine";
   @NonNls String ACTION_EDITOR_MOVE_LINE_START = "EditorLineStart";
   @NonNls String ACTION_EDITOR_MOVE_LINE_END = "EditorLineEnd";
+  @NonNls String ACTION_EDITOR_MOVE_LINE_START_WITH_SELECTION = "EditorLineStartWithSelection";
+  @NonNls String ACTION_EDITOR_MOVE_LINE_END_WITH_SELECTION = "EditorLineEndWithSelection";
   @NonNls String ACTION_EDITOR_SELECT_WORD_AT_CARET = "EditorSelectWord";
   @NonNls String ACTION_EDITOR_UNSELECT_WORD_AT_CARET = "EditorUnSelectWord";
   @NonNls String ACTION_EDITOR_BACKSPACE = "EditorBackSpace";
   @NonNls String ACTION_EDITOR_MOVE_CARET_LEFT_WITH_SELECTION = "EditorLeftWithSelection";
   @NonNls String ACTION_EDITOR_MOVE_CARET_RIGHT_WITH_SELECTION = "EditorRightWithSelection";
+  @NonNls String ACTION_EDITOR_MOVE_CARET_UP_WITH_SELECTION = "EditorUpWithSelection";
+  @NonNls String ACTION_EDITOR_MOVE_CARET_DOWN_WITH_SELECTION = "EditorDownWithSelection";
   @NonNls String ACTION_EDITOR_MOVE_CARET_UP = "EditorUp";
   @NonNls String ACTION_EDITOR_MOVE_CARET_LEFT = "EditorLeft";
   @NonNls String ACTION_EDITOR_MOVE_CARET_DOWN = "EditorDown";
@@ -49,12 +53,14 @@ public interface IdeActions {
   @NonNls String ACTION_EDITOR_NEXT_WORD_WITH_SELECTION = "EditorNextWordWithSelection";
   @NonNls String ACTION_EDITOR_PREVIOUS_WORD_WITH_SELECTION = "EditorPreviousWordWithSelection";
   @NonNls String ACTION_EDITOR_TAB = "EditorTab";
+  @NonNls String ACTION_EDITOR_EMACS_TAB = "EmacsStyleIndent";
   @NonNls String ACTION_EDITOR_ESCAPE = "EditorEscape";
   @NonNls String ACTION_EDITOR_JOIN_LINES = "EditorJoinLines";
   @NonNls String ACTION_EDITOR_COMPLETE_STATEMENT = "EditorCompleteStatement";
   @NonNls String ACTION_EDITOR_USE_SOFT_WRAPS = "EditorToggleUseSoftWraps";
   @NonNls String ACTION_EDITOR_ADD_OR_REMOVE_CARET= "EditorAddOrRemoveCaret";
   @NonNls String ACTION_EDITOR_CREATE_RECTANGULAR_SELECTION= "EditorCreateRectangularSelection";
+  @NonNls String ACTION_EDITOR_ADD_RECTANGULAR_SELECTION_ON_MOUSE_DRAG= "EditorAddRectangularSelectionOnMouseDrag";
   @NonNls String ACTION_EDITOR_CLONE_CARET_BELOW= "EditorCloneCaretBelow";
   @NonNls String ACTION_EDITOR_CLONE_CARET_ABOVE= "EditorCloneCaretAbove";
   @NonNls String ACTION_EDITOR_TOGGLE_STICKY_SELECTION= "EditorToggleStickySelection";
@@ -88,6 +94,7 @@ public interface IdeActions {
   @NonNls String ACTION_CHOOSE_LOOKUP_ITEM_DOT = "EditorChooseLookupItemDot";
   @NonNls String ACTION_EXPAND_LIVE_TEMPLATE_BY_TAB = "ExpandLiveTemplateByTab";
   @NonNls String ACTION_EXPAND_LIVE_TEMPLATE_CUSTOM = "ExpandLiveTemplateCustom";
+  @NonNls String ACTION_UPDATE_TAG_WITH_EMMET = "EmmetUpdateTag";
 
   @NonNls String ACTION_LOOKUP_UP = "EditorLookupUp";
   @NonNls String ACTION_LOOKUP_DOWN = "EditorLookupDown";

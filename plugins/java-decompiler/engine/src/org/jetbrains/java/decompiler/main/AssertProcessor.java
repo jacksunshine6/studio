@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ public class AssertProcessor {
 
   public static void buildAssertions(ClassNode node) {
 
-    ClassWrapper wrapper = node.wrapper;
+    ClassWrapper wrapper = node.getWrapper();
 
     StructField field = findAssertionField(node);
 
@@ -67,7 +67,7 @@ public class AssertProcessor {
 
   private static StructField findAssertionField(ClassNode node) {
 
-    ClassWrapper wrapper = node.wrapper;
+    ClassWrapper wrapper = node.getWrapper();
 
     boolean noSynthFlag = DecompilerContext.getOption(IFernflowerPreferences.SYNTHETIC_NOT_SET);
 
@@ -89,7 +89,7 @@ public class AssertProcessor {
             if (initializer.type == Exprent.EXPRENT_FUNCTION) {
               FunctionExprent fexpr = (FunctionExprent)initializer;
 
-              if (fexpr.getFunctype() == FunctionExprent.FUNCTION_BOOLNOT &&
+              if (fexpr.getFuncType() == FunctionExprent.FUNCTION_BOOL_NOT &&
                   fexpr.getLstOperands().get(0).type == Exprent.EXPRENT_INVOCATION) {
 
                 InvocationExprent invexpr = (InvocationExprent)fexpr.getLstOperands().get(0);
@@ -101,11 +101,11 @@ public class AssertProcessor {
                     invexpr.getLstParameters().isEmpty()) {
 
                   ConstExprent cexpr = (ConstExprent)invexpr.getInstance();
-                  if (VarType.VARTYPE_CLASS.equals(cexpr.getConsttype())) {
+                  if (VarType.VARTYPE_CLASS.equals(cexpr.getConstType())) {
 
                     ClassNode nd = node;
                     while (nd != null) {
-                      if (nd.wrapper.getClassStruct().qualifiedName.equals(cexpr.getValue())) {
+                      if (nd.getWrapper().getClassStruct().qualifiedName.equals(cexpr.getValue())) {
                         break;
                       }
                       nd = nd.parent;
@@ -173,8 +173,7 @@ public class AssertProcessor {
 
     Exprent ascond = null, retcond = null;
     if (exprres[0] != null) {
-      ascond = new FunctionExprent(FunctionExprent.FUNCTION_BOOLNOT,
-                                   Arrays.asList(new Exprent[]{(Exprent)exprres[0]}));
+      ascond = new FunctionExprent(FunctionExprent.FUNCTION_BOOL_NOT, (Exprent)exprres[0], throwError.bytecode);
       retcond = SecondaryFunctionsHelper.propagateBoolNot(ascond);
     }
 
@@ -245,9 +244,9 @@ public class AssertProcessor {
 
     if (expr.type == Exprent.EXPRENT_EXIT) {
       ExitExprent exexpr = (ExitExprent)expr;
-      if (exexpr.getExittype() == ExitExprent.EXIT_THROW && exexpr.getValue().type == Exprent.EXPRENT_NEW) {
+      if (exexpr.getExitType() == ExitExprent.EXIT_THROW && exexpr.getValue().type == Exprent.EXPRENT_NEW) {
         NewExprent nexpr = (NewExprent)exexpr.getValue();
-        if (CLASS_ASSERTION_ERROR.equals(nexpr.getNewtype()) && nexpr.getConstructor() != null) {
+        if (CLASS_ASSERTION_ERROR.equals(nexpr.getNewType()) && nexpr.getConstructor() != null) {
           return nexpr.getConstructor();
         }
       }
@@ -260,7 +259,7 @@ public class AssertProcessor {
 
     if (exprent.type == Exprent.EXPRENT_FUNCTION) {
       FunctionExprent fexpr = (FunctionExprent)exprent;
-      if (fexpr.getFunctype() == FunctionExprent.FUNCTION_CADD) {
+      if (fexpr.getFuncType() == FunctionExprent.FUNCTION_CADD) {
 
         for (int i = 0; i < 2; i++) {
           Exprent param = fexpr.getLstOperands().get(i);
@@ -295,7 +294,7 @@ public class AssertProcessor {
 
     if (exprent.type == Exprent.EXPRENT_FUNCTION) {
       FunctionExprent fparam = (FunctionExprent)exprent;
-      if (fparam.getFunctype() == FunctionExprent.FUNCTION_BOOLNOT &&
+      if (fparam.getFuncType() == FunctionExprent.FUNCTION_BOOL_NOT &&
           fparam.getLstOperands().get(0).type == Exprent.EXPRENT_FIELD) {
         FieldExprent fdparam = (FieldExprent)fparam.getLstOperands().get(0);
         if (classname.equals(fdparam.getClassname())

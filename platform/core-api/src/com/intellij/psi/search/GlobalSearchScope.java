@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ public abstract class GlobalSearchScope extends SearchScope implements ProjectAw
   /**
    * @return a positive integer (+1), if file1 is located in the classpath before file2,
    *         a negative integer (-1), if file1 is located in the classpath after file2
-   *         zero - otherwise or when the file are not comparable.
+   *         zero - otherwise or when the files are not comparable.
    */
   public abstract int compare(@NotNull VirtualFile file1, @NotNull VirtualFile file2);
 
@@ -174,22 +174,42 @@ public abstract class GlobalSearchScope extends SearchScope implements ProjectAw
 
   @NotNull
   public static GlobalSearchScope notScope(@NotNull final GlobalSearchScope scope) {
-    return new DelegatingGlobalSearchScope(scope) {
-      @Override
-      public boolean contains(@NotNull final VirtualFile file) {
-        return !myBaseScope.contains(file);
-      }
+    return new NotScope(scope);
+  }
+  private static class NotScope extends DelegatingGlobalSearchScope {
+    private NotScope(@NotNull GlobalSearchScope scope) {
+      super(scope);
+    }
 
-      @Override
-      public boolean isSearchOutsideRootModel() {
-        return true;
-      }
+    @Override
+    public boolean contains(@NotNull VirtualFile file) {
+      return !myBaseScope.contains(file);
+    }
 
-      @Override
-      public String toString() {
-        return "NOT: "+myBaseScope;
-      }
-    };
+    @Override
+    public boolean isSearchInLibraries() {
+      return !myBaseScope.isSearchInLibraries();
+    }
+
+    @Override
+    public boolean isSearchInModuleContent(@NotNull Module aModule, boolean testSources) {
+      return !myBaseScope.isSearchInModuleContent(aModule, testSources);
+    }
+
+    @Override
+    public boolean isSearchInModuleContent(@NotNull Module aModule) {
+      return !myBaseScope.isSearchInModuleContent(aModule);
+    }
+
+    @Override
+    public boolean isSearchOutsideRootModel() {
+      return true;
+    }
+
+    @Override
+    public String toString() {
+      return "NOT: "+myBaseScope;
+    }
   }
 
   /**
@@ -288,12 +308,12 @@ public abstract class GlobalSearchScope extends SearchScope implements ProjectAw
     };
   }
 
-  static class IntersectionScope extends GlobalSearchScope {
+  private static class IntersectionScope extends GlobalSearchScope {
     private final GlobalSearchScope myScope1;
     private final GlobalSearchScope myScope2;
     private final String myDisplayName;
 
-    IntersectionScope(@NotNull GlobalSearchScope scope1, @NotNull GlobalSearchScope scope2, String displayName) {
+    private IntersectionScope(@NotNull GlobalSearchScope scope1, @NotNull GlobalSearchScope scope2, String displayName) {
       super(scope1.getProject() == null ? scope2.getProject() : scope1.getProject());
       myScope1 = scope1;
       myScope2 = scope2;
@@ -654,8 +674,7 @@ public abstract class GlobalSearchScope extends SearchScope implements ProjectAw
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      return o instanceof FilesScope && myFiles.equals(((FilesScope)o).myFiles);
+      return this == o || o instanceof FilesScope && myFiles.equals(((FilesScope)o).myFiles);
     }
 
     @Override

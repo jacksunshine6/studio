@@ -27,8 +27,11 @@ import com.intellij.util.UriUtil;
 import com.intellij.util.io.URLUtil;
 import com.intellij.util.net.NetUtils;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.stream.ChunkedStream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.ide.HttpRequestHandler;
@@ -39,7 +42,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import static org.jetbrains.io.Responses.sendOptionsResponse;
+import static org.jetbrains.io.Responses.addKeepAliveIfNeed;
 import static org.jetbrains.io.Responses.sendStatus;
 
 public final class BuiltInWebServer extends HttpRequestHandler {
@@ -75,16 +78,11 @@ public final class BuiltInWebServer extends HttpRequestHandler {
 
   @Override
   public boolean isSupported(@NotNull FullHttpRequest request) {
-    return super.isSupported(request) || request.method() == HttpMethod.POST || request.method() == HttpMethod.OPTIONS;
+    return super.isSupported(request) || request.method() == HttpMethod.POST;
   }
 
   @Override
   public boolean process(@NotNull QueryStringDecoder urlDecoder, @NotNull FullHttpRequest request, @NotNull ChannelHandlerContext context) {
-    if (request.method() == HttpMethod.OPTIONS) {
-      sendOptionsResponse("GET, POST, HEAD, OPTIONS", request, context);
-      return true;
-    }
-
     String host = HttpHeaders.getHost(request);
     if (StringUtil.isEmpty(host)) {
       return false;
@@ -168,7 +166,6 @@ public final class BuiltInWebServer extends HttpRequestHandler {
     }
 
     final String path = FileUtil.toCanonicalPath(decodedPath.substring(offset + 1), '/');
-    LOG.assertTrue(path != null);
 
     for (WebServerPathHandler pathHandler : WebServerPathHandler.EP_NAME.getExtensions()) {
       try {
@@ -190,12 +187,36 @@ public final class BuiltInWebServer extends HttpRequestHandler {
                            @NotNull Project project,
                            @NotNull FullHttpRequest request,
                            @NotNull Channel channel) throws IOException {
-      File ioFile = VfsUtilCore.virtualToIoFile(file);
-      if (hasAccess(ioFile)) {
-        FileResponses.sendFile(request, channel, ioFile);
+      if (file.isInLocalFileSystem()) {
+        File ioFile = VfsUtilCore.virtualToIoFile(file);
+        if (hasAccess(ioFile)) {
+          FileResponses.sendFile(request, channel, ioFile);
+        }
+        else {
+          sendStatus(HttpResponseStatus.FORBIDDEN, channel, request);
+        }
       }
       else {
-        sendStatus(HttpResponseStatus.FORBIDDEN, channel, request);
+        HttpResponse response = FileResponses.prepareSend(request, channel, file.getTimeStamp(), file.getPath());
+        if (response == null) {
+          return true;
+        }
+
+        boolean keepAlive = addKeepAliveIfNeed(response, request);
+        if (request.method() != HttpMethod.HEAD) {
+          HttpHeaders.setContentLength(response, file.getLength());
+        }
+
+        channel.write(response);
+
+        if (request.method() != HttpMethod.HEAD) {
+          channel.write(new ChunkedStream(file.getInputStream()));
+        }
+
+        ChannelFuture future = channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+        if (!keepAlive) {
+          future.addListener(ChannelFutureListener.CLOSE);
+        }
       }
       return true;
     }

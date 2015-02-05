@@ -23,7 +23,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.fileTypes.FileTypes;
@@ -137,21 +136,20 @@ public class VcsUtil {
   }
 
   @Nullable
-  public static AbstractVcs getVcsFor(final Project project, final FilePath file) {
-    final AbstractVcs[] vcss = new AbstractVcs[ 1 ];
-
+  public static AbstractVcs getVcsFor(@NotNull final Project project, final FilePath file) {
+    final AbstractVcs[] vcss = new AbstractVcs[1];
     ApplicationManager.getApplication().runReadAction(new Runnable() {
+      @Override
       public void run() {
         //  IDEADEV-17916, when e.g. ContentRevision.getContent is called in
         //  a future task after the component has been disposed.
-        if( !project.isDisposed() )
-        {
-          ProjectLevelVcsManager mgr = ProjectLevelVcsManager.getInstance( project );
-          vcss[ 0 ] = (mgr != null) ? mgr.getVcsFor(file) : null;
+        if (!project.isDisposed()) {
+          ProjectLevelVcsManager mgr = ProjectLevelVcsManager.getInstance(project);
+          vcss[0] = (mgr != null) ? mgr.getVcsFor(file) : null;
         }
       }
     });
-    return vcss[ 0 ];
+    return vcss[0];
   }
 
   @Nullable
@@ -159,6 +157,7 @@ public class VcsUtil {
     final AbstractVcs[] vcss = new AbstractVcs[1];
 
     ApplicationManager.getApplication().runReadAction(new Runnable() {
+      @Override
       public void run() {
         //  IDEADEV-17916, when e.g. ContentRevision.getContent is called in
         //  a future task after the component has been disposed.
@@ -177,6 +176,7 @@ public class VcsUtil {
     final VirtualFile[] roots = new VirtualFile[1];
 
     ApplicationManager.getApplication().runReadAction(new Runnable() {
+      @Override
       public void run() {
         //  IDEADEV-17916, when e.g. ContentRevision.getContent is called in
         //  a future task after the component has been disposed.
@@ -195,6 +195,7 @@ public class VcsUtil {
     final VirtualFile[] roots = new VirtualFile[1];
 
     ApplicationManager.getApplication().runReadAction(new Runnable() {
+      @Override
       public void run() {
         //  IDEADEV-17916, when e.g. ContentRevision.getContent is called in
         //  a future task after the component has been disposed.
@@ -258,6 +259,7 @@ public class VcsUtil {
   @Nullable
   public static VirtualFile getVirtualFile(final String path) {
     return ApplicationManager.getApplication().runReadAction(new Computable<VirtualFile>() {
+      @Override
       @Nullable
       public VirtualFile compute() {
         return LocalFileSystem.getInstance().findFileByPath(path.replace(File.separatorChar, '/'));
@@ -268,6 +270,7 @@ public class VcsUtil {
   @Nullable
   public static VirtualFile getVirtualFile(final File file) {
     return ApplicationManager.getApplication().runReadAction(new Computable<VirtualFile>() {
+      @Override
       @Nullable
       public VirtualFile compute() {
         return LocalFileSystem.getInstance().findFileByIoFile(file);
@@ -288,16 +291,17 @@ public class VcsUtil {
 
   public static String getFileContent(final String path) {
     return ApplicationManager.getApplication().runReadAction(new Computable<String>() {
+      @Override
       public String compute() {
-        VirtualFile vFile = VcsUtil.getVirtualFile(path);
-        final Document doc = FileDocumentManager.getInstance().getDocument(vFile);
-        return doc.getText();
+        VirtualFile vFile = getVirtualFile(path);
+        assert vFile != null;
+        return FileDocumentManager.getInstance().getDocument(vFile).getText();
       }
     });
   }
 
   @Nullable
-  public static byte[] getFileByteContent(@NotNull File file) throws IOException {
+  public static byte[] getFileByteContent(@NotNull File file) {
     try {
       return FileUtil.loadFileBytes(file);
     }
@@ -343,6 +347,7 @@ public class VcsUtil {
    */
   public static void showStatusMessage(final Project project, final String message) {
     SwingUtilities.invokeLater(new Runnable() {
+      @Override
       public void run() {
         if (project.isOpen()) {
           StatusBar.Info.set(message, project);
@@ -417,7 +422,8 @@ public class VcsUtil {
 
   private static FilePath[] sortPaths(FilePath[] files, final int sign) {
     Arrays.sort(files, new Comparator<FilePath>() {
-      public int compare(FilePath o1, FilePath o2) {
+      @Override
+      public int compare(@NotNull FilePath o1, @NotNull FilePath o2) {
         return sign * o1.getPath().compareTo(o2.getPath());
       }
     });
@@ -482,6 +488,7 @@ public class VcsUtil {
     throws VcsException {
     final Ref<VcsException> ex = new Ref<VcsException>();
     boolean result = ProgressManager.getInstance().runProcessWithProgressSynchronously(new Runnable() {
+      @Override
       public void run() {
         try {
           runnable.run();
@@ -501,8 +508,10 @@ public class VcsUtil {
     final VirtualFile[] file = new VirtualFile[1];
     final Application app = ApplicationManager.getApplication();
     Runnable action = new Runnable() {
+      @Override
       public void run() {
         app.runWriteAction(new Runnable() {
+          @Override
           public void run() {
             file[0] = LocalFileSystem.getInstance().refreshAndFindFileByPath(path);
           }
@@ -553,7 +562,7 @@ public class VcsUtil {
    *         Actually this method can be used to normalize file names to chop trailing separator chars.
    */
   public static String chopTrailingChars(String source, char[] chars) {
-    StringBuffer sb = new StringBuffer(source);
+    StringBuilder sb = new StringBuilder(source);
     while (true) {
       boolean atLeastOneCharWasChopped = false;
       for (int i = 0; i < chars.length && sb.length() > 0; i++) {

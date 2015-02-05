@@ -52,8 +52,6 @@ import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.popup.AbstractPopup;
 import com.intellij.util.CollectConsumer;
-import com.intellij.util.containers.ConcurrentHashMap;
-import com.intellij.util.containers.ConcurrentWeakHashMap;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.update.Activatable;
 import com.intellij.util.ui.update.UiNotifyConnector;
@@ -95,11 +93,10 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
       super.processKeyEvent(e);
     }
 
-    ExpandableItemsHandler<Integer> myExtender = new CompletionExtender(this);
     @NotNull
     @Override
-    public ExpandableItemsHandler<Integer> getExpandableItemsHandler() {
-      return myExtender;
+    protected ExpandableItemsHandler<Integer> createExpandableItemsHandler() {
+      return new CompletionExtender(this);
     }
   };
   final LookupCellRenderer myCellRenderer;
@@ -118,9 +115,9 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   private boolean myChangeGuard;
   private volatile LookupArranger myArranger;
   private LookupArranger myPresentableArranger;
-  private final Map<LookupElement, PrefixMatcher> myMatchers = new ConcurrentHashMap<LookupElement, PrefixMatcher>(
-    ContainerUtil.<LookupElement>identityStrategy());
-  private final Map<LookupElement, Font> myCustomFonts = new ConcurrentWeakHashMap<LookupElement, Font>(
+  private final Map<LookupElement, PrefixMatcher> myMatchers =
+    ContainerUtil.newConcurrentMap(ContainerUtil.<LookupElement>identityStrategy());
+  private final Map<LookupElement, Font> myCustomFonts = ContainerUtil.createConcurrentWeakMap(10, 0.75f, Runtime.getRuntime().availableProcessors(),
     ContainerUtil.<LookupElement>identityStrategy());
   private boolean myStartCompletionWhenNothingMatches;
   boolean myResizePending;
@@ -531,59 +528,28 @@ public class LookupImpl extends LightweightHint implements LookupEx, Disposable,
   }
 
   private void insertLookupString(LookupElement item, final int prefix) {
-    final Document document = myEditor.getDocument();
-
     final String lookupString = getCaseCorrectedLookupString(item);
 
-    if (myEditor.getSelectionModel().hasBlockSelection()) {
-      LogicalPosition blockStart = myEditor.getSelectionModel().getBlockStart();
-      LogicalPosition blockEnd = myEditor.getSelectionModel().getBlockEnd();
-      assert blockStart != null && blockEnd != null;
+    final Editor hostEditor = InjectedLanguageUtil.getTopLevelEditor(myEditor);
+    hostEditor.getCaretModel().runForEachCaret(new CaretAction() {
+      @Override
+      public void perform(Caret caret) {
+        EditorModificationUtil.deleteSelectedText(hostEditor);
+        final int caretOffset = hostEditor.getCaretModel().getOffset();
+        int lookupStart = Math.max(caretOffset - prefix, 0);
 
-      int minLine = Math.min(blockStart.line, blockEnd.line);
-      int maxLine = Math.max(blockStart.line, blockEnd.line);
-      int minColumn = Math.min(blockStart.column, blockEnd.column);
-      int maxColumn = Math.max(blockStart.column, blockEnd.column);
+        int len = hostEditor.getDocument().getTextLength();
+        LOG.assertTrue(lookupStart >= 0 && lookupStart <= len,
+                       "ls: " + lookupStart + " caret: " + caretOffset + " prefix:" + prefix + " doc: " + len);
+        LOG.assertTrue(caretOffset >= 0 && caretOffset <= len, "co: " + caretOffset + " doc: " + len);
 
-      int caretLine = document.getLineNumber(myEditor.getCaretModel().getOffset());
+        hostEditor.getDocument().replaceString(lookupStart, caretOffset, lookupString);
 
-      for (int line = minLine; line <= maxLine; line++) {
-        int bs = myEditor.logicalPositionToOffset(new LogicalPosition(line, minColumn));
-        int start = bs - prefix;
-        int end = myEditor.logicalPositionToOffset(new LogicalPosition(line, maxColumn));
-        if (start > end) {
-          LOG.error("bs=" + bs + "; start=" + start + "; end=" + end +
-                    "; blockStart=" + blockStart + "; blockEnd=" + blockEnd + "; line=" + line + "; len=" +
-                    (document.getLineEndOffset(line) - document.getLineStartOffset(line)));
-        }
-        document.replaceString(start, end, lookupString);
+        int offset = lookupStart + lookupString.length();
+        hostEditor.getCaretModel().moveToOffset(offset);
+        hostEditor.getSelectionModel().removeSelection();
       }
-      LogicalPosition start = new LogicalPosition(minLine, minColumn - prefix);
-      LogicalPosition end = new LogicalPosition(maxLine, start.column + lookupString.length());
-      myEditor.getSelectionModel().setBlockSelection(start, end);
-      myEditor.getCaretModel().moveToLogicalPosition(new LogicalPosition(caretLine, end.column));
-    } else {
-      final Editor hostEditor = InjectedLanguageUtil.getTopLevelEditor(myEditor);
-      hostEditor.getCaretModel().runForEachCaret(new CaretAction() {
-        @Override
-        public void perform(Caret caret) {
-          EditorModificationUtil.deleteSelectedText(hostEditor);
-          final int caretOffset = hostEditor.getCaretModel().getOffset();
-          int lookupStart = Math.max(caretOffset - prefix, 0);
-
-          int len = hostEditor.getDocument().getTextLength();
-          LOG.assertTrue(lookupStart >= 0 && lookupStart <= len,
-                         "ls: " + lookupStart + " caret: " + caretOffset + " prefix:" + prefix + " doc: " + len);
-          LOG.assertTrue(caretOffset >= 0 && caretOffset <= len, "co: " + caretOffset + " doc: " + len);
-
-          hostEditor.getDocument().replaceString(lookupStart, caretOffset, lookupString);
-
-          int offset = lookupStart + lookupString.length();
-          hostEditor.getCaretModel().moveToOffset(offset);
-          hostEditor.getSelectionModel().removeSelection();
-        }
-      });
-    }
+    });
 
     myEditor.getScrollingModel().scrollToCaret(ScrollType.RELATIVE);
   }

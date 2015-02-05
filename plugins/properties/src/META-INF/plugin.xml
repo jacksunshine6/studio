@@ -28,6 +28,8 @@
     <lang.documentationProvider language="Properties" implementationClass="com.intellij.lang.properties.PropertiesDocumentationProvider"/>
     <lang.findUsagesProvider language="Properties"
                              implementationClass="com.intellij.lang.properties.findUsages.PropertiesFindUsagesProvider"/>
+    <lang.elementManipulator forClass="com.intellij.lang.properties.psi.impl.PropertyKeyImpl"
+                             implementationClass="com.intellij.lang.properties.PropertyKeyManipulator"/>
     <lang.elementManipulator forClass="com.intellij.lang.properties.psi.impl.PropertyValueImpl"
                              implementationClass="com.intellij.lang.properties.PropertyValueManipulator"/>
     <lang.elementManipulator forClass="com.intellij.lang.properties.psi.impl.PropertyImpl"
@@ -53,7 +55,8 @@
     <lang.commenter language="Properties" implementationClass="com.intellij.lang.properties.PropertiesCommenter"/>
     <stubIndex implementation="com.intellij.lang.properties.psi.PropertyKeyIndex"/>
     <lang.namesValidator language="Properties" implementationClass="com.intellij.lang.properties.PropertiesNamesValidator"/>
-    <refactoring.safeDeleteProcessor implementation="com.intellij.lang.properties.refactoring.PropertiesSafeDeleteProcessor"/>
+    <refactoring.safeDeleteProcessor implementation="com.intellij.lang.properties.refactoring.PropertiesFilesSafeDeleteProcessor"/>
+    <refactoring.safeDeleteProcessor implementation="com.intellij.lang.properties.refactoring.PropertyKeysSafeDeleteProcessor"/>
     <refactoring.moveHandler implementation="com.intellij.lang.properties.projectView.ResourceBundleMoveProvider"/>
     <colorSettingsPage implementation="com.intellij.openapi.options.colors.pages.PropertiesColorsPage"/>
     <treeStructureProvider implementation="com.intellij.lang.properties.projectView.ResourceBundleGrouper"/>
@@ -81,6 +84,7 @@
 
     <fileEditorProvider implementation="com.intellij.lang.properties.editor.ResourceBundleEditorProvider"/>
     <spellchecker.support language="Properties"
+                          id="propertiesSpellcheckingStrategy"
                           implementationClass="com.intellij.lang.properties.spellchecker.PropertiesSpellcheckingStrategy"/>
 
     <fileBasedIndex implementation="com.intellij.lang.properties.xml.XmlPropertiesIndex"/>
@@ -100,7 +104,7 @@
   </project-components>
 
   <actions>
-    <action id="DissociateResourceBundleAction" class="com.intellij.lang.properties.customizeActions.DissociateResourceBundleAction">
+    <action id="DissociateResourceBundleAction" text="Dissociate Resource Bundle" class="com.intellij.lang.properties.customizeActions.DissociateResourceBundleAction">
       <add-to-group group-id="ProjectViewPopupMenu"/>
     </action>
     <action id="CombinePropertiesFilesAction" class="com.intellij.lang.properties.customizeActions.CombinePropertiesFilesAction">

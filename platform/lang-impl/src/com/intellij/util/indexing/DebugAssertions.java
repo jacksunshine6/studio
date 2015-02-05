@@ -15,6 +15,7 @@
  */
 package com.intellij.util.indexing;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.SystemProperties;
 
@@ -25,12 +26,12 @@ public class DebugAssertions {
 
   public static final boolean DEBUG = SystemProperties.getBooleanProperty(
     "intellij.idea.indices.debug",
-    false //ApplicationManager.getApplication().isInternal() || ApplicationManager.getApplication().isEAP()
+    ApplicationManager.getApplication().isInternal() || ApplicationManager.getApplication().isEAP()
   );
 
   public static final boolean EXTRA_SANITY_CHECKS = SystemProperties.getBooleanProperty(
     "intellij.idea.indices.debug.extra.sanity",
-    DEBUG
+    false //DEBUG // todo https://youtrack.jetbrains.com/issue/IDEA-134916
   );
 
   public static void assertTrue(boolean value) {

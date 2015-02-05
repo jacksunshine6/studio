@@ -27,7 +27,7 @@ import org.jetbrains.java.decompiler.main.rels.LambdaProcessor;
 import org.jetbrains.java.decompiler.main.rels.NestedClassProcessor;
 import org.jetbrains.java.decompiler.main.rels.NestedMemberAccess;
 import org.jetbrains.java.decompiler.modules.decompiler.exps.InvocationExprent;
-import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionPaar;
+import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionPair;
 import org.jetbrains.java.decompiler.struct.StructClass;
 import org.jetbrains.java.decompiler.struct.StructContext;
 import org.jetbrains.java.decompiler.struct.StructMethod;
@@ -83,8 +83,8 @@ public class ClassesProcessor {
               }
               else if (simpleName != null && DecompilerContext.getOption(IFernflowerPreferences.RENAME_ENTITIES)) {
                 IIdentifierRenamer renamer = DecompilerContext.getPoolInterceptor().getHelper();
-                if (renamer.toBeRenamed(IIdentifierRenamer.ELEMENT_CLASS, simpleName, null, null)) {
-                  simpleName = renamer.getNextClassname(innername, simpleName);
+                if (renamer.toBeRenamed(IIdentifierRenamer.Type.ELEMENT_CLASS, simpleName, null, null)) {
+                  simpleName = renamer.getNextClassName(innername, simpleName);
                   mapNewSimpleNames.put(innername, simpleName);
                 }
               }
@@ -230,7 +230,7 @@ public class ClassesProcessor {
     }
   }
 
-  public void writeClass(StructClass cl, StringBuilder buffer) throws IOException {
+  public void writeClass(StructClass cl, TextBuffer buffer) throws IOException {
     ClassNode root = mapRootClasses.get(cl.qualifiedName);
     if (root.type != ClassNode.CLASS_ROOT) {
       return;
@@ -255,38 +255,43 @@ public class ClassesProcessor {
 
       new NestedMemberAccess().propagateMemberAccess(root);
 
-      StringBuilder classBuffer = new StringBuilder(AVERAGE_CLASS_SIZE);
-      new ClassWriter().classToJava(root, classBuffer, 0);
+      TextBuffer classBuffer = new TextBuffer(AVERAGE_CLASS_SIZE);
+      new ClassWriter().classToJava(root, classBuffer, 0, null);
 
-      String lineSeparator = DecompilerContext.getNewLineSeparator();
       int total_offset_lines = 0;
 
       int index = cl.qualifiedName.lastIndexOf("/");
       if (index >= 0) {
-        total_offset_lines++;
+        total_offset_lines+=2;
         String packageName = cl.qualifiedName.substring(0, index).replace('/', '.');
 
         buffer.append("package ");
         buffer.append(packageName);
         buffer.append(";");
-        buffer.append(lineSeparator);
-        buffer.append(lineSeparator);
+        buffer.appendLineSeparator();
+        buffer.appendLineSeparator();
       }
 
       int import_lines_written = importCollector.writeImports(buffer);
       if (import_lines_written > 0) {
-        buffer.append(lineSeparator);
+        buffer.appendLineSeparator();
         total_offset_lines += import_lines_written + 1;
       }
+      //buffer.append(lineSeparator);
 
+      total_offset_lines = buffer.countLines();
       buffer.append(classBuffer);
 
-      if(DecompilerContext.getOption(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING)) {
+      if (DecompilerContext.getOption(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING)) {
         BytecodeSourceMapper mapper = DecompilerContext.getBytecodeSourceMapper();
         mapper.addTotalOffset(total_offset_lines);
-
-        buffer.append(lineSeparator);
-        mapper.dumpMapping(buffer);
+        if (DecompilerContext.getOption(IFernflowerPreferences.DUMP_ORIGINAL_LINES)) {
+          buffer.dumpOriginalLineNumbers(mapper.getOriginalLinesMapping());
+        }
+        if (DecompilerContext.getOption(IFernflowerPreferences.UNIT_TEST_MODE)) {
+          buffer.appendLineSeparator();
+          mapper.dumpMapping(buffer, true);
+        }
       }
     }
     finally {
@@ -349,10 +354,10 @@ public class ClassesProcessor {
     public int access;
     public String simpleName;
     public StructClass classStruct;
-    public ClassWrapper wrapper;
+    private ClassWrapper wrapper;
     public String enclosingMethod;
     public InvocationExprent superInvocation;
-    public Map<String, VarVersionPaar> mapFieldsToVars = new HashMap<String, VarVersionPaar>();
+    public Map<String, VarVersionPair> mapFieldsToVars = new HashMap<String, VarVersionPair>();
     public VarType anonymousClassType;
     public List<ClassNode> nested = new ArrayList<ClassNode>();
     public Set<String> enclosingClasses = new HashSet<String>();
@@ -412,6 +417,14 @@ public class ClassesProcessor {
         }
       }
       return null;
+    }
+
+    public ClassWrapper getWrapper() {
+      ClassNode node = this;
+      while (node.type == CLASS_LAMBDA) {
+        node = node.parent;
+      }
+      return node.wrapper;
     }
 
     public static class LambdaInformation {

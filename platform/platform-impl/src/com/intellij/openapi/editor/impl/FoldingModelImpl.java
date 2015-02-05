@@ -79,11 +79,6 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
       protected boolean isFoldingEnabled() {
         return FoldingModelImpl.this.isFoldingEnabled();
       }
-
-      @Override
-      protected boolean isBatchFoldingProcessing() {
-        return myIsBatchFoldingProcessing;
-      }
     };
     myFoldRegionsProcessed = false;
     refreshSettings();
@@ -136,6 +131,12 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
   public boolean isOffsetCollapsed(int offset) {
     assertReadAccess();
     return getCollapsedRegionAtOffset(offset) != null;
+  }
+
+  private boolean isOffsetInsideCollapsedRegion(int offset) {
+    assertReadAccess();
+    FoldRegion region = getCollapsedRegionAtOffset(offset);
+    return region != null && region.getStartOffset() < offset;
   }
 
   private static void assertIsDispatchThreadForEditor() {
@@ -210,12 +211,9 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
     }
 
     myIsBatchFoldingProcessing = true;
-    myFoldTree.myCachedLastIndex = -1;
     try {
       operation.run();
     } finally {
-      myFoldTree.myCachedLastIndex = -1;
-
       if (!oldBatchFlag) {
         if (myFoldRegionsProcessed) {
           notifyBatchFoldingProcessingDone(moveCaret);
@@ -251,6 +249,13 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
   @Nullable
   public FoldRegion getCollapsedRegionAtOffset(int offset) {
     return myFoldTree.fetchOutermost(offset);
+  }
+
+  @Nullable
+  @Override
+  public FoldRegion getFoldRegion(int startOffset, int endOffset) {
+    assertReadAccess();
+    return myFoldTree.getRegionAt(startOffset, endOffset);
   }
 
   @Override
@@ -349,18 +354,13 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
       }
     }
 
-    int selectionStart = myEditor.getSelectionModel().getSelectionStart();
-    int selectionEnd = myEditor.getSelectionModel().getSelectionEnd();
-
-    if (FoldRegionsTree.contains(region, selectionStart-1) || FoldRegionsTree.contains(region, selectionEnd)) myEditor.getSelectionModel().removeSelection();
-
     myFoldRegionsProcessed = true;
     ((FoldRegionImpl) region).setExpandedInternal(false);
     notifyListenersOnFoldRegionStateChange(region);
   }
 
   private void notifyBatchFoldingProcessingDone(final boolean moveCaretFromCollapsedRegion) {
-    myFoldTree.rebuild();
+    rebuild();
 
     for (FoldingListener listener : myListeners) {
       listener.onFoldProcessingEnd();
@@ -380,7 +380,6 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
       caretPosition = new LogicalPosition(caretPosition.line, caretPosition.column);
     }
     int caretOffset = myEditor.logicalPositionToOffset(caretPosition);
-    boolean hasBlockSelection = myEditor.getSelectionModel().hasBlockSelection();
     int selectionStart = myEditor.getSelectionModel().getSelectionStart();
     int selectionEnd = myEditor.getSelectionModel().getSelectionEnd();
 
@@ -422,7 +421,9 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
 
     myCaretPositionSaved = oldCaretPositionSaved;
 
-    if (!hasBlockSelection && selectionStart < myEditor.getDocument().getTextLength()) {
+    if (isOffsetInsideCollapsedRegion(selectionStart) || isOffsetInsideCollapsedRegion(selectionEnd)) {
+      myEditor.getSelectionModel().removeSelection();
+    } else if (selectionStart < myEditor.getDocument().getTextLength()) {
       myEditor.getSelectionModel().setSelection(selectionStart, selectionEnd);
     }
 
@@ -436,7 +437,9 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
 
   @Override
   public void rebuild() {
-    myFoldTree.rebuild();
+    if (!myEditor.getDocument().isInBulkUpdate()) {
+      myFoldTree.rebuild();
+    }
   }
 
   private void updateCachedOffsets() {
@@ -491,6 +494,14 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
     myCaretPositionSaved = false;
   }
 
+  void onBulkDocumentUpdateStarted() {
+    myFoldTree.clearCachedValues();
+  }
+
+  void onBulkDocumentUpdateFinished() {
+    myFoldTree.rebuild();
+  }
+
   @Override
   public void beforeDocumentChange(DocumentEvent event) {
     myDocumentChangeProcessed = false;
@@ -499,9 +510,7 @@ public class FoldingModelImpl implements FoldingModelEx, PrioritizedDocumentList
   @Override
   public void documentChanged(DocumentEvent event) {
     try {
-      if (((DocumentEx)event.getDocument()).isInBulkUpdate()) {
-        myFoldTree.clear();
-      } else {
+      if (!((DocumentEx)event.getDocument()).isInBulkUpdate()) {
         updateCachedOffsets();
       }
     }

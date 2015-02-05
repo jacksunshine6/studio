@@ -20,7 +20,6 @@ import com.intellij.ide.AppLifecycleListener;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.GeneralSettings;
 import com.intellij.ide.impl.DataManagerImpl;
-import com.intellij.ide.ui.UISettings;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.application.Application;
@@ -116,23 +115,17 @@ public final class WindowManagerImpl extends WindowManagerEx implements NamedCom
   private Rectangle myFrameBounds;
   private int myFrameExtendedState;
   private final WindowAdapter myActivationListener;
-  private final ApplicationInfoEx myApplicationInfoEx;
   private final DataManager myDataManager;
   private final ActionManagerEx myActionManager;
-  private final UISettings myUiSettings;
 
   /**
    * invoked by reflection
    */
   public WindowManagerImpl(DataManager dataManager,
-                           ApplicationInfoEx applicationInfoEx,
                            ActionManagerEx actionManager,
-                           UISettings uiSettings,
                            MessageBus bus) {
-    myApplicationInfoEx = applicationInfoEx;
     myDataManager = dataManager;
     myActionManager = actionManager;
-    myUiSettings = uiSettings;
     if (myDataManager instanceof DataManagerImpl) {
         ((DataManagerImpl)myDataManager).setWindowManager(this);
     }
@@ -228,7 +221,7 @@ public final class WindowManagerImpl extends WindowManagerEx implements NamedCom
 
   @Override
   public final Rectangle getScreenBounds() {
-    return ScreenUtil.getAllScreensShape().getBounds();
+    return ScreenUtil.getAllScreensRectangle();
   }
 
   @Override
@@ -524,8 +517,8 @@ public final class WindowManagerImpl extends WindowManagerEx implements NamedCom
   }
 
   public void showFrame() {
-    final IdeFrameImpl frame = new IdeFrameImpl(myApplicationInfoEx,
-                                                myActionManager, myUiSettings, myDataManager,
+    final IdeFrameImpl frame = new IdeFrameImpl(ApplicationInfoEx.getInstanceEx(),
+                                                myActionManager, myDataManager,
                                                 ApplicationManager.getApplication());
     myProject2Frame.put(null, frame);
 
@@ -595,7 +588,7 @@ public final class WindowManagerImpl extends WindowManagerEx implements NamedCom
       frame.setProject(project);
     }
     else {
-      frame = new IdeFrameImpl(myApplicationInfoEx, myActionManager, myUiSettings,
+      frame = new IdeFrameImpl(ApplicationInfoEx.getInstanceEx(), myActionManager,
                                myDataManager, ApplicationManager.getApplication());
 
       final Rectangle bounds = ProjectFrameBounds.getInstance(project).getBounds();

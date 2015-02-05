@@ -52,8 +52,7 @@ public class AddNewArrayExpressionFix implements IntentionAction {
   @Override
   public boolean isAvailable(@NotNull Project project, Editor editor, PsiFile file) {
     if (!myInitializer.isValid() || !myInitializer.getManager().isInProject(myInitializer)) return false;
-    final PsiType type = getType();
-    return type instanceof PsiClassType || type instanceof PsiPrimitiveType || type instanceof PsiArrayType;
+    return getType() != null;
   }
 
   @Override

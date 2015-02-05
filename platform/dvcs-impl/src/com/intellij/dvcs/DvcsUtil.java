@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2014 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import com.intellij.dvcs.repo.RepoStateException;
 import com.intellij.dvcs.repo.Repository;
 import com.intellij.dvcs.repo.RepositoryManager;
 import com.intellij.ide.file.BatchFileChangeListener;
+import com.intellij.openapi.application.AccessToken;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
@@ -49,6 +50,8 @@ import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.io.storage.HeavyProcessLatch;
 import com.intellij.util.text.DateFormatUtil;
 import com.intellij.vcs.log.TimedVcsCommit;
+import com.intellij.vcs.log.VcsFullCommitDetails;
+import com.intellij.vcsUtil.VcsUtil;
 import org.intellij.images.editor.ImageFileEditor;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -199,13 +202,14 @@ public class DvcsUtil {
     return DateFormatUtil.formatPrettyDateTime(commit.getTimestamp()) + " ";
   }
 
-  public static void workingTreeChangeStarted(@NotNull Project project) {
-    HeavyProcessLatch.INSTANCE.processStarted();
+  @NotNull
+  public static AccessToken workingTreeChangeStarted(@NotNull Project project) {
     ApplicationManager.getApplication().getMessageBus().syncPublisher(BatchFileChangeListener.TOPIC).batchChangeStarted(project);
+    return HeavyProcessLatch.INSTANCE.processStarted("Changing DVCS working tree");
   }
 
-  public static void workingTreeChangeFinished(@NotNull Project project) {
-    HeavyProcessLatch.INSTANCE.processFinished();
+  public static void workingTreeChangeFinished(@NotNull Project project, @NotNull AccessToken token) {
+    token.finish();
     ApplicationManager.getApplication().getMessageBus().syncPublisher(BatchFileChangeListener.TOPIC).batchChangeCompleted(project);
   }
 
@@ -235,7 +239,7 @@ public class DvcsUtil {
     return tryOrThrow(new Callable<String>() {
       @Override
       public String call() throws Exception {
-        return StringUtil.convertLineSeparators(FileUtil.loadFile(file).trim());
+        return StringUtil.convertLineSeparators(FileUtil.loadFile(file)).trim();
       }
     }, file);
   }
@@ -288,6 +292,13 @@ public class DvcsUtil {
     if (dir != null) {
       //noinspection unchecked
       VfsUtilCore.processFilesRecursively(dir, Processor.TRUE);
+    }
+  }
+
+  public static void addMappingIfSubRoot(@NotNull Project project, @NotNull String newRepositoryPath, @NotNull String vcsName) {
+    if (project.getBasePath() != null && FileUtil.isAncestor(project.getBasePath(), newRepositoryPath, true)) {
+      ProjectLevelVcsManager manager = ProjectLevelVcsManager.getInstance(project);
+      manager.setDirectoryMappings(VcsUtil.addMapping(manager.getDirectoryMappings(), newRepositoryPath, vcsName));
     }
   }
 
@@ -369,5 +380,25 @@ public class DvcsUtil {
       }
     }
     return root;
+  }
+
+  @NotNull
+  public static <R extends Repository> Map<R, List<VcsFullCommitDetails>> groupCommitsByRoots(@NotNull RepositoryManager<R> repoManager,
+                                                                                              @NotNull List<? extends VcsFullCommitDetails> commits) {
+    Map<R, List<VcsFullCommitDetails>> groupedCommits = ContainerUtil.newHashMap();
+    for (VcsFullCommitDetails commit : commits) {
+      R repository = repoManager.getRepositoryForRoot(commit.getRoot());
+      if (repository == null) {
+        LOGGER.info("No repository found for commit " + commit);
+        continue;
+      }
+      List<VcsFullCommitDetails> commitsInRoot = groupedCommits.get(repository);
+      if (commitsInRoot == null) {
+        commitsInRoot = ContainerUtil.newArrayList();
+        groupedCommits.put(repository, commitsInRoot);
+      }
+      commitsInRoot.add(commit);
+    }
+    return groupedCommits;
   }
 }

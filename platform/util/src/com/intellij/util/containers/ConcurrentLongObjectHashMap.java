@@ -27,6 +27,7 @@ import java.util.concurrent.locks.LockSupport;
  * Adapted from java.util.concurrent.ConcurrentHashMap to long keys
  * @author Doug Lea
  * @param <V> the type of mapped values
+ * @deprecated Use {@link ContainerUtil#createConcurrentLongObjectMap()} instead
  */
 // added hashing strategy argument
 // added cacheOrGet convenience method
@@ -947,6 +948,7 @@ class ConcurrentLongObjectHashMap<V> implements ConcurrentLongObjectMap<V> {
    * @return an enumeration of the values in this table
    * @see #values()
    */
+  @NotNull
   public Enumeration<V> elements() {
     Node<V>[] t;
     int f = (t = table) == null ? 0 : t.length;

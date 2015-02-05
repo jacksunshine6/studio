@@ -3,7 +3,6 @@ package com.jetbrains.python.debugger;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.xdebugger.frame.XNamedValue;
 import com.intellij.xdebugger.frame.*;
 import com.jetbrains.python.debugger.pydev.PyVariableLocator;
 import org.jetbrains.annotations.NotNull;
@@ -124,7 +123,10 @@ public class PyDebugValue extends XNamedValue {
 
   private static String removeLeadingZeros(@NotNull String name) {
     //bugs.python.org/issue15254: "0" prefix for octal
-    return name.replaceFirst("^0+(?!$)", "");
+    while (name.length() > 1 && name.startsWith("0")) {
+      name = name.substring(1);
+    }
+    return name;
   }
 
   private static boolean isLen(String name) {
@@ -232,5 +234,25 @@ public class PyDebugValue extends XNamedValue {
 
   public void setId(String id) {
     myId = id;
+  }
+
+  @Override
+  public boolean canNavigateToSource() {
+    return true;
+  }
+
+  @Override
+  public void computeSourcePosition(@NotNull XNavigatable navigatable) {
+    navigatable.setSourcePosition(myFrameAccessor.getSourcePositionForName(myName));
+  }
+
+  @Override
+  public boolean canNavigateToTypeSource() {
+    return true;
+  }
+
+  @Override
+  public void computeTypeSourcePosition(@NotNull XNavigatable navigatable) {
+    navigatable.setSourcePosition(myFrameAccessor.getSourcePositionForType(myType));
   }
 }

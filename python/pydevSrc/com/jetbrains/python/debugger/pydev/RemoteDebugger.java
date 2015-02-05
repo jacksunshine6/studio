@@ -55,6 +55,7 @@ public class RemoteDebugger implements ProcessDebugger {
   private Socket mySocket;
   private volatile boolean myConnected = false;
   private int mySequence = -1;
+  private final Object mySequenceObject = new Object(); // for synchronization on mySequence
   private final Map<String, PyThreadInfo> myThreads = new ConcurrentHashMap<String, PyThreadInfo>();
   private final Map<Integer, ProtocolFrame> myResponseQueue = new HashMap<Integer, ProtocolFrame>();
   private final TempVarsHolder myTempVars = new TempVarsHolder();
@@ -285,8 +286,10 @@ public class RemoteDebugger implements ProcessDebugger {
   }
 
   int getNextSequence() {
-    mySequence += 2;
-    return mySequence;
+    synchronized (mySequenceObject) {
+      mySequence += 2;
+      return mySequence;
+    }
   }
 
   void placeResponse(final int sequence, final ProtocolFrame response) {
@@ -483,11 +486,9 @@ public class RemoteDebugger implements ProcessDebugger {
 
   private class DebuggerReader extends BaseOutputReader {
     private StringBuilder myTextBuilder = new StringBuilder();
-    private final InputStream myInputStream;
 
     private DebuggerReader(final InputStream stream) throws IOException {
-      super(new InputStreamReader(stream, CharsetToolkit.UTF8_CHARSET)); //TODO: correct econding?);
-      myInputStream = stream;
+      super(stream, CharsetToolkit.UTF8_CHARSET); //TODO: correct encoding?
       start();
     }
 
@@ -615,11 +616,12 @@ public class RemoteDebugger implements ProcessDebugger {
       return ApplicationManager.getApplication().executeOnPooledThread(runnable);
     }
 
-    public void close() {
+    @Override
+    protected void close() {
       try {
-        myInputStream.close();
+        super.close();
       }
-      catch (Exception e) {
+      catch (IOException e) {
         LOG.error(e);
       }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -300,7 +300,7 @@ public class VcsDirectoryConfigurationPanel extends JPanel implements Configurab
     }
 
     myDirectoryMappingTable = new TableView<MapInfo>();
-    myDirectoryMappingTable.setIntercellSpacing(new Dimension(0, 0));
+    myDirectoryMappingTable.setIntercellSpacing(JBUI.emptySize());
 
     myBaseRevisionTexts = new JCheckBox("Store on shelf base revision texts for files under DVCS");
     myLimitHistory = new VcsLimitHistoryConfigurable(myProject);
@@ -418,8 +418,7 @@ public class VcsDirectoryConfigurationPanel extends JPanel implements Configurab
     VcsMappingConfigurationDialog dlg = new VcsMappingConfigurationDialog(myProject, VcsBundle.message("directory.mapping.add.title"));
     // due to wonderful UI designer bug
     dlg.initProjectMessage();
-    dlg.show();
-    if (dlg.isOK()) {
+    if (dlg.showAndGet()) {
       VcsDirectoryMapping mapping = new VcsDirectoryMapping();
       dlg.saveToMapping(mapping);
       addMapping(mapping);
@@ -472,8 +471,7 @@ public class VcsDirectoryConfigurationPanel extends JPanel implements Configurab
     VcsMappingConfigurationDialog dlg = new VcsMappingConfigurationDialog(myProject, VcsBundle.message("directory.mapping.remove.title"));
     VcsDirectoryMapping mapping = ObjectUtils.assertNotNull(myDirectoryMappingTable.getSelectedObject()).mapping;
     dlg.setMapping(mapping);
-    dlg.show();
-    if (dlg.isOK()) {
+    if (dlg.showAndGet()) {
       dlg.saveToMapping(mapping);
       myModel.fireTableDataChanged();
       checkNotifyListeners(activeVcses);

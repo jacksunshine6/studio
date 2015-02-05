@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.newvfs.VfsImplUtil;
 import com.intellij.util.Function;
 import com.intellij.util.SystemProperties;
-import com.intellij.util.containers.ConcurrentHashSet;
+import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,7 +39,7 @@ public class JarFileSystemImpl extends JarFileSystem {
 
   public JarFileSystemImpl() {
     boolean noCopy = SystemProperties.getBooleanProperty("idea.jars.nocopy", !SystemInfo.isWindows);
-    myNoCopyJarPaths = noCopy ? null : new ConcurrentHashSet<String>(FileUtil.PATH_HASHING_STRATEGY);
+    myNoCopyJarPaths = noCopy ? null : ContainerUtil.newConcurrentSet(FileUtil.PATH_HASHING_STRATEGY);
 
     // to prevent platform .jar files from copying
     boolean runningFromDist = new File(PathManager.getLibPath(), "openapi.jar").exists();
@@ -105,25 +105,19 @@ public class JarFileSystemImpl extends JarFileSystem {
 
   @NotNull
   @Override
-  protected String convertLocalToRootPath(@NotNull String localPath) {
+  protected String composeRootPath(@NotNull String localPath) {
     return localPath + JAR_SEPARATOR;
   }
 
   @NotNull
   @Override
   protected JarHandler getHandler(@NotNull VirtualFile entryFile) {
-    return VfsImplUtil.getHandler(entryFile, this, new Function<String, JarHandler>() {
+    return VfsImplUtil.getHandler(this, entryFile, new Function<String, JarHandler>() {
       @Override
-      public JarHandler fun(String rootPath) {
-        return new JarHandler(extractLocalPath(rootPath));
+      public JarHandler fun(String localPath) {
+        return new JarHandler(localPath);
       }
     });
-  }
-
-  @Nullable
-  @Override
-  public VirtualFile getRootByLocal(@NotNull VirtualFile file) {
-    return findFileByPath(convertLocalToRootPath(file.getPath()));
   }
 
   @Override

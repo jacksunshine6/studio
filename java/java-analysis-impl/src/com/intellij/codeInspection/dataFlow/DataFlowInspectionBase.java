@@ -141,7 +141,7 @@ public class DataFlowInspectionBase extends BaseJavaBatchLocalInspectionTool {
     PsiClass containingClass = PsiTreeUtil.getParentOfType(scope, PsiClass.class);
     if (containingClass != null && PsiUtil.isLocalOrAnonymousClass(containingClass)) return;
 
-    final StandardDataFlowRunner dfaRunner = new StandardDataFlowRunner(scope, TREAT_UNKNOWN_MEMBERS_AS_NULLABLE) {
+    final StandardDataFlowRunner dfaRunner = new StandardDataFlowRunner(TREAT_UNKNOWN_MEMBERS_AS_NULLABLE, true) {
       @Override
       protected boolean shouldCheckTimeLimit() {
         if (!onTheFly) return false;
@@ -536,6 +536,10 @@ public class DataFlowInspectionBase extends BaseJavaBatchLocalInspectionTool {
   }
 
   private static boolean isCompileConstantInIfCondition(PsiElement element) {
+    if (element instanceof PsiPrefixExpression && ((PsiPrefixExpression)element).getOperationTokenType() == JavaTokenType.EXCL) {
+      return isCompileConstantInIfCondition(((PsiPrefixExpression)element).getOperand());
+    }
+
     if (!(element instanceof PsiReferenceExpression)) return false;
     PsiElement resolved = ((PsiReferenceExpression)element).resolve();
     if (!(resolved instanceof PsiField)) return false;

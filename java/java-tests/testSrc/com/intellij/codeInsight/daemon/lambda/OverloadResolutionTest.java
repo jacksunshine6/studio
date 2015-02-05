@@ -16,23 +16,19 @@
 package com.intellij.codeInsight.daemon.lambda;
 
 import com.intellij.codeInsight.daemon.LightDaemonAnalyzerTestCase;
-import com.intellij.codeInspection.LocalInspectionTool;
-import com.intellij.codeInspection.unusedSymbol.UnusedSymbolLocalInspection;
+import com.intellij.codeInspection.deadCode.UnusedDeclarationInspection;
 import com.intellij.openapi.projectRoots.JavaSdkVersion;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.testFramework.IdeaTestUtil;
 import org.jetbrains.annotations.NonNls;
-import org.jetbrains.annotations.NotNull;
 
 public class OverloadResolutionTest extends LightDaemonAnalyzerTestCase {
   @NonNls static final String BASE_PATH = "/codeInsight/daemonCodeAnalyzer/lambda/overloadResolution";
 
-  @NotNull
   @Override
-  protected LocalInspectionTool[] configureLocalInspectionTools() {
-    return new LocalInspectionTool[]{
-      new UnusedSymbolLocalInspection(),
-    };
+  protected void setUp() throws Exception {
+    super.setUp();
+    enableInspectionTool(new UnusedDeclarationInspection());
   }
 
   public void testPertinentToApplicabilityOfExplicitlyTypedLambda() throws Exception {
@@ -47,11 +43,39 @@ public class OverloadResolutionTest extends LightDaemonAnalyzerTestCase {
     doTest();
   }
 
+  public void testVoidValueCompatibilityCanCompleteNormallyWithCallWithExceptionAsLastStatement() throws Exception {
+    doTest();
+  }
+
+  public void testVoidValueCompatibilityCantCompleteNormallyWithCallWithExceptionAsLastReturnStatement() throws Exception {
+    doTest();
+  }
+
+  public void testValueCompatibleWithThrowsStatement() throws Exception {
+    doTest(false);
+  }
+
   public void testIDEA102800() throws Exception {
     doTest();
   }
 
   public void testReturnStatementsInsideNestedLambdasDuringVoidValueCompatibilityChecks() throws Exception {
+    doTest();
+  }
+
+  public void testIgnoreNonFunctionalArgumentsWhenCheckIfFunctionalMoreSpecific() throws Exception {
+    doTest();
+  }
+
+  public void testLambdaIsNotCongruentWithFunctionalTypeWithTypeParams() throws Exception {
+    doTest();
+  }
+
+  public void testDetectPolyExpressionInReturnsOfExplicitlyTypedLambdaWhenPrimitiveCouldWin() throws Exception {
+    doTest();
+  }
+
+  public void testDetectNotEqualParametersInFunctionalTypesForExactMethodReferences() throws Exception {
     doTest();
   }
 

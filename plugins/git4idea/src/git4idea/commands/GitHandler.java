@@ -20,6 +20,7 @@ import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.SystemInfo;
@@ -31,6 +32,7 @@ import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.EnvironmentUtil;
 import com.intellij.util.EventDispatcher;
 import com.intellij.util.ObjectUtils;
 import com.intellij.util.Processor;
@@ -124,7 +126,7 @@ public abstract class GitHandler {
     myCommand = command;
     myAppSettings = GitVcsApplicationSettings.getInstance();
     myProjectSettings = GitVcsSettings.getInstance(myProject);
-    myEnv = new HashMap<String, String>(System.getenv());
+    myEnv = new HashMap<String, String>(EnvironmentUtil.getEnvironmentMap());
     myVcs = ObjectUtils.assertNotNull(GitVcs.getInstance(project));
     myWorkingDirectory = directory;
     myCommandLine = new GeneralCommandLine();
@@ -137,6 +139,7 @@ public abstract class GitHandler {
     }
     myCommandLine.addParameter(command.name());
     myStdoutSuppressed = true;
+    mySilent = myCommand.lockingPolicy() == GitCommand.LockingPolicy.READ;
   }
 
   /**
@@ -478,6 +481,9 @@ public abstract class GitHandler {
       myProcess = startProcess();
       startHandlingStreams();
     }
+    catch (ProcessCanceledException pce) {
+      cleanupEnv();
+    }
     catch (Throwable t) {
       if (!ApplicationManager.getApplication().isUnitTestMode() || !myProject.isDisposed()) {
         LOG.error(t); // will surely happen if called during unit test disposal, because the working dir is simply removed then
@@ -497,8 +503,9 @@ public abstract class GitHandler {
     if (this instanceof GitLineHandler) {
       ((GitLineHandler)this).addLineListener(new GitLineHandlerAdapter() {
         @Override
-        public void onLineAvailable(String line, Key outputType) {
-          if (line.toLowerCase().contains("authentication failed")) {
+        public void onLineAvailable(@NonNls String line, Key outputType) {
+          String lowerCaseLine = line.toLowerCase();
+          if (lowerCaseLine.contains("authentication failed") || lowerCaseLine.contains("403 forbidden")) {
             myHttpAuthFailed = true;
           }
         }

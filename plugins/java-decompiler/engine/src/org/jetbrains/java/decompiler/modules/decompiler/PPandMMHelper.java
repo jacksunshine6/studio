@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.jetbrains.java.decompiler.modules.decompiler.sforms.FlattenStatements
 import org.jetbrains.java.decompiler.modules.decompiler.stats.RootStatement;
 import org.jetbrains.java.decompiler.struct.gen.VarType;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -109,8 +108,8 @@ public class PPandMMHelper {
         FunctionExprent func = (FunctionExprent)as.getRight();
 
         VarType midlayer = null;
-        if (func.getFunctype() >= FunctionExprent.FUNCTION_I2L &&
-            func.getFunctype() <= FunctionExprent.FUNCTION_I2S) {
+        if (func.getFuncType() >= FunctionExprent.FUNCTION_I2L &&
+            func.getFuncType() <= FunctionExprent.FUNCTION_I2S) {
           midlayer = func.getSimpleCastType();
           if (func.getLstOperands().get(0).type == Exprent.EXPRENT_FUNCTION) {
             func = (FunctionExprent)func.getLstOperands().get(0);
@@ -120,13 +119,13 @@ public class PPandMMHelper {
           }
         }
 
-        if (func.getFunctype() == FunctionExprent.FUNCTION_ADD ||
-            func.getFunctype() == FunctionExprent.FUNCTION_SUB) {
+        if (func.getFuncType() == FunctionExprent.FUNCTION_ADD ||
+            func.getFuncType() == FunctionExprent.FUNCTION_SUB) {
           Exprent econd = func.getLstOperands().get(0);
           Exprent econst = func.getLstOperands().get(1);
 
           if (econst.type != Exprent.EXPRENT_CONST && econd.type == Exprent.EXPRENT_CONST &&
-              func.getFunctype() == FunctionExprent.FUNCTION_ADD) {
+              func.getFuncType() == FunctionExprent.FUNCTION_ADD) {
             econd = econst;
             econst = func.getLstOperands().get(0);
           }
@@ -137,8 +136,8 @@ public class PPandMMHelper {
             VarType condtype = econd.getExprType();
             if (left.equals(econd) && (midlayer == null || midlayer.equals(condtype))) {
               FunctionExprent ret = new FunctionExprent(
-                func.getFunctype() == FunctionExprent.FUNCTION_ADD ? FunctionExprent.FUNCTION_PPI : FunctionExprent.FUNCTION_MMI,
-                Arrays.asList(new Exprent[]{econd}));
+                func.getFuncType() == FunctionExprent.FUNCTION_ADD ? FunctionExprent.FUNCTION_PPI : FunctionExprent.FUNCTION_MMI,
+                econd, func.bytecode);
               ret.setImplicitType(condtype);
 
               exprentReplaced = true;

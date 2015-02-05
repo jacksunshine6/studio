@@ -114,6 +114,9 @@ public class CodeStyleSettingsManager implements PersistentStateComponent<Elemen
     return myTemporarySettings;
   }
 
+  /**
+   * @see #dropTemporarySettings()
+   */
   public void setTemporarySettings(@NotNull CodeStyleSettings settings) {
     myTemporarySettings = settings;
   }
@@ -139,7 +142,7 @@ public class CodeStyleSettingsManager implements PersistentStateComponent<Elemen
       if (documentManager != null) {
         PsiFile file = documentManager.getPsiFile(document);
         if (file != null) {
-          CommonCodeStyleSettings.IndentOptions indentOptions = getSettings(project).getIndentOptionsByFile(file, null, true);
+          CommonCodeStyleSettings.IndentOptions indentOptions = getSettings(project).getIndentOptionsByFile(file, null, true, null);
           indentOptions.associateWithDocument(document);
         }
       }

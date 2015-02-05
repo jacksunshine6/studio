@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2012 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ public abstract class ProjectJdkTable {
   @Nullable
   public Sdk findMostRecentSdkOfType(final SdkTypeId type) {
     return findMostRecentSdk(new Condition<Sdk>() {
+      @Override
       public boolean value(Sdk sdk) {
         return sdk.getSdkType() == type;
       }
@@ -71,10 +72,14 @@ public abstract class ProjectJdkTable {
 
   public interface Listener extends EventListener {
     void jdkAdded(Sdk jdk);
-
     void jdkRemoved(Sdk jdk);
-
     void jdkNameChanged(Sdk jdk, String previousName);
+  }
+
+  public static class Adapter implements Listener {
+    @Override public void jdkAdded(Sdk jdk) { }
+    @Override public void jdkRemoved(Sdk jdk) { }
+    @Override public void jdkNameChanged(Sdk jdk, String previousName) { }
   }
 
   /**

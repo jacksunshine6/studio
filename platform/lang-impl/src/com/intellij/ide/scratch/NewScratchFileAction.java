@@ -15,29 +15,38 @@
  */
 package com.intellij.ide.scratch;
 
+import com.intellij.concurrency.JobScheduler;
 import com.intellij.featureStatistics.FeatureUsageTracker;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.lang.Language;
 import com.intellij.lang.LanguageUtil;
 import com.intellij.lang.StdLanguages;
-import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
+import com.intellij.openapi.application.AccessToken;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.editor.Caret;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileTypes.LanguageFileType;
-import com.intellij.openapi.project.DumbAware;
+import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.ui.popup.ListPopupStep;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
+import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.LanguageSubstitutors;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.testFramework.LightVirtualFile;
+import com.intellij.ui.popup.list.ListPopupImpl;
 import com.intellij.util.Consumer;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.EmptyIcon;
@@ -46,13 +55,15 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author ignatov
  */
-public class NewScratchFileAction extends AnAction implements DumbAware {
+public class NewScratchFileAction extends DumbAwareAction {
   public static final int MAX_VISIBLE_SIZE = 20;
 
   public NewScratchFileAction() {
@@ -61,11 +72,16 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
 
   @Override
   public void update(@NotNull AnActionEvent e) {
-    e.getPresentation().setEnabledAndVisible(e.getProject() != null && Registry.is("ide.scratch.enabled"));
+    e.getPresentation().setEnabledAndVisible(isEnabled(e));
   }
-  
+
+  public static boolean isEnabled(@NotNull AnActionEvent e) {
+    return e.getProject() != null && Registry.is("ide.scratch.enabled");
+  }
+
+  @NotNull
   public static List<String> getLastUsedLanguagesIds(Project project) {
-    String[] values = PropertiesComponent.getInstance(project).getValues(ScratchpadManager.class.getName());
+    String[] values = PropertiesComponent.getInstance(project).getValues(ScratchFileService.class.getName());
     return values == null ? ContainerUtil.<String>emptyList() : ContainerUtil.list(values);
   }
   
@@ -75,17 +91,52 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
     if (project == null) return;
     
     PsiFile file = e.getData(CommonDataKeys.PSI_FILE);
-    Language context = file != null ? file.getLanguage() : null;
+    Editor editor = e.getData(CommonDataKeys.EDITOR);
+    
+    Language language = getLanguageFromCaret(project, editor, file);
+    String text = getSelectionText(editor);
+    if (language != null && text != null) {
+      openNewFile(project, language, text, false);
+      return;
+    }
 
-    ListPopup popup = buildLanguagePopup(project, context, new Consumer<Language>() {
+    final Ref<Boolean> tenMinuteScratch = Ref.create(false);
+    ListPopup popup = buildLanguagePopup(project, language, new Consumer<Language>() {
       @Override
-      public void consume(Language language) {
-        FeatureUsageTracker.getInstance().triggerFeatureUsed("scratch");
-        VirtualFile file = ScratchpadManager.getInstance(project).createScratchFile(substitute(project, language));
-        FileEditorManager.getInstance(project).openFile(file, true);
+      public void consume(@NotNull Language language) {
+        openNewFile(project, language, "", tenMinuteScratch.get());
       }
     });
+    setupShiftActions((ListPopupImpl)popup, tenMinuteScratch);
     popup.showCenteredInCurrentWindow(project);
+  }
+
+  @Nullable
+  public String getSelectionText(@Nullable Editor editor) {
+    if (editor == null) return null;
+    return editor.getSelectionModel().getSelectedText();
+  }
+
+  @Nullable
+  public Language getLanguageFromCaret(@NotNull Project project,
+                                       @Nullable Editor editor,
+                                       @Nullable PsiFile psiFile) {
+    if (editor == null || psiFile == null) return null;
+    Caret caret = editor.getCaretModel().getPrimaryCaret();
+    int offset = caret.getOffset();
+    PsiElement element = InjectedLanguageManager.getInstance(project).findInjectedElementAt(psiFile, offset);
+    PsiFile file = element != null ? element.getContainingFile() : psiFile;
+    return file.getLanguage();
+  }
+
+  public static VirtualFile openNewFile(@NotNull Project project, @NotNull Language language, @NotNull String text, boolean altMode) {
+    FeatureUsageTracker.getInstance().triggerFeatureUsed("scratch");
+    VirtualFile file = ScratchFileService.getInstance().createScratchFile(project, language, text);
+    if (file != null) {
+      FileEditorManager.getInstance(project).openFile(file, true);
+      if (altMode) scheduleSelfDestruct(file);
+    }
+    return file;
   }
 
   @NotNull
@@ -94,7 +145,7 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
   }
 
   @NotNull
-  static ListPopup buildLanguagePopup(@NotNull Project project, @Nullable Language context, final Consumer<Language> onChoosen) {
+  static ListPopup buildLanguagePopup(@NotNull Project project, @Nullable Language context, @NotNull final Consumer<Language> onChoosen) {
     List<Language> languages = LanguageUtil.getFileLanguages();
     final List<String> ids = ContainerUtil.newArrayList(getLastUsedLanguagesIds(project));
     if (context != null) {
@@ -115,10 +166,10 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
       }
     });
     BaseListPopupStep<Language> step =
-      new BaseListPopupStep<Language>("Choose Language", languages) {
+      new BaseListPopupStep<Language>("New Scratch", languages) {
         @NotNull
         @Override
-        public String getTextFor(Language value) {
+        public String getTextFor(@NotNull Language value) {
           return value.getDisplayName();
         }
 
@@ -134,7 +185,7 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         }
 
         @Override
-        public Icon getIconFor(Language language) {
+        public Icon getIconFor(@NotNull Language language) {
           LanguageFileType associatedLanguage = language.getAssociatedFileType();
           return associatedLanguage != null ? associatedLanguage.getIcon() : null;
         }
@@ -150,13 +201,64 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
     ListPopupStep step = popup.getListStep();
     List values = step.getValues();
     for (Object v : values) {
+      //noinspection unchecked
       nameLen = Math.max(nameLen, step.getTextFor(v).length());
     }
     if (values.size() > MAX_VISIBLE_SIZE) {
-      Dimension size = new JLabel(StringUtil.repeatSymbol('a', nameLen), EmptyIcon.ICON_16, SwingConstants.LEFT).getMinimumSize();
+      Dimension size = new JLabel(StringUtil.repeatSymbol('a', nameLen), EmptyIcon.ICON_16, SwingConstants.LEFT).getPreferredSize();
+      size.width += 20;
       size.height *= MAX_VISIBLE_SIZE;
       popup.setSize(size);
     }
     return popup;
   }
+
+  private static void setupShiftActions(final ListPopupImpl popup, final Ref<Boolean> tenMinuteScratch) {
+    popup.registerAction("alternateMode", KeyStroke.getKeyStroke("shift pressed SHIFT"), new AbstractAction() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        tenMinuteScratch.set(true);
+        popup.setCaption("New 10 Minute Scratch");
+      }
+    });
+
+    popup.registerAction("regularMode", KeyStroke.getKeyStroke("released SHIFT"), new AbstractAction() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        tenMinuteScratch.set(false);
+        popup.setCaption("New Scratch");
+      }
+    });
+
+    popup.registerAction("invokeAlternate", KeyStroke.getKeyStroke("shift ENTER"), new AbstractAction() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        popup.handleSelect(true);
+      }
+    });
+  }
+
+  private static void scheduleSelfDestruct(final VirtualFile virtualFile) {
+    VfsUtilCore.virtualToIoFile(virtualFile).deleteOnExit();
+    JobScheduler.getScheduler().schedule(new Runnable() {
+      @Override
+      public void run() {
+        ApplicationManager.getApplication().invokeLater(new Runnable() {
+          @Override
+          public void run() {
+            AccessToken token = ApplicationManager.getApplication().acquireWriteActionLock(NewScratchFileAction.class);
+            try {
+              virtualFile.delete(NewScratchFileAction.class);
+            }
+            catch (Exception ignored) {
+            }
+            finally {
+              token.finish();
+            }
+          }
+        });
+      }
+    }, 10, TimeUnit.MINUTES);
+  }
+
 }

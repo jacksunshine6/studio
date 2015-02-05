@@ -248,11 +248,19 @@ class Intf {
     assert !(sdkRun in noLibs)
   }
 
+  public void "test super method not matching query qualifier"() {
+    def base = myFixture.addClass("class Base { void xpaint() {} }").methods[0]
+    def sub = myFixture.addClass("class Sub extends Base { void xpaint() {} }").methods[0]
+
+    assert getPopupElements(new GotoSymbolModel2(project), 'Ba.xpai', false) == [base]
+    assert getPopupElements(new GotoSymbolModel2(project), 'Su.xpai', false) == [sub]
+  }
+
   private List<Object> getPopupElements(ChooseByNameModel model, String text, boolean checkboxState = false) {
     return calcPopupElements(createPopup(model), text, checkboxState)
   }
 
-  private static ArrayList<String> calcPopupElements(ChooseByNamePopup popup, String text, boolean checkboxState = false) {
+  static ArrayList<String> calcPopupElements(ChooseByNamePopup popup, String text, boolean checkboxState = false) {
     List<Object> elements = ['empty']
     def semaphore = new Semaphore()
     semaphore.down()

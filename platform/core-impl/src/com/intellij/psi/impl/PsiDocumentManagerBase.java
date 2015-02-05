@@ -18,6 +18,7 @@ package com.intellij.psi.impl;
 
 import com.intellij.injected.editor.DocumentWindow;
 import com.intellij.lang.injection.InjectedLanguageManager;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.impl.ApplicationInfoImpl;
@@ -32,10 +33,7 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.FileIndexFacade;
-import com.intellij.openapi.util.Computable;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.Ref;
+import com.intellij.openapi.util.*;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.smartPointers.SmartPointerManagerImpl;
@@ -43,12 +41,8 @@ import com.intellij.psi.impl.source.PsiFileImpl;
 import com.intellij.psi.impl.source.text.BlockSupportImpl;
 import com.intellij.psi.text.BlockSupport;
 import com.intellij.psi.util.PsiUtilCore;
-import com.intellij.util.FileContentUtilCore;
-import com.intellij.util.Processor;
-import com.intellij.util.SmartList;
-import com.intellij.util.SystemProperties;
+import com.intellij.util.*;
 import com.intellij.util.concurrency.Semaphore;
-import com.intellij.util.containers.ConcurrentHashSet;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.messages.MessageBus;
 import org.jetbrains.annotations.NonNls;
@@ -68,8 +62,10 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
   protected final Project myProject;
   private final PsiManager myPsiManager;
   private final DocumentCommitProcessor myDocumentCommitProcessor;
-  protected final Set<Document> myUncommittedDocuments = new ConcurrentHashSet<Document>();
+  protected final Set<Document> myUncommittedDocuments = ContainerUtil.newConcurrentSet();
   private final Map<Document, Pair<CharSequence, Long>> myLastCommittedTexts = ContainerUtil.newConcurrentMap();
+  protected boolean myStopTrackingDocuments;
+  protected boolean myPerformBackgroundCommit = true;
 
   private volatile boolean myIsCommitInProgress;
   private final PsiToDocumentSynchronizer mySynchronizer;
@@ -283,7 +279,8 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
     }
   }
 
-  boolean finishCommit(@NotNull final Document document,
+  // public for Upsource
+  public boolean finishCommit(@NotNull final Document document,
                        @NotNull final List<Processor<Document>> finishProcessors,
                        final boolean synchronously,
                        @NotNull final Object reason) {
@@ -364,7 +361,7 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
     }
   }
 
-  private void doCommit(@NotNull final Document document) {
+  protected void doCommit(@NotNull final Document document) {
     assert !myIsCommitInProgress : "Do not call commitDocument() from inside PSI change listener";
     ApplicationManager.getApplication().runWriteAction(new Runnable() {
       @Override
@@ -574,7 +571,8 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
   @NotNull
   public Document[] getUncommittedDocuments() {
     ApplicationManager.getApplication().assertIsDispatchThread();
-    return myUncommittedDocuments.toArray(new Document[myUncommittedDocuments.size()]);
+    Document[] documents = myUncommittedDocuments.toArray(new Document[myUncommittedDocuments.size()]);
+    return ArrayUtil.stripTrailingNulls(documents);
   }
 
   boolean isInUncommittedSet(@NotNull Document document) {
@@ -601,6 +599,8 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
 
   @Override
   public void beforeDocumentChange(@NotNull DocumentEvent event) {
+    if (myStopTrackingDocuments) return;
+
     final Document document = event.getDocument();
     if (!(document instanceof DocumentWindow) && !myLastCommittedTexts.containsKey(document)) {
       myLastCommittedTexts.put(document, Pair.create(document.getImmutableCharSequence(), document.getModificationStamp()));
@@ -644,6 +644,8 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
 
   @Override
   public void documentChanged(DocumentEvent event) {
+    if (myStopTrackingDocuments) return;
+
     final Document document = event.getDocument();
     VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(document);
     boolean isBulk = document instanceof DocumentEx && ((DocumentEx)document).isInBulkUpdate();
@@ -836,6 +838,18 @@ public abstract class PsiDocumentManagerBase extends PsiDocumentManager implemen
     myLastCommittedTexts.clear();
     myUncommittedDocuments.clear();
     mySynchronizer.cleanupForNextTest();
+  }
+
+  @TestOnly
+  public void disableBackgroundCommit(@NotNull Disposable parentDisposable) {
+    assert myPerformBackgroundCommit;
+    myPerformBackgroundCommit = false;
+    Disposer.register(parentDisposable, new Disposable() {
+      @Override
+      public void dispose() {
+        myPerformBackgroundCommit = true;
+      }
+    });
   }
 
   @NotNull
