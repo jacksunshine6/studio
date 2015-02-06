@@ -56,7 +56,8 @@ public class StatisticsConfigurationComponent {
     String linkBeforeText = null;
     String linkText = null;
     String linkAfterText = null;
-    RelativeFont.SMALL.install(myLabel);
+    // Android Studio: removed use of smaller font to fit with the font used for the hyperlink below this label
+    // RelativeFont.SMALL.install(myLabel);
 
     myAllowToSendUsagesCheckBox.setText(StatisticsBundle.message("stats.config.allow.send.stats.text", company));
     myAllowToSendUsagesCheckBox.addActionListener(new ActionListener() {
@@ -96,7 +97,6 @@ public class StatisticsConfigurationComponent {
     myAllowToSendUsagesCheckBox.setText(myAllowToSendUsagesCheckBox.getText().replace("%company%", company));
 
     // Android Studio: add a hyperlink label so that we can link to the privacy policy
-if (myHyperLink != null) { // TEMPORARY : needs Siva's merge
     if (linkUrl == null) {
       myHyperLink.setVisible(false);
     } else {
@@ -113,7 +113,6 @@ if (myHyperLink != null) { // TEMPORARY : needs Siva's merge
         }
       });
     }
-}
 
     // Android Studio : Do not show panel that allows configuring stats upload frequency
     myRadioButtonPanel.setVisible(false);
