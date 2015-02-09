@@ -43,6 +43,7 @@ public class StatisticsConfigurationComponent {
   private JRadioButton myMonthlyRadioButton;
   private JRadioButton myWeeklyRadioButton;
   private JLabel myLabel;
+  private JPanel myRadioButtonPanel;
   private HyperlinkLabel myHyperLink;
 
   public StatisticsConfigurationComponent() {
@@ -115,8 +116,7 @@ if (myHyperLink != null) { // TEMPORARY : needs Siva's merge
 }
 
     // Android Studio : Do not show panel that allows configuring stats upload frequency
-    // (Now deleted by merge; preserving in case the new layout is doing something similar)
-    //myRadioButtonPanel.setVisible(false);
+    myRadioButtonPanel.setVisible(false);
   }
 
   private void setRadioButtonsEnabled() {
