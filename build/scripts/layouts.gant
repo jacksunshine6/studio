@@ -621,6 +621,14 @@ def layoutGoogle() {
       // is copied by the Android plugin
       fileset(file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.8.0-rc/google-api-java-client-min-repackaged.jar")
     }
+    layoutPlugin("google-cloud-testing") {
+      jar("google-cloud-testing.jar") {
+        module("google-cloud-testing")
+      }
+      fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
+        include(name: "**/*.jar")
+      }
+    }
   }
 }
 

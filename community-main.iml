@@ -101,6 +101,7 @@
     <orderEntry type="module" module-name="java-tests" scope="TEST" />
     <orderEntry type="module" module-name="community-tests" scope="TEST" />
     <orderEntry type="module" module-name="google-cloud-tools" />
+    <orderEntry type="module" module-name="google-cloud-testing" />
     <orderEntry type="module" module-name="jira" />
     <orderEntry type="module" module-name="java-decompiler-plugin" />
     <orderEntry type="module" module-name="structuralsearch" />
@@ -112,3 +113,4 @@
     <orderEntry type="module" module-name="typeMigration" />
   </component>
 </module>
+

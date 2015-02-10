@@ -79,6 +79,7 @@
       <module fileurl="file://$PROJECT_DIR$/plugins/github/github.iml" filepath="$PROJECT_DIR$/plugins/github/github.iml" group="plugins" />
       <module fileurl="file://$PROJECT_DIR$/plugins/google-app-engine/google-app-engine.iml" filepath="$PROJECT_DIR$/plugins/google-app-engine/google-app-engine.iml" group="plugins/GAE" />
       <module fileurl="file://$PROJECT_DIR$/plugins/google-app-engine/jps-plugin/google-app-engine-jps-plugin.iml" filepath="$PROJECT_DIR$/plugins/google-app-engine/jps-plugin/google-app-engine-jps-plugin.iml" group="plugins/GAE" />
+      <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/testing/google-cloud-testing.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/testing/google-cloud-testing.iml" group="plugins/Google" />
       <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/tools/google-cloud-tools.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/tools/google-cloud-tools.iml" group="plugins/Google" />
       <module fileurl="file://$PROJECT_DIR$/../studio/google/login/google-login.iml" filepath="$PROJECT_DIR$/../studio/google/login/google-login.iml" group="plugins/Google" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/gradle.iml" filepath="$PROJECT_DIR$/plugins/gradle/gradle.iml" group="plugins/gradle" />
