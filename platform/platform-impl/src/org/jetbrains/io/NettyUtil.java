@@ -28,7 +28,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.socket.oio.OioSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.cors.CorsConfig;
 import io.netty.handler.codec.http.cors.CorsHandler;
 import org.jetbrains.annotations.NotNull;
@@ -42,6 +43,8 @@ import java.net.Socket;
 import java.util.Random;
 
 public final class NettyUtil {
+  private static final Logger LOG = Logger.getInstance(NettyUtil.class);
+
   public static final int MAX_CONTENT_LENGTH = 100 * 1024 * 1024;
 
   public static final int DEFAULT_CONNECT_ATTEMPT_COUNT = 20;
@@ -88,6 +91,9 @@ public final class NettyUtil {
             @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
             Throwable cause = future.cause();
             if (promise != null) {
+              if (cause != null && cause.getMessage() == null) {
+                LOG.warn(cause);
+              }
               promise.reject("Cannot connect: " + (cause == null ? "unknown error" : cause.getMessage()));
             }
             return null;
@@ -175,7 +181,10 @@ public final class NettyUtil {
     return bootstrap;
   }
 
-  public static void addHttpServerCodec(ChannelPipeline pipeline) {
-    pipeline.addLast(new HttpServerCodec(), new HttpObjectAggregator(MAX_CONTENT_LENGTH), new CorsHandler(CorsConfig.withAnyOrigin().build()));
+  public static void addHttpServerCodec(@NotNull ChannelPipeline pipeline) {
+    pipeline.addLast(new HttpRequestDecoder(),
+                     new HttpResponseEncoder(),
+                     new CorsHandler(CorsConfig.withAnyOrigin().allowCredentials().allowNullOrigin().allowedRequestMethods().build()),
+                     new HttpObjectAggregator(MAX_CONTENT_LENGTH));
   }
 }

@@ -25,6 +25,7 @@ import com.intellij.openapi.options.BaseSchemeProcessor;
 import com.intellij.openapi.options.SchemesManager;
 import com.intellij.openapi.options.SchemesManagerFactory;
 import com.intellij.openapi.util.InvalidDataException;
+import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.util.containers.ContainerUtil;
 import org.jdom.Element;
@@ -69,9 +70,10 @@ public class KeymapManagerImpl extends KeymapManagerEx implements PersistentStat
                                                         return scheme.writeExternal();
                                                       }
 
+                                                      @NotNull
                                                       @Override
-                                                      public boolean shouldBeSaved(@NotNull final KeymapImpl scheme) {
-                                                        return scheme.canModify();
+                                                      public State getState(@NotNull KeymapImpl scheme) {
+                                                        return scheme.canModify() ? State.POSSIBLY_CHANGED : State.NON_PERSISTENT;
                                                       }
                                                     },
                                                     RoamingType.PER_USER);
@@ -89,12 +91,13 @@ public class KeymapManagerImpl extends KeymapManagerEx implements PersistentStat
     mySchemesManager.loadSchemes();
 
     if (Registry.is("editor.add.carets.on.double.control.arrows")) {
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_CLONE_CARET_ABOVE, KeyEvent.VK_CONTROL, KeyEvent.VK_UP);
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_CLONE_CARET_BELOW, KeyEvent.VK_CONTROL, KeyEvent.VK_DOWN);
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT_WITH_SELECTION, KeyEvent.VK_CONTROL, KeyEvent.VK_LEFT);
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT_WITH_SELECTION, KeyEvent.VK_CONTROL, KeyEvent.VK_RIGHT);
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_LINE_START_WITH_SELECTION, KeyEvent.VK_CONTROL, KeyEvent.VK_HOME);
-      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_LINE_END_WITH_SELECTION, KeyEvent.VK_CONTROL, KeyEvent.VK_END);
+      int modifierKeyCode = SystemInfo.isMac ? KeyEvent.VK_ALT : KeyEvent.VK_CONTROL;
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_CLONE_CARET_ABOVE, modifierKeyCode, KeyEvent.VK_UP);
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_CLONE_CARET_BELOW, modifierKeyCode, KeyEvent.VK_DOWN);
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT_WITH_SELECTION, modifierKeyCode, KeyEvent.VK_LEFT);
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT_WITH_SELECTION, modifierKeyCode, KeyEvent.VK_RIGHT);
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_LINE_START_WITH_SELECTION, modifierKeyCode, KeyEvent.VK_HOME);
+      ModifierKeyDoubleClickHandler.getInstance().registerAction(IdeActions.ACTION_EDITOR_MOVE_LINE_END_WITH_SELECTION, modifierKeyCode, KeyEvent.VK_END);
     }
 
     //noinspection AssignmentToStaticFieldFromInstanceMethod
