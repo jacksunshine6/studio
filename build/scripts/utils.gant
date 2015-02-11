@@ -290,6 +290,7 @@ binding.setVariable("platformApiModules", [
   "platform-api",
   "structure-view-api",
   "usageView",
+  "diff-api",
   "vcs-api",
   "vcs-api-core",
   "vcs-log-api",
@@ -301,6 +302,7 @@ binding.setVariable("platformApiModules", [
   "xml-openapi",
   "xml-psi-api",
   "xml-structure-view-api",
+  "built-in-server-api"
 ])
 
 
@@ -318,6 +320,7 @@ binding.setVariable("platformImplementationModules", [
   "projectModel-impl",
   "platform-impl",
   "structure-view-impl",
+  "diff-impl",
   "vcs-impl",
   "vcs-log-graph",
   "vcs-log-impl",
@@ -335,7 +338,8 @@ binding.setVariable("platformImplementationModules", [
   "json",
   "protocol-reader-runtime",
   "script-debugger-backend",
-  "script-debugger-ui"
+  "script-debugger-ui",
+  "built-in-server"
 ])
 
 binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
@@ -869,7 +873,8 @@ binding.setVariable("buildWinLauncher", { String ch, String inputPath, String ou
   if (pathsSelector != null) {
     def paths = getProperty("paths")
     def launcherPropertiesTemp = "${paths.sandbox}/launcher.properties"
-    copyAndPatchFile(launcherProperties, launcherPropertiesTemp, ["PRODUCT_PATHS_SELECTOR": pathsSelector])
+    copyAndPatchFile(launcherProperties, launcherPropertiesTemp, ["PRODUCT_PATHS_SELECTOR": pathsSelector,
+                                                                  "IDE-NAME": p("component.names.product").toUpperCase()])
     launcherProperties = launcherPropertiesTemp
   }
 
