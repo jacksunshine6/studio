@@ -165,16 +165,20 @@ public class InferenceSession {
    7) A conditional expression (15.25) whose second or third operand is not pertinent to applicability. 
   */
   public static boolean isPertinentToApplicability(PsiExpression expr, PsiMethod method) {
+    return isPertinentToApplicability(expr, method, null);
+  }
+
+  private static boolean isPertinentToApplicability(PsiExpression expr, PsiMethod method, PsiType expectedReturnType) {
     if (expr instanceof PsiLambdaExpression && ((PsiLambdaExpression)expr).hasFormalParameterTypes() ||
         expr instanceof PsiMethodReferenceExpression && ((PsiMethodReferenceExpression)expr).isExact()) {
       if (method != null && method.getTypeParameters().length > 0) {
         final PsiElement parent = PsiUtil.skipParenthesizedExprUp(expr.getParent());
+        PsiType paramType = null;
         if (parent instanceof PsiExpressionList) {
           final PsiElement gParent = parent.getParent();
           if (gParent instanceof PsiCallExpression && ((PsiCallExpression)gParent).getTypeArgumentList().getTypeParameterElements().length == 0) {
             final int idx = LambdaUtil.getLambdaIdx(((PsiExpressionList)parent), expr);
             final PsiParameter[] parameters = method.getParameterList().getParameters();
-            PsiType paramType;
             if (idx > parameters.length - 1) {
               final PsiType lastParamType = parameters[parameters.length - 1].getType();
               paramType = parameters[parameters.length - 1].isVarArgs() ? ((PsiEllipsisType)lastParamType).getComponentType() : lastParamType;
@@ -182,20 +186,24 @@ public class InferenceSession {
             else {
               paramType = parameters[idx].getType();
             }
-            final PsiClass psiClass = PsiUtil.resolveClassInType(paramType); //accept ellipsis here
-            if (psiClass instanceof PsiTypeParameter && ((PsiTypeParameter)psiClass).getOwner() == method) return false;
+            if (isTypeParameterType(method, paramType)) return false;
           }
+        }
+        else if (expectedReturnType != null && parent instanceof PsiLambdaExpression) {
+          if (isTypeParameterType(method, expectedReturnType)) return false;
+          paramType = expectedReturnType;
+        }
+
+        if (expr instanceof PsiLambdaExpression) {
+          for (PsiExpression expression : LambdaUtil.getReturnExpressions((PsiLambdaExpression)expr)) {
+            if (!isPertinentToApplicability(expression, method, LambdaUtil.getFunctionalInterfaceReturnType(paramType))) return false;
+          }
+          return true;
         }
       }
     }
     if (expr instanceof PsiLambdaExpression) {
-      if (!((PsiLambdaExpression)expr).hasFormalParameterTypes()) {
-        return false;
-      }
-      for (PsiExpression expression : LambdaUtil.getReturnExpressions((PsiLambdaExpression)expr)) {
-        if (!isPertinentToApplicability(expression, method)) return false;
-      }
-      return true;
+      return ((PsiLambdaExpression)expr).hasFormalParameterTypes();
     }
     if (expr instanceof PsiMethodReferenceExpression) {
       return ((PsiMethodReferenceExpression)expr).isExact();
@@ -210,6 +218,12 @@ public class InferenceSession {
       if (!isPertinentToApplicability(elseExpression, method)) return false;
     }
     return true;
+  }
+
+  private static boolean isTypeParameterType(PsiMethod method, PsiType paramType) {
+    final PsiClass psiClass = PsiUtil.resolveClassInType(paramType); //accept ellipsis here
+    if (psiClass instanceof PsiTypeParameter && ((PsiTypeParameter)psiClass).getOwner() == method) return true;
+    return false;
   }
 
   private static PsiType getParameterType(PsiParameter[] parameters, int i, @Nullable PsiSubstitutor substitutor, boolean varargs) {
@@ -294,7 +308,7 @@ public class InferenceSession {
           if (calledMethod != null && PsiPolyExpressionUtil.isMethodCallPolyExpression(arg, calledMethod)) {
             collectAdditionalConstraints(additionalConstraints, (PsiCallExpression)arg);
           }
-        } else if (arg instanceof PsiLambdaExpression) {
+        } else if (arg instanceof PsiLambdaExpression && !isProperType(retrieveNonPrimitiveEqualsBounds(myInferenceVariables).substitute(parameterType))) {
           collectLambdaReturnExpression(additionalConstraints, (PsiLambdaExpression)arg, parameterType);
         }
       }
@@ -478,7 +492,7 @@ public class InferenceSession {
       final PsiSubstitutor substitutor = resolveSubset(Collections.singletonList(inferenceVariable), mySiteSubstitutor);
       final PsiType substitutedReturnType = substitutor.substitute(inferenceVariable.getParameter());
       if (substitutedReturnType != null) {
-        addConstraint(new TypeCompatibilityConstraint(targetType, PsiUtil.captureToplevelWildcards(substitutedReturnType, myContext)));
+        addConstraint(new TypeCompatibilityConstraint(targetType, PsiImplUtil.normalizeWildcardTypeByPosition(substitutedReturnType, (PsiExpression)myContext)));
       }
     } 
     else {
@@ -489,7 +503,7 @@ public class InferenceSession {
           LOG.assertTrue(returnType instanceof PsiClassType);
           final PsiTypeParameter[] typeParameters = psiClass.getTypeParameters();
           InferenceVariable[] copy = initBounds(null, typeParameters);
-          final PsiType substitutedCapture = PsiUtil.captureToplevelWildcards(returnType, myContext);
+          final PsiType substitutedCapture = PsiImplUtil.normalizeWildcardTypeByPosition(returnType, (PsiExpression)myContext);
           myIncorporationPhase.addCapture(copy, (PsiClassType)substituteWithInferenceVariables(returnType));
           addConstraint(new TypeCompatibilityConstraint(targetType, substitutedCapture));
         }
@@ -1134,7 +1148,7 @@ public class InferenceSession {
       // the type to search is the result of capture conversion (5.1.10) applied to T; 
       // otherwise, the type to search is the same as the type of the first search. Again, the type arguments, if any, are given by the method reference.
       if (PsiUtil.isRawSubstitutor(containingClass, psiSubstitutor)) {
-        final PsiClassType.ClassResolveResult pResult = PsiUtil.resolveGenericsClassInType(PsiUtil.captureToplevelWildcards(pType, myContext));
+        final PsiClassType.ClassResolveResult pResult = PsiUtil.resolveGenericsClassInType(PsiImplUtil.normalizeWildcardTypeByPosition(pType, (PsiExpression)myContext));
         final PsiClass pClass = pResult.getElement();
         final PsiSubstitutor receiverSubstitutor = pClass != null ? TypeConversionUtil
           .getClassSubstitutor(containingClass, pClass, pResult.getSubstitutor()) : null;

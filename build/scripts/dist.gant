@@ -97,6 +97,8 @@ target('default': 'The default target') {
   // Generate updater.jar from the updater module (patch updater)
   projectBuilder.stage("Generating updater in $out")
   layoutUpdater(out)
+  def macZip = "$paths.artifacts/android-studio-${androidBuildNumber}.mac.zip"
+  notifyArtifactBuilt(macZip)
 }
 
 target('build-dist-jars' : 'Target to build jars from locally compiled classes') {
@@ -110,6 +112,8 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
              system_selector: "IdeaIC${p("component.version.major")}",
              tools_jar: true],
              home, null, paths)
+  def macZip = "$paths.artifacts/android-studio-${androidBuildNumber}.mac.zip"
+  notifyArtifactBuilt(macZip)
 }
 
 private void indexSearchableOptions() {
@@ -225,7 +229,7 @@ private layoutMac(Map _args, String home, Paths paths) {
   args."idea.properties.path" = "${paths.distAll}/bin/idea.properties"
   args.urlSchemes = ["idea"]
   args.mac_no_yjp = true
-
+  args.executable = "studio"
   layoutMacApp(target, home, args)
 }
 

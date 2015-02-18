@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2013 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package org.jetbrains.io;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.ActionCallback;
 import com.intellij.util.SystemProperties;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.BootstrapUtil;
@@ -30,21 +29,21 @@ import io.netty.channel.socket.oio.OioSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
-import io.netty.handler.codec.http.cors.CorsConfig;
-import io.netty.handler.codec.http.cors.CorsHandler;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.concurrency.AsyncPromise;
+import org.jetbrains.concurrency.Promise;
 import org.jetbrains.ide.PooledThreadExecutor;
 
 import java.io.IOException;
 import java.net.BindException;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Random;
 
 public final class NettyUtil {
-  private static final Logger LOG = Logger.getInstance(NettyUtil.class);
-
   public static final int MAX_CONTENT_LENGTH = 100 * 1024 * 1024;
 
   public static final int DEFAULT_CONNECT_ATTEMPT_COUNT = 20;
@@ -58,7 +57,24 @@ public final class NettyUtil {
     }
   }
 
-  public static void log(Throwable throwable, Logger log) {
+  public static void logAndClose(@NotNull Throwable error, @NotNull Logger log, @NotNull Channel channel) {
+    // don't report about errors while connecting
+    // WEB-7727
+    try {
+      if (error instanceof ConnectException) {
+        log.debug(error);
+      }
+      else {
+        log(error, log);
+      }
+    }
+    finally {
+      log.info("Channel will be closed due to error");
+      channel.close();
+    }
+  }
+
+  public static void log(@NotNull Throwable throwable, @NotNull Logger log) {
     if (isAsWarning(throwable)) {
       log.warn(throwable);
     }
@@ -68,73 +84,85 @@ public final class NettyUtil {
   }
 
   @Nullable
-  public static Channel connectClient(@NotNull Bootstrap bootstrap, @NotNull InetSocketAddress remoteAddress, @Nullable ActionCallback asyncResult) {
-    return connect(bootstrap, remoteAddress, asyncResult, DEFAULT_CONNECT_ATTEMPT_COUNT);
+  public static Channel connect(@NotNull Bootstrap bootstrap, @NotNull InetSocketAddress remoteAddress, @Nullable AsyncPromise<?> promise) {
+    return connect(bootstrap, remoteAddress, promise, DEFAULT_CONNECT_ATTEMPT_COUNT);
   }
 
   @Nullable
-  public static Channel connect(@NotNull Bootstrap bootstrap, @NotNull InetSocketAddress remoteAddress, @Nullable ActionCallback promise, int maxAttemptCount) {
+  public static Channel connect(@NotNull Bootstrap bootstrap, @NotNull InetSocketAddress remoteAddress, @Nullable AsyncPromise<?> promise, int maxAttemptCount) {
     try {
-      int attemptCount = 0;
-
-      if (bootstrap.group() instanceof NioEventLoopGroup) {
-        while (true) {
-          ChannelFuture future = bootstrap.connect(remoteAddress).awaitUninterruptibly();
-          if (future.isSuccess()) {
-            return future.channel();
-          }
-          else if (++attemptCount < maxAttemptCount) {
-            //noinspection BusyWait
-            Thread.sleep(attemptCount * MIN_START_TIME);
-          }
-          else {
-            @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
-            Throwable cause = future.cause();
-            if (promise != null) {
-              if (cause != null && cause.getMessage() == null) {
-                LOG.warn(cause);
-              }
-              promise.reject("Cannot connect: " + (cause == null ? "unknown error" : cause.getMessage()));
-            }
-            return null;
-          }
-        }
-      }
-
-      Socket socket;
-      while (true) {
-        try {
-          //noinspection SocketOpenedButNotSafelyClosed
-          socket = new Socket(remoteAddress.getAddress(), remoteAddress.getPort());
-          break;
-        }
-        catch (IOException e) {
-          if (++attemptCount < maxAttemptCount) {
-            //noinspection BusyWait
-            Thread.sleep(attemptCount * MIN_START_TIME);
-          }
-          else {
-            if (promise != null) {
-              promise.reject("Cannot connect: " + e.getMessage());
-            }
-            return null;
-          }
-        }
-      }
-
-      OioSocketChannel channel = new OioSocketChannel(socket);
-      BootstrapUtil.initAndRegister(channel, bootstrap).awaitUninterruptibly();
-      return channel;
+      return doConnect(bootstrap, remoteAddress, promise, maxAttemptCount);
     }
     catch (Throwable e) {
       if (promise != null) {
-        promise.reject("Cannot connect: " + e.getMessage());
+        promise.setError(e);
       }
       return null;
     }
   }
 
-  private static boolean isAsWarning(Throwable throwable) {
+  @Nullable
+  private static Channel doConnect(@NotNull Bootstrap bootstrap, @NotNull InetSocketAddress remoteAddress, @Nullable AsyncPromise<?> promise, int maxAttemptCount) throws Throwable {
+    int attemptCount = 0;
+
+    if (bootstrap.group() instanceof NioEventLoopGroup) {
+      while (true) {
+        ChannelFuture future = bootstrap.connect(remoteAddress).awaitUninterruptibly();
+        if (future.isSuccess()) {
+          return future.channel();
+        }
+        else if (maxAttemptCount == -1) {
+          //noinspection BusyWait
+          Thread.sleep(300);
+          attemptCount++;
+        }
+        else if (++attemptCount < maxAttemptCount) {
+          //noinspection BusyWait
+          Thread.sleep(attemptCount * MIN_START_TIME);
+        }
+        else {
+          @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
+          Throwable cause = future.cause();
+          if (promise != null) {
+            //noinspection ThrowableResultOfMethodCallIgnored
+            promise.setError(cause == null ? Promise.createError("Cannot connect: unknown error") : cause);
+          }
+          return null;
+        }
+      }
+    }
+
+    Socket socket;
+    while (true) {
+      try {
+        //noinspection SocketOpenedButNotSafelyClosed
+        socket = new Socket(remoteAddress.getAddress(), remoteAddress.getPort());
+        break;
+      }
+      catch (IOException e) {
+        if (maxAttemptCount == -1) {
+          //noinspection BusyWait
+          Thread.sleep(300);
+          attemptCount++;
+        }
+        else if (++attemptCount < maxAttemptCount) {
+          //noinspection BusyWait
+          Thread.sleep(attemptCount * MIN_START_TIME);
+        }
+        else {
+          if (promise != null) {
+            promise.setError(e);
+          }
+          return null;
+        }
+      }
+    }
+    OioSocketChannel channel = new OioSocketChannel(socket);
+    BootstrapUtil.initAndRegister(channel, bootstrap).sync();
+    return channel;
+  }
+
+  private static boolean isAsWarning(@NotNull Throwable throwable) {
     String message = throwable.getMessage();
     if (message == null) {
       return false;
@@ -182,9 +210,13 @@ public final class NettyUtil {
   }
 
   public static void addHttpServerCodec(@NotNull ChannelPipeline pipeline) {
-    pipeline.addLast(new HttpRequestDecoder(),
-                     new HttpResponseEncoder(),
-                     new CorsHandler(CorsConfig.withAnyOrigin().allowCredentials().allowNullOrigin().allowedRequestMethods().build()),
-                     new HttpObjectAggregator(MAX_CONTENT_LENGTH));
+    pipeline.addLast("httpRequestEncoder", new HttpResponseEncoder());
+    pipeline.addLast("httpRequestDecoder", new HttpRequestDecoder());
+    pipeline.addLast("httpObjectAggregator", new HttpObjectAggregator(MAX_CONTENT_LENGTH));
+    // could be added earlier if HTTPS
+    if (pipeline.get(ChunkedWriteHandler.class) == null) {
+      pipeline.addLast("chunkedWriteHandler", new ChunkedWriteHandler());
+    }
+    //pipeline.addLast("corsHandler", new CorsHandler(CorsConfig.withAnyOrigin().allowCredentials().allowNullOrigin().allowedRequestMethods().build()));
   }
 }
