@@ -6,26 +6,27 @@ import io.netty.handler.codec.http.websocketx.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.io.ChannelBufferToString;
 import org.jetbrains.io.SimpleChannelInboundHandlerAdapter;
-
-import java.io.IOException;
+import org.jetbrains.io.jsonRpc.Client;
+import org.jetbrains.io.jsonRpc.ClientManager;
+import org.jetbrains.io.jsonRpc.MessageServer;
 
 @ChannelHandler.Sharable
 final class MessageChannelHandler extends SimpleChannelInboundHandlerAdapter<WebSocketFrame> {
-  private final WebSocketServer server;
+  private final ClientManager clientManager;
   private final MessageServer messageServer;
 
-  MessageChannelHandler(@NotNull WebSocketServer server, @NotNull MessageServer messageServer) {
-    this.server = server;
+  MessageChannelHandler(@NotNull ClientManager clientManager, @NotNull MessageServer messageServer) {
+    this.clientManager = clientManager;
     this.messageServer = messageServer;
   }
 
   @Override
   protected void messageReceived(ChannelHandlerContext context, WebSocketFrame message) throws Exception {
-    WebSocketClient client = (WebSocketClient)context.attr(WebSocketHandshakeHandler.CLIENT).get();
+    WebSocketClient client = (WebSocketClient)context.attr(ClientManager.CLIENT).get();
     if (message instanceof CloseWebSocketFrame) {
       if (client != null) {
         try {
-          server.disconnectClient(context, client, false);
+          clientManager.disconnectClient(context, client, false);
         }
         finally {
           message.retain();
@@ -37,12 +38,11 @@ final class MessageChannelHandler extends SimpleChannelInboundHandlerAdapter<Web
       context.channel().writeAndFlush(new PongWebSocketFrame(message.content()));
     }
     else if (message instanceof TextWebSocketFrame) {
-      String text = ChannelBufferToString.readString(message.content());
       try {
-        messageServer.message(client, text);
+        messageServer.messageReceived(client, ChannelBufferToString.readChars(message.content()), false);
       }
       catch (Throwable e) {
-        server.exceptionHandler.exceptionCaught(new IOException("Exception while handle message: " + text, e));
+        clientManager.exceptionHandler.exceptionCaught(e);
       }
     }
     else if (!(message instanceof PongWebSocketFrame)) {
@@ -52,17 +52,17 @@ final class MessageChannelHandler extends SimpleChannelInboundHandlerAdapter<Web
 
   @Override
   public void channelInactive(ChannelHandlerContext context) throws Exception {
-    Client client = context.attr(WebSocketHandshakeHandler.CLIENT).get();
+    Client client = context.attr(ClientManager.CLIENT).get();
     // if null, so, has already been explicitly removed
     if (client != null) {
-      server.disconnectClient(context, client, false);
+      clientManager.disconnectClient(context, client, false);
     }
   }
 
   @Override
   public void exceptionCaught(ChannelHandlerContext context, Throwable cause) throws Exception {
     try {
-      server.exceptionHandler.exceptionCaught(cause);
+      clientManager.exceptionHandler.exceptionCaught(cause);
     }
     finally {
       context.channel().close();
