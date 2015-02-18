@@ -27,6 +27,7 @@ import com.intellij.debugger.engine.events.DebuggerCommandImpl;
 import com.intellij.debugger.engine.events.SuspendContextCommandImpl;
 import com.intellij.debugger.impl.DebuggerContextImpl;
 import com.intellij.debugger.impl.DebuggerUtilsEx;
+import com.intellij.debugger.settings.ToStringBasedRenderer;
 import com.intellij.debugger.ui.impl.DebuggerTreeRenderer;
 import com.intellij.debugger.ui.impl.watch.*;
 import com.intellij.debugger.ui.tree.*;
@@ -146,7 +147,11 @@ public class JavaValue extends XNamedValue implements NodeDescriptorProvider, XV
             presentation = new JavaValuePresentation(value, myValueDescriptor.getIdLabel(), exception != null ? exception.getMessage() : null, myValueDescriptor);
 
             if (myValueDescriptor.getLastRenderer() instanceof FullValueEvaluatorProvider) {
-              node.setFullValueEvaluator(((FullValueEvaluatorProvider)myValueDescriptor.getLastRenderer()).getFullValueEvaluator(myEvaluationContext, myValueDescriptor));
+              XFullValueEvaluator evaluator = ((FullValueEvaluatorProvider)myValueDescriptor.getLastRenderer())
+                .getFullValueEvaluator(myEvaluationContext, myValueDescriptor);
+              if (evaluator != null) {
+                node.setFullValueEvaluator(evaluator);
+              }
             }
             else if (value.length() > XValueNode.MAX_VALUE_LENGTH) {
               node.setFullValueEvaluator(new XFullValueEvaluator() {
@@ -256,7 +261,8 @@ public class JavaValue extends XNamedValue implements NodeDescriptorProvider, XV
           renderer.renderStringValue(myValue, "\"\\", XValueNode.MAX_VALUE_LENGTH);
           return;
         }
-        else if (myValueDescriptor.getLastRenderer() instanceof ToStringRenderer) {
+        else if (myValueDescriptor.getLastRenderer() instanceof ToStringRenderer ||
+                 myValueDescriptor.getLastRenderer() instanceof ToStringBasedRenderer) {
           value = StringUtil.wrapWithDoubleQuote(truncateToMaxLength(myValue));
         }
         else if (myValueDescriptor.getLastRenderer() instanceof CompoundReferenceRenderer) {
@@ -540,6 +546,11 @@ public class JavaValue extends XNamedValue implements NodeDescriptorProvider, XV
   public void setRenderer(NodeRenderer nodeRenderer, final XValueNodeImpl node) {
     DebuggerManagerThreadImpl.assertIsManagerThread();
     myValueDescriptor.setRenderer(nodeRenderer);
+    reBuild(node);
+  }
+
+  public void reBuild(final XValueNodeImpl node) {
+    DebuggerManagerThreadImpl.assertIsManagerThread();
     myCurrentChildrenStart = 0;
     node.getTree().getLaterInvocator().offer(new Runnable() {
       @Override
