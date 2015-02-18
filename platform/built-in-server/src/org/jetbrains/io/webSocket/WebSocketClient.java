@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.io.jsonRpc.Client;
 
 import java.nio.channels.ClosedChannelException;
 
@@ -22,14 +23,16 @@ class WebSocketClient extends Client {
 
   @Override
   public ChannelFuture send(@NotNull ByteBuf message) {
-    if (!channel.isOpen()) {
+    if (channel.isOpen()) {
+      return channel.writeAndFlush(new TextWebSocketFrame(message));
+    }
+    else {
       return channel.newFailedFuture(new ClosedChannelException());
     }
-    return channel.writeAndFlush(new TextWebSocketFrame(message));
   }
 
   @Override
-  void sendHeartbeat() {
+  public void sendHeartbeat() {
     channel.writeAndFlush(new PingWebSocketFrame());
   }
 
