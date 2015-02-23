@@ -21,6 +21,7 @@ import com.intellij.ide.dnd.DnDAction;
 import com.intellij.ide.dnd.DnDDragStartBean;
 import com.intellij.ide.dnd.DnDManager;
 import com.intellij.ide.dnd.DnDSource;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.text.StringUtil;
@@ -144,6 +145,10 @@ public class PaletteItemsComponent extends JBList {
         }
       }
     });
+
+    if (ApplicationManager.getApplication().isUnitTestMode() && GraphicsEnvironment.isHeadless()) {
+      return;
+    }
 
     setDragEnabled(true);
     setTransferHandler(new TreeTransfer(PaletteItem.class));
