@@ -87,7 +87,7 @@ target('default': 'The default target') {
 
   indexSearchableOptions()
   layoutAll([buildNumber: "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
-             system_selector: "AndroidStudio",
+             system_selector: "AndroidStudioPreview1.2",
              platform_prefix: "AndroidStudio",
              icns: "${projectBuilder.moduleOutput(findModule("adt-branding"))}/artwork/AndroidStudio.icns",
              ide_jvm_args: "-Didea.platform.prefix=AndroidStudio",
