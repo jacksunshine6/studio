@@ -134,8 +134,9 @@ public class ConfigImportHelper {
     // are different from the current setting name
     if (maxFile == null) {
       File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview"));
-      File beta = new File(PathManager.getDefaultConfigPathFor("AndroidStudioBeta")); // relevant when we switch from beta to stable
-      for (File file : new File[] { preview, beta }) {
+      File beta = new File(PathManager.getDefaultConfigPathFor("AndroidStudioBeta"));
+      File v1_0 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
+      for (File file : new File[] { preview, beta, v1_0 }) {
         if (!file.isDirectory()) {
           continue;
         }
