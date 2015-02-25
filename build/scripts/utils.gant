@@ -800,6 +800,14 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
           exclude(name: it)
         }
         exclude(name: "bin/idea.properties")
+
+        // With version 10.9.5+ of Mac, only binary files should be in the Contents folder.
+        // IntelliJ does manage to sign these text files as binaries, but in such cases (where you are signing a text file),
+        // the code signatures are placed in extended file attributes that could easily get lost. So rather than code signing these files,
+        // we'll just move them into the recommended location inside Resources (see the zip action below)
+        exclude(name: "build.txt")
+        exclude(name: "LICENSE.txt")
+        exclude(name: "NOTICE.txt")
       }
     }
 
@@ -813,6 +821,14 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
         extraBins.each {
           include(name: it)
         }
+      }
+    }
+
+    allPaths.each {
+      zipfileset(dir: it, prefix: zipRoot + "/Resources") {
+        include(name: "build.txt")
+        include(name: "LICENSE.txt")
+        include(name: "NOTICE.txt")
       }
     }
 
