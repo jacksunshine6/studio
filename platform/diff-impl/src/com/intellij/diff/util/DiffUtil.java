@@ -57,6 +57,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapperDialog;
 import com.intellij.openapi.ui.WindowWrapper;
 import com.intellij.openapi.util.*;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.ReadonlyStatusHandler;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.IdeFocusManager;
@@ -64,6 +65,7 @@ import com.intellij.openapi.wm.impl.IdeFrameImpl;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.ui.IdeBorderFactory;
 import com.intellij.ui.JBColor;
+import com.intellij.ui.ScreenUtil;
 import com.intellij.util.Function;
 import com.intellij.util.LineSeparator;
 import com.intellij.util.containers.ContainerUtil;
@@ -77,6 +79,7 @@ import java.awt.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.List;
 
 public class DiffUtil {
@@ -348,8 +351,12 @@ public class DiffUtil {
 
     List<JComponent> result = new ArrayList<JComponent>(contents.size());
 
+    if (equalCharsets && equalSeparators && ContainerUtil.find(titles, Condition.NOT_NULL) == null) {
+      return Collections.nCopies(titles.size(), null);
+    }
+
     for (int i = 0; i < contents.size(); i++) {
-      result.add(createTitle(titles.get(i), contents.get(i), equalCharsets, equalSeparators, editors.get(i)));
+      result.add(createTitle(StringUtil.notNullize(titles.get(i)), contents.get(i), equalCharsets, equalSeparators, editors.get(i)));
     }
 
     return result;
@@ -397,11 +404,13 @@ public class DiffUtil {
     if (readOnly) title += " " + DiffBundle.message("diff.content.read.only.content.title.suffix");
 
     JPanel panel = new JPanel(new BorderLayout());
-    panel.setBorder(IdeBorderFactory.createEmptyBorder(0, 4, 0, 0));
-    panel.add(createTitlePanel(title), BorderLayout.WEST);
+    panel.setBorder(IdeBorderFactory.createEmptyBorder(0, 4, 0, 4));
+    panel.add(createTitlePanel(title), BorderLayout.CENTER);
     if (charset != null && separator != null) {
       JPanel panel2 = new JPanel();
+      panel2.setLayout(new BoxLayout(panel2, BoxLayout.X_AXIS));
       panel2.add(createCharsetPanel(charset));
+      panel2.add(Box.createRigidArea(new Dimension(4, 0)));
       panel2.add(createSeparatorPanel(separator));
       panel.add(panel2, BorderLayout.EAST);
     }
@@ -751,6 +760,7 @@ public class DiffUtil {
 
   @CalledInAwt
   public static boolean makeWritable(@Nullable Project project, @NotNull Document document) {
+    if (document.isWritable()) return true;
     if (project == null) return false;
     return ReadonlyStatusHandler.ensureDocumentWritable(project, document);
   }
@@ -758,6 +768,19 @@ public class DiffUtil {
   //
   // Windows
   //
+
+  @NotNull
+  public static Dimension getDefaultDiffPanelSize() {
+    return new Dimension(400, 200);
+  }
+
+  @NotNull
+  public static Dimension getDefaultDiffWindowSize() {
+    Rectangle screenBounds = ScreenUtil.getMainScreenBounds();
+    int width = (int)(screenBounds.width * 0.8);
+    int height = (int)(screenBounds.height * 0.8);
+    return new Dimension(width, height);
+  }
 
   @NotNull
   public static WindowWrapper.Mode getWindowMode(@NotNull DiffDialogHints hints) {
