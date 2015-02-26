@@ -18,7 +18,6 @@ package com.intellij.ide.scratch;
 import com.intellij.lang.Language;
 import com.intellij.lang.PerFileMappings;
 import com.intellij.openapi.components.ServiceManager;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,7 +29,11 @@ public abstract class ScratchFileService {
   public enum Option { existing_only, create_if_missing, create_new_always }
 
   public static ScratchFileService getInstance() {
-    return ServiceManager.getService(ScratchFileService.class);
+    return ServiceHolder.instance;
+  }
+
+  private static class ServiceHolder {
+    static final ScratchFileService instance = ServiceManager.getService(ScratchFileService.class);
   }
 
   @NotNull
@@ -40,9 +43,6 @@ public abstract class ScratchFileService {
   public abstract RootType getRootType(@NotNull VirtualFile file);
 
   public abstract VirtualFile findFile(@NotNull RootType rootType, @NotNull String pathName, Option option) throws IOException;
-
-  @Nullable
-  public abstract VirtualFile createScratchFile(@NotNull Project project, @NotNull Language language, @NotNull String initialContent);
 
   @NotNull
   public abstract PerFileMappings<Language> getScratchesMapping();

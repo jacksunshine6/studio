@@ -22,7 +22,7 @@ import com.intellij.openapi.editor.FoldRegion;
 import com.intellij.openapi.editor.FoldingModel;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.fileEditor.impl.EditorWithProviderComposite;
-import com.intellij.openapi.fileEditor.impl.FileEditorManagerImpl;
+import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.DumbServiceImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -31,6 +31,7 @@ import com.intellij.testFramework.PlatformTestCase;
 import com.intellij.testFramework.PlatformTestUtil;
 import com.intellij.util.Function;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.ui.UIUtil;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,6 +44,7 @@ import java.util.List;
  * @author Dmitry Avdeev
  *         Date: 4/16/13
  */
+@SuppressWarnings("ConstantConditions")
 public class FileEditorManagerTest extends FileEditorManagerTestCase {
 
   @SuppressWarnings("JUnitTestCaseWithNonTrivialConstructors")
@@ -161,13 +163,17 @@ public class FileEditorManagerTest extends FileEditorManagerTestCase {
     }
   }
 
-  public void _testOpenInDumbMode() throws Exception {
+  public void testOpenInDumbMode() throws Exception {
     PlatformTestUtil.registerExtension(FileEditorProvider.EP_FILE_EDITOR_PROVIDER, new MyFileEditorProvider(), getTestRootDisposable());
+    PlatformTestUtil.registerExtension(FileEditorProvider.EP_FILE_EDITOR_PROVIDER, new DumbAwareProvider(), getTestRootDisposable());
     try {
       DumbServiceImpl.getInstance(getProject()).setDumb(true);
-      FileEditor[] editors = myManager.openFile(getFile("/src/foo.bar"), false);
-      assertEquals(1, editors.length);
-      assertFalse(FileEditorManagerImpl.isDumbAware(editors[0]));
+      VirtualFile file = getFile("/src/foo.bar");
+      assertEquals(1, myManager.openFile(file, false).length);
+      DumbServiceImpl.getInstance(getProject()).setDumb(false);
+      UIUtil.dispatchAllInvocationEvents();
+      assertEquals(2, myManager.getAllEditors(file).length);
+      //assertFalse(FileEditorManagerImpl.isDumbAware(editors[0]));
     }
     finally {
       DumbServiceImpl.getInstance(getProject()).setDumb(false);
@@ -282,4 +288,13 @@ public class FileEditorManagerTest extends FileEditorManagerTestCase {
       return FileEditorPolicy.PLACE_AFTER_DEFAULT_EDITOR;
     }
   }
+
+  private static class DumbAwareProvider extends MyFileEditorProvider implements DumbAware {
+    @NotNull
+    @Override
+    public String getEditorTypeId() {
+      return "dumbAware";
+    }
+  }
 }
+
