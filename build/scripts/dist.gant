@@ -19,12 +19,6 @@ import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
 
 requireProperty("out", "$home/out")
-requireProperty("buildNumber", "SNAPSHOT")
-
-// "out" has to be canonical, otherwise the ant build fails
-// with mysterious errors
-out = new File(out).getCanonicalPath()
-setProperty("out", out)
 
 class Paths {
   final sandbox
@@ -74,7 +68,7 @@ target(compile: "Compile project") {
 }
 
 private String appInfoFile() {
-  return "${projectBuilder.moduleOutput(findModule("adt-branding"))}/idea/AndroidStudioApplicationInfo.xml"
+  return "${projectBuilder.moduleOutput(findModule("community-resources"))}/idea/IdeaApplicationInfo.xml"
 }
 
 target('default': 'The default target') {
@@ -86,18 +80,12 @@ target('default': 'The default target') {
   zipSources(home, paths.artifacts)
 
   indexSearchableOptions()
-  layoutAll([buildNumber: "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
-             system_selector: "AndroidStudioPreview1.2",
-             platform_prefix: "AndroidStudio",
-             icns: "${projectBuilder.moduleOutput(findModule("adt-branding"))}/artwork/AndroidStudio.icns",
-             ide_jvm_args: "-Didea.platform.prefix=AndroidStudio",
+
+  layoutAll([buildNumber: "IC-$snapshot",
+             system_selector: "IdeaIC${p("component.version.major")}",
              tools_jar: true],
             home, null, paths, true)
-
-  // Generate updater.jar from the updater module (patch updater)
-  projectBuilder.stage("Generating updater in $out")
-  layoutUpdater(out)
-  def macZip = "$paths.artifacts/android-studio-${androidBuildNumber}.mac.zip"
+  String macZip = "$paths.artifacts/ideaIC-${snapshot}.mac.zip"
   notifyArtifactBuilt(macZip)
 }
 
@@ -108,11 +96,12 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
   ant.xmlproperty(file: appInfoFile(), collapseAttributes: "true")
 
   indexSearchableOptions()
-  layoutAll([buildNumber: "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
+
+  layoutAll([buildNumber: "IC-$snapshot",
              system_selector: "IdeaIC${p("component.version.major")}",
              tools_jar: true],
              home, null, paths)
-  def macZip = "$paths.artifacts/android-studio-${androidBuildNumber}.mac.zip"
+  String macZip = "$paths.artifacts/ideaIC-${snapshot}.mac.zip"
   notifyArtifactBuilt(macZip)
 }
 
@@ -128,8 +117,6 @@ private void indexSearchableOptions() {
 
 def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps = false) {
   Paths paths = _paths != null ? _paths : new Paths(out)
-
-  args.companyName = p("component.company.name")
 
   wireBuildDate(args.buildNumber, appInfoFile())
   ant.echo(message: args.buildNumber, file: "$paths.distAll/build.txt")
@@ -161,30 +148,20 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   layoutMac(args, home, paths)
   layoutUnix(args, home, paths)
 
-  def winAppRoot = "android-studio"
-  def macAppRoot = "Android Studio.app/Contents"
-  def linTarRoot = "android-studio"
+  buildWinZip("$paths.artifacts/idea${args.buildNumber}.win.zip", [paths.distAll, paths.distWin])
 
-  androidBuildNumber = p("buildNumber")
-  //def macAppRoot = isEap() ?
-  //                 "IntelliJ IDEA ${p("component.version.major")} CE EAP.app/Contents" :
-  //                 "IntelliJ IDEA ${p("component.version.major")} CE.app/Contents"
+  def macAppRoot = isEap() ?
+                   "IntelliJ IDEA ${p("component.version.major")} CE EAP.app/Contents" :
+                   "IntelliJ IDEA ${p("component.version.major")} CE.app/Contents"
 
-  def winZip = "$paths.artifacts/android-studio-${androidBuildNumber}.win.zip"
-  def macZip = "$paths.artifacts/android-studio-${androidBuildNumber}.mac.zip"
-  def linTar = "$paths.artifacts/android-studio-${androidBuildNumber}.tar"
-
-  buildWinZip(winAppRoot, winZip, [paths.distAll, paths.distWin])
-  buildTarGz(linTarRoot, linTar, [paths.distAll, paths.distUnix])
+  String macZip = "$paths.artifacts/idea${args.buildNumber}.mac.zip"
   buildMacZip(macAppRoot, macZip, [paths.distAll], paths.distMac)
+
+  buildTarGz("idea-${args.buildNumber}", "$paths.artifacts/idea${args.buildNumber}.tar", [paths.distAll, paths.distUnix])
 }
 
-private layoutWin(Map _args, String home, Paths paths) {
+private layoutWin(Map args, String home, Paths paths) {
   String target = paths.distWin
-
-  Map args = new HashMap(_args)
-  args.product_uc = "ANDROID_STUDIO"
-  args.vm_options = "studio.exe"
 
   layout(target) {
     dir("bin") {
@@ -192,28 +169,22 @@ private layoutWin(Map _args, String home, Paths paths) {
     }
   }
 
-  ant.copy(file: "$home/../adt/idea/adt-branding/src/artwork/androidstudio.ico", tofile: "$target/bin/idea.ico")
+  ant.copy(file: "$home/platform/icons/src/idea_CE.ico", tofile: "$target/bin/idea.ico")
 
-  List resourcePaths = ["$home/../adt/idea/adt-branding/src"]
-  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/studio.exe", appInfoFile(),
-                   "$home/../adt/idea/adt-branding/src/idea/android_studio_launcher.properties", _args.system_selector, resourcePaths)
-  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/studio64.exe", appInfoFile(),
-                   "$home/../adt/idea/adt-branding/src/idea/android_studio_launcher.properties", _args.system_selector, resourcePaths)
-
-  ant.copy(  file: "$home/../adt/idea/native/installer/win/builds/uninstall.exe", tofile: "$target/uninstall.exe")
-
-  // Unlike intellij we do not distribute a batch file to launch studio.
-  // winScripts(target, home, "studio.bat", args)
-  winVMOptions(target, args, "studio.exe", "studio64.exe")
+  winScripts(target, home, "idea.bat", args)
+  winVMOptions(target, null, "idea.exe", "idea64.exe")
+  List resourcePaths = ["$home/community-resources/src", "$home/platform/icons/src"]
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/idea.exe", appInfoFile(),
+                   "$home/build/conf/ideaCE-launcher.properties", args.ce_exe_selector, resourcePaths)
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/idea64.exe", appInfoFile(),
+                   "$home/build/conf/ideaCE64-launcher.properties", args.ce_exe_selector, resourcePaths)
 }
 
 private layoutMac(Map _args, String home, Paths paths) {
   String target = paths.distMac
 
   Map args = new HashMap(_args)
-  args.bundleIdentifier = "com.google.android.studio"
-  args.executable = "studio"
-  args.help_id = "AI"
+  args.bundleIdentifier = "com.jetbrains.intellij.ce"
   args.doc_types = """
       <dict>
         <key>CFBundleTypeExtensions</key>
@@ -231,17 +202,12 @@ private layoutMac(Map _args, String home, Paths paths) {
   args."idea.properties.path" = "${paths.distAll}/bin/idea.properties"
   args.urlSchemes = ["idea"]
   args.mac_no_yjp = true
-  args.executable = "studio"
+  args.executable = "idea"
   layoutMacApp(target, home, args)
 }
 
-private layoutUnix(Map _args, String home, Paths paths) {
+private layoutUnix(Map args, String home, Paths paths) {
   String target = paths.distUnix
-
-  Map args = new HashMap(_args)
-  args.product_uc = "STUDIO"
-  args.vm_options = "studio"
-  args.script_name = "studio.sh"
 
   layout(target) {
     dir("bin") {
@@ -249,10 +215,9 @@ private layoutUnix(Map _args, String home, Paths paths) {
     }
   }
 
-  ant.copy(file: "$home/../adt/idea/adt-branding/src/artwork/icon_AS_128.png", tofile: "$target/bin/idea.png")
-  ant.copy(file: "$home/../adt/idea/adt-branding/src/artwork/androidstudio.ico", tofile: "$target/bin/androidstudio.ico")
+  ant.copy(file: "$home/platform/icons/src/icon_CE_128.png", tofile: "$target/bin/idea.png")
 
-  unixScripts(target, home, args.script_name, args)
-  unixVMOptions(target, "studio")
+  unixScripts(target, home, "idea.sh", args)
+  unixVMOptions(target, "idea")
   unixReadme(target, home, args)
 }

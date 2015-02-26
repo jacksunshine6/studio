@@ -23,10 +23,9 @@ if ("GIT_TESTS".equalsIgnoreCase(System.getProperty("idea.test.group"))) {
   setProperty("cucumber_test_dirs", [["git4idea", "Idea", "${home}/plugins/git4idea/test-features/git4idea", "git4idea"]])
 }
 
-def isMac = System.getProperty("os.name").toLowerCase().startsWith("mac")
 def args = [
-  "-Xmx1024m",
-  "-XX:MaxPermSize=630m",
+  "-Xmx450m",
+  "-XX:MaxPermSize=430m",
   "-XX:ReservedCodeCacheSize=96m",
   "-Dsun.io.useCanonCaches=false"
 ]

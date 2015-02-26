@@ -65,7 +65,6 @@ binding.setVariable("isEap", {
 binding.setVariable("mem32", "-server -Xms128m -Xmx512m -XX:MaxPermSize=250m -XX:ReservedCodeCacheSize=150m")
 binding.setVariable("mem64", "-Xms128m -Xmx750m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=225m")
 binding.setVariable("common_vmoptions", "-XX:+UseConcMarkSweepGC -XX:SoftRefLRUPolicyMSPerMB=50 -ea " +
-                                        "-Djna.nosys=true -Djna.boot.library.path=  -Djna.debug_load=true -Djna.debug_load.jna=true " +
                                         "-Dsun.io.useCanonCaches=false -Djava.net.preferIPv4Stack=true")
 
 binding.setVariable("vmOptions", { "$common_vmoptions ${isEap() ? '-XX:+HeapDumpOnOutOfMemoryError' : ''}".trim() })
@@ -185,10 +184,7 @@ projectBuilder.compressJars = false
 
 binding.setVariable("notifyArtifactBuilt", { String artifactPath ->
   if (!artifactPath.startsWith(home)) {
-    // AndroidStudio: make this to be just an info as the out folder is typically
-    // not in the home folder
-    projectBuilder.info("Artifact path $artifactPath should start with $home")
-    return
+    projectBuilder.error("Artifact path $artifactPath should start with $home")
   }
   def relativePath = artifactPath.substring(home.length())
   if (relativePath.startsWith("/")) {
@@ -244,8 +240,7 @@ binding.setVariable("copyAndPatchFiles", { Closure files, String target, Map arg
 
 binding.setVariable("wireBuildDate", { String buildNumber, String appInfoFile ->
   ant.tstamp()
-  patchFiles([appInfoFile], ["BUILD_NUMBER": buildNumber, "BUILD_DATE": DSTAMP,
-          "PACKAGE_CODE": buildNumber.substring(0, buildNumber.indexOf('-'))])
+  patchFiles([appInfoFile], ["BUILD_NUMBER": buildNumber, "BUILD_DATE": DSTAMP])
 })
 
 binding.setVariable("commonJvmArgsForTests", {
@@ -259,10 +254,9 @@ binding.setVariable("commonJvmArgsForTests", {
     "-XX:+HeapDumpOnOutOfMemoryError",
     "-Didea.home.path=$home",
     "-Didea.config.path=${p("teamcity.build.tempDir")}/config",
-    "-Didea.system.path=${p("teamcity.build.tempDir")}/system"
-    // We don't want this on the Jenkins build server
-    // "-Xdebug",
-    // jdwp
+    "-Didea.system.path=${p("teamcity.build.tempDir")}/system",
+    "-Xdebug",
+    jdwp
   ]
 })
 
@@ -437,9 +431,6 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     replacefilter(token: "@@product_state@@", value: EAP)
     replacefilter(token: "@@bundle_identifier@@", value: args.bundleIdentifier)
     replacefilter(token: "@@year@@", value: "$todayYear")
-    replacefilter(token: "@@company_name@@", value: args.companyName)
-    replacefilter(token: "@@min_year@@", value: "2013")
-    replacefilter(token: "@@max_year@@", value: "$todayYear")
     replacefilter(token: "@@version@@", value: version)
     replacefilter(token: "@@vmoptions@@", value: vmOptions)
     replacefilter(token: "@@idea_properties@@", value: coreProperties)
@@ -467,8 +458,8 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
 
 binding.setVariable("winScripts", { String target, String home, String name, Map args ->
   String fullName = args.fullName != null ? args.fullName : p("component.names.fullname")
-  String product_uc = args.product_uc != null ? args.product_uc : p("component.names.product").toUpperCase().replace(" ", "_")
-  String vm_options = args.vm_options != null ? args.vm_options : "${p("component.names.product").toLowerCase().replace(" ", "-")}.exe"
+  String product_uc = args.product_uc != null ? args.product_uc : p("component.names.product").toUpperCase()
+  String vm_options = args.vm_options != null ? args.vm_options : "${p("component.names.product").toLowerCase()}.exe"
   if (vm_options.endsWith(".exe")) {
     vm_options = vm_options.replace(".exe", "%BITS%.exe")
   }
@@ -541,19 +532,14 @@ binding.setVariable("unixScripts", { String target, String home, String name, Ma
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.sh", eol: "unix")
 })
 
-binding.setVariable("winVMOptions", { String target, Map args, String name, String name64 = null ->
+binding.setVariable("winVMOptions", { String target, String system_selector, String name, String name64 = null ->
   if (name != null) {
-    def options = vmOptions32()
-    options = options.replace(" -XX:+UseCodeCacheFlushing", "")
-    options += " -Didea.platform.prefix=" + args.platform_prefix
-    options += " -Didea.paths.selector="  + args.system_selector
+    def options = isEap() && system_selector != null ? vmOptions32yjp(system_selector) : vmOptions32()
     ant.echo(file: "$target/bin/${name}.vmoptions", message: options.replace(' ', '\n'))
   }
 
   if (name64 != null) {
-    def options = vmOptions64()
-    options += " -Didea.platform.prefix=" + args.platform_prefix
-    options += " -Didea.paths.selector="  + args.system_selector
+    def options = isEap() && system_selector != null ? vmOptions64yjp(system_selector) : vmOptions64()
     ant.echo(file: "$target/bin/${name64}.vmoptions", message: options.replace(' ', '\n'))
   }
 
@@ -577,7 +563,6 @@ binding.setVariable("unixReadme", { String target, String home, Map args ->
                    ["product_full": fullName,
                     "product": p("component.names.product").toLowerCase(),
                     "system_selector": args.system_selector,
-                    "script_name" : args.script_name,
                     "settings_dir": settings_dir], "@@")
   ant.fixcrlf(file: "$target/bin/Install-Linux-tar.txt", eol: "unix")
 })
@@ -773,14 +758,14 @@ binding.setVariable("getCustomJDK", { File customJdkDir ->
   }
 })
 
-binding.setVariable("buildWinZip", { String zipRoot, String zipPath, List paths ->
+binding.setVariable("buildWinZip", { String zipPath, List paths ->
   projectBuilder.stage(".win.zip")
 
   fixIdeaPropertiesEol(paths, "dos")
 
   ant.zip(zipfile: zipPath) {
     paths.each {
-      zipfileset(dir: it, prefix: zipRoot)
+      fileset(dir: it)
     }
   }
 
@@ -805,14 +790,6 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
           exclude(name: it)
         }
         exclude(name: "bin/idea.properties")
-
-        // With version 10.9.5+ of Mac, only binary files should be in the Contents folder.
-        // IntelliJ does manage to sign these text files as binaries, but in such cases (where you are signing a text file),
-        // the code signatures are placed in extended file attributes that could easily get lost. So rather than code signing these files,
-        // we'll just move them into the recommended location inside Resources (see the zip action below)
-        exclude(name: "build.txt")
-        exclude(name: "LICENSE.txt")
-        exclude(name: "NOTICE.txt")
       }
     }
 
@@ -832,7 +809,6 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
     allPaths.each {
       zipfileset(dir: it, prefix: "$zipRoot/Resources") {
         include(name: "build.txt")
-        include(name: "LICENSE.txt")
         include(name: "NOTICE.txt")
       }
     }
@@ -914,14 +890,6 @@ binding.setVariable("buildWinLauncher", { String ch, String inputPath, String ou
       resourcePaths.each {
         pathelement(location: it)
       }
-    }
-  }
-})
-
-binding.setVariable("layoutUpdater", { String target, String jarName = "updater.jar" ->
-  layout(target) {
-    jar(jarName) {
-      module("updater")
     }
   }
 })
