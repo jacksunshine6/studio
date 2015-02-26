@@ -802,9 +802,6 @@ def layoutAndroid() {
     dir(androidModule) {
       dir("lib") {
         jar("android.jar") {
-          module("ui-designer-core") {
-            patternset(refid: "resources.excluded")
-          }
           noResources(androidModule)
         }
 
