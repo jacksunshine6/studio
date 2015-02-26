@@ -357,7 +357,7 @@ public class TreeTable extends JBTable {
     return editResult;
   }
 
-  private boolean isTreeColumn(int column) {
+  boolean isTreeColumn(int column) {
     return TreeTableModel.class.isAssignableFrom(getColumnClass(column));
   }
 
