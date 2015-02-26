@@ -1,6 +1,5 @@
 package com.intellij.structuralsearch;
 
-import com.intellij.idea.Bombed;
 import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.psi.*;
 import com.intellij.structuralsearch.impl.matcher.MatcherImplUtil;
@@ -9,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -239,9 +237,9 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
 
   private static final String s73 = " class A { int A; static int B=5; public abstract void a(int c); void q() { ind d=7; } }";
   private static final String s74 = " '_Type 'Var = '_Init?; ";
-  private static final String s75 = "{ /** @class aClass\n @author the author */ class A {}\n" +
-                                    " /** */ class B {}\n" +
-                                    " /** @class aClass */ class C {} }";
+  private static final String s75 = "/** @class aClass\n @author the author */ class A {}\n" +
+                                    "/** */ class B {}\n" +
+                                    "/** @class aClass */ class C {}";
   private static final String s76 = " /** @'_tag+ '_value+ */";
   private static final String s76_2 = " /** @'_tag* '_value* */";
   private static final String s76_3 = " /** @'_tag? '_value? */ class 't {}";
@@ -842,6 +840,18 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
                     "return !(x);";
     String s10034 = "return ('a);";
     assertEquals("Find statement with parenthesized expr",2,findMatchesCount(s10033,s10034));
+
+    String in = "if (true) {" +
+                "  System.out.println();" +
+                "} else {" +
+                "  System.out.println();" +
+                "}" +
+                "if (true) System.out.println();";
+    String pattern1 = "if ('_exp) { '_statement*; }";
+    assertEquals("Find if statement with else", 2, findMatchesCount(in, pattern1));
+
+    String pattern2 = "if ('_exp) { '_statement*; } else { '_statement2{0,0}; }";
+    assertEquals("Find if statement without else", 1, findMatchesCount(in, pattern2));
   }
 
   public void testSearchClass() {
@@ -1723,6 +1733,7 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
       findMatchesCount(s75, s76_3)
     );
 
+    assertEquals("no infinite loop on javadoc matching", 1, findMatchesCount(s57, "/** 'Text */ class '_ { }"));
   }
 
   public void testNamedPatterns() {
@@ -2727,12 +2738,10 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
     options.setFileType(StdFileTypes.JAVA);
 
     for(PsiVariable var:vars) {
-      final MatchResult matchResult = testMatcher.isMatchedByDownUp(var, options);
-      if (matchResult != null) results.add(matchResult);
-      assertTrue(
-        (var instanceof PsiParameter && var.getParent() instanceof PsiCatchSection && matchResult != null) ||
-        matchResult == null
-      );
+      final List<MatchResult> matchResult = testMatcher.matchByDownUp(var, options);
+      results.addAll(matchResult);
+      assertTrue((var instanceof PsiParameter && var.getParent() instanceof PsiCatchSection && !matchResult.isEmpty()) ||
+                 matchResult.isEmpty());
     }
 
     assertEquals(2, results.size());
@@ -2751,12 +2760,10 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
 
     for(PsiVariable var:vars) {
       final PsiTypeElement typeElement = var.getTypeElement();
-      final MatchResult matchResult = testMatcher.isMatchedByDownUp(typeElement, options);
-      if (matchResult != null) results.add(matchResult);
-      assertTrue(
-        (var instanceof PsiParameter && var.getParent() instanceof PsiCatchSection && matchResult != null) ||
-        matchResult == null
-      );
+      final List<MatchResult> matchResult = testMatcher.matchByDownUp(typeElement, options);
+      results.addAll(matchResult);
+      assertTrue((var instanceof PsiParameter && var.getParent() instanceof PsiCatchSection && !matchResult.isEmpty()) ||
+                 matchResult.isEmpty());
     }
 
     assertEquals(1, results.size());
@@ -2765,7 +2772,6 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
     assertEquals("Type2", result.getMatchImage());
   }
 
-  @Bombed(day = 28, description = "support it", month = Calendar.JULY, user = "maxim.mossienko")
   public void _testContainsPredicate() {
     String s1 = "{{\n" +
                 "  int a;\n" +
@@ -2807,35 +2813,43 @@ public class StructuralSearchTest extends StructuralSearchTestCase {
     assertEquals(2,findMatchesCount(s1, s2));
     assertEquals(1,findMatchesCount(s1, s2_2));
 
-    // TODO: xxx
-    //String s3 = "if (true) {\n" +
-    //            "  if (true) return;\n" +
-    //            "  int a = 1;\n" +
-    //            "}\n else if (true) {\n" +
-    //            "  return;\n" +
-    //            "}";
-    //assertEquals(2,findMatchesCount(s3, s2));
-    //assertEquals(1,findMatchesCount(s3, s2_2));
+    String s3 = "if (true) {\n" +
+                "  if (true) return;\n" +
+                "  int a = 1;\n" +
+                "}\n" +
+                "else if (true) {\n" +
+                "  int b = 2;\n" +
+                "  return;\n" +
+                "}\n" +
+                "int c = 3;\n";
+    assertEquals(2,findMatchesCount(s3, s2));
+    assertEquals(1,findMatchesCount(s3, s2_2));
   }
 
   public void testWithinPredicate2() {
     String s3 = "class C {\n" +
                 "  void aaa() {\n" +
-                "        LOG.debug(true);\n" +
-                "        LOG.debug(true);\n" +
-                "        LOG.debug(true);\n" +
-                "        LOG.debug(true);\n" +
-                "        LOG.debug(true);\n" +
+                "        LOG.debug(1);\n" +
+                "        LOG.debug(2);\n" +
+                "        LOG.debug(3);\n" +
+                "        LOG.debug(4);\n" +
+                "        LOG.debug(5);\n" +
                 "        if (true) {\n" +
-                "            LOG.debug(true);\n" +
+                "            LOG.debug(6);\n" +
                 "        }\n" +
-                "        if (true) LOG.debug(true);\n" +
-                "        if (true) { int 1 = 1; } else { LOG.debug(true); }\n" +
+                "        if (true) LOG.debug(7);\n" +
+                "        if (true) { int 1 = 1; } else { LOG.debug(8); }\n" +
+                "        if (true) {\n" +
+                "          if (true) {}\n" +
+                "          if (true) {}\n" +
+                "        } else{\n" +
+                "          LOG.debug(9);\n" +
+                "        }" +
                 "    }" +
                 "}";
     String s4 = "LOG.debug('_params*:[!within( \"if('_a) { 'st*; }\" )]);";
 
-    assertEquals(6,findMatchesCount(s3, s4));
+    assertEquals(7,findMatchesCount(s3, s4));
   }
 
   public void testMultiStatementPatternWithTypedVariable() throws Exception {
