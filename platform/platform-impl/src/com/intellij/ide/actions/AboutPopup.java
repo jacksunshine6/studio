@@ -266,7 +266,7 @@ public class AboutPopup {
       }
       final int copyrightX = Registry.is("ide.new.about") ? JBUI.scale(100) : JBUI.scale(30);
       final int copyrightY = Registry.is("ide.new.about") ? JBUI.scale(390) : JBUI.scale(284);
-      g2.drawString("\u00A9 2000\u2013" + Calendar.getInstance().get(Calendar.YEAR) + " JetBrains s.r.o. All rights reserved.", copyrightX, copyrightY);
+      g2.drawString("\u00A9 2000\u2013" + Calendar.getInstance().get(Calendar.YEAR) + " " + appInfo.getCompanyName() + ". All rights reserved.", copyrightX, copyrightY);
     }
 
     @NotNull
