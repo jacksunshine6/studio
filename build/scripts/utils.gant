@@ -65,6 +65,7 @@ binding.setVariable("isEap", {
 binding.setVariable("mem32", "-server -Xms128m -Xmx512m -XX:MaxPermSize=250m -XX:ReservedCodeCacheSize=150m")
 binding.setVariable("mem64", "-Xms128m -Xmx750m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=225m")
 binding.setVariable("common_vmoptions", "-XX:+UseConcMarkSweepGC -XX:SoftRefLRUPolicyMSPerMB=50 -ea " +
+                                        "-Djna.nosys=true -Djna.boot.library.path=  -Djna.debug_load=true -Djna.debug_load.jna=true " +
                                         "-Dsun.io.useCanonCaches=false -Djava.net.preferIPv4Stack=true")
 
 binding.setVariable("vmOptions", { "$common_vmoptions ${isEap() ? '-XX:+HeapDumpOnOutOfMemoryError' : ''}".trim() })
@@ -184,7 +185,8 @@ projectBuilder.compressJars = false
 
 binding.setVariable("notifyArtifactBuilt", { String artifactPath ->
   if (!artifactPath.startsWith(home)) {
-    projectBuilder.error("Artifact path $artifactPath should start with $home")
+    projectBuilder.info("Artifact path $artifactPath should start with $home")
+    return
   }
   def relativePath = artifactPath.substring(home.length())
   if (relativePath.startsWith("/")) {
@@ -431,6 +433,9 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     replacefilter(token: "@@product_state@@", value: EAP)
     replacefilter(token: "@@bundle_identifier@@", value: args.bundleIdentifier)
     replacefilter(token: "@@year@@", value: "$todayYear")
+    replacefilter(token: "@@company_name@@", value: p("component.company.name"))
+    replacefilter(token: "@@min_year@@", value: "2000")
+    replacefilter(token: "@@max_year@@", value: "$todayYear")
     replacefilter(token: "@@version@@", value: version)
     replacefilter(token: "@@vmoptions@@", value: vmOptions)
     replacefilter(token: "@@idea_properties@@", value: coreProperties)
@@ -532,14 +537,22 @@ binding.setVariable("unixScripts", { String target, String home, String name, Ma
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.sh", eol: "unix")
 })
 
-binding.setVariable("winVMOptions", { String target, String system_selector, String name, String name64 = null ->
+binding.setVariable("winVMOptions", { String target, Map args, String name, String name64 = null ->
   if (name != null) {
-    def options = isEap() && system_selector != null ? vmOptions32yjp(system_selector) : vmOptions32()
+    def options = isEap() && args.system_selector != null ? vmOptions32yjp(args.system_selector) : vmOptions32()
+    options += " -Didea.paths.selector=" + args.system_selector + "\n"
+    if (args.ide_jvm_args != null) {
+      options += args.ide_jvm_args + "\n"
+    }
     ant.echo(file: "$target/bin/${name}.vmoptions", message: options.replace(' ', '\n'))
   }
 
   if (name64 != null) {
-    def options = isEap() && system_selector != null ? vmOptions64yjp(system_selector) : vmOptions64()
+    def options = isEap() && args.system_selector != null ? vmOptions64yjp(args.system_selector) : vmOptions64()
+    options += " -Didea.paths.selector=" + args.system_selector + "\n"
+    if (args.ide_jvm_args != null) {
+      options += args.ide_jvm_args + "\n"
+    }
     ant.echo(file: "$target/bin/${name64}.vmoptions", message: options.replace(' ', '\n'))
   }
 
@@ -758,14 +771,14 @@ binding.setVariable("getCustomJDK", { File customJdkDir ->
   }
 })
 
-binding.setVariable("buildWinZip", { String zipPath, List paths ->
+binding.setVariable("buildWinZip", { String zipRoot, String zipPath, List paths ->
   projectBuilder.stage(".win.zip")
 
   fixIdeaPropertiesEol(paths, "dos")
 
   ant.zip(zipfile: zipPath) {
     paths.each {
-      fileset(dir: it)
+      zipfileset(dir: it, prefix: zipRoot)
     }
   }
 
@@ -786,6 +799,7 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
         exclude(name: "MacOS/*")
         exclude(name: "build.txt")
         exclude(name: "NOTICE.txt")
+        exclude(name: "LICENSE.txt")
         extraBins.each {
           exclude(name: it)
         }
@@ -810,6 +824,7 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
       zipfileset(dir: it, prefix: "$zipRoot/Resources") {
         include(name: "build.txt")
         include(name: "NOTICE.txt")
+        exclude(name: "LICENSE.txt")
       }
     }
 
@@ -890,6 +905,14 @@ binding.setVariable("buildWinLauncher", { String ch, String inputPath, String ou
       resourcePaths.each {
         pathelement(location: it)
       }
+    }
+  }
+})
+
+binding.setVariable("layoutUpdater", { String target, String jarName = "updater.jar" ->
+  layout(target) {
+    jar(jarName) {
+      module("updater")
     }
   }
 })

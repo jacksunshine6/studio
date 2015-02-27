@@ -19,6 +19,12 @@ import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
 
 requireProperty("out", "$home/out")
+requireProperty("buildNumber", "SNAPSHOT")
+
+// "out" has to be canonical, otherwise the ant build fails
+// with mysterious errors
+out = new File(out).getCanonicalPath()
+setProperty("out", out)
 
 class Paths {
   final sandbox
@@ -49,7 +55,10 @@ class Paths {
 def paths = new Paths(out)
 setProperty("paths", paths)
 
-setProperty("maySkipAndroidPlugin", true)
+def products = includeFile("$home/build/scripts/products.gant")
+setProperty("products", products)
+
+setProperty("maySkipAndroidPlugin", products.pp("maySkipAndroidPlugin"))
 
 target(compile: "Compile project") {
   loadProject()
@@ -68,7 +77,7 @@ target(compile: "Compile project") {
 }
 
 private String appInfoFile() {
-  return "${projectBuilder.moduleOutput(findModule("community-resources"))}/idea/IdeaApplicationInfo.xml"
+  return products.pp("appInfoFile")()
 }
 
 target('default': 'The default target') {
@@ -81,12 +90,20 @@ target('default': 'The default target') {
 
   indexSearchableOptions()
 
-  layoutAll([buildNumber: "IC-$snapshot",
-             system_selector: "IdeaIC${p("component.version.major")}",
+  layoutAll([buildNumber: products.pp("buildNumber"),
+             system_selector: products.pp("systemSelector")(),
+             platform_prefix: products.pp("platformPrefix"),
+             ide_jvm_args: products.pp("ideJvmArgs"),
              tools_jar: true],
             home, null, paths, true)
-  String macZip = "$paths.artifacts/ideaIC-${snapshot}.mac.zip"
+  String archiveName = products.pp("archiveName")()
+  String macZip = "$paths.artifacts/${archiveName}.mac.zip"
   notifyArtifactBuilt(macZip)
+
+  if (products.pp("buildUpdater")) {
+    // Generate updater.jar from the updater module (patch updater)
+    layoutUpdater(out)
+  }
 }
 
 target('build-dist-jars' : 'Target to build jars from locally compiled classes') {
@@ -97,11 +114,14 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
 
   indexSearchableOptions()
 
-  layoutAll([buildNumber: "IC-$snapshot",
-             system_selector: "IdeaIC${p("component.version.major")}",
+  layoutAll([buildNumber: products.pp("buildNumber"),
+             system_selector: products.pp("systemSelector")(),
+             platform_prefix: products.pp("platformPrefix"),
+             ide_jvm_args: products.pp("ideJvmArgs"),
              tools_jar: true],
              home, null, paths)
-  String macZip = "$paths.artifacts/ideaIC-${snapshot}.mac.zip"
+  String macZipPrefix = products.pp("prefix") + products.pp("buildNumber")
+  String macZip = "$paths.artifacts/${macZipPrefix}.mac.zip"
   notifyArtifactBuilt(macZip)
 }
 
@@ -148,16 +168,17 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   layoutMac(args, home, paths)
   layoutUnix(args, home, paths)
 
-  buildWinZip("$paths.artifacts/idea${args.buildNumber}.win.zip", [paths.distAll, paths.distWin])
+  def macAppRoot = products.pp("macAppRoot")()
+  def winAppRoot = products.pp("winAppRoot")()
+  def linAppRoot = products.pp("linAppRoot")()
+  def archiveName = products.pp("archiveName")()
 
-  def macAppRoot = isEap() ?
-                   "IntelliJ IDEA ${p("component.version.major")} CE EAP.app/Contents" :
-                   "IntelliJ IDEA ${p("component.version.major")} CE.app/Contents"
+  buildWinZip(winAppRoot, "$paths.artifacts/${archiveName}.win.zip", [paths.distAll, paths.distWin])
 
-  String macZip = "$paths.artifacts/idea${args.buildNumber}.mac.zip"
+  String macZip = "$paths.artifacts/${archiveName}.mac.zip"
   buildMacZip(macAppRoot, macZip, [paths.distAll], paths.distMac)
 
-  buildTarGz("idea-${args.buildNumber}", "$paths.artifacts/idea${args.buildNumber}.tar", [paths.distAll, paths.distUnix])
+  buildTarGz(linAppRoot, "$paths.artifacts/${archiveName}.tar", [paths.distAll, paths.distUnix])
 }
 
 private layoutWin(Map args, String home, Paths paths) {
@@ -169,22 +190,27 @@ private layoutWin(Map args, String home, Paths paths) {
     }
   }
 
-  ant.copy(file: "$home/platform/icons/src/idea_CE.ico", tofile: "$target/bin/idea.ico")
+  def name = products.pp("prefix")
+  def ico = products.pp("ico")
 
-  winScripts(target, home, "idea.bat", args)
-  winVMOptions(target, null, "idea.exe", "idea64.exe")
-  List resourcePaths = ["$home/community-resources/src", "$home/platform/icons/src"]
-  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/idea.exe", appInfoFile(),
+  ant.copy(file: ico, tofile: "$target/bin/${name}.ico")
+
+  winScripts(target, home, "${name}.bat", args)
+  winVMOptions(target, args, "${name}.exe", "${name}64.exe")
+  def appInfoModulePath = products.pp("appInfoModulePath")
+  List resourcePaths = ["$home/${appInfoModulePath}/src", "$home/platform/icons/src"]
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/${name}.exe", appInfoFile(),
                    "$home/build/conf/ideaCE-launcher.properties", args.ce_exe_selector, resourcePaths)
-  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/idea64.exe", appInfoFile(),
+  buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/${name}64.exe", appInfoFile(),
                    "$home/build/conf/ideaCE64-launcher.properties", args.ce_exe_selector, resourcePaths)
 }
 
 private layoutMac(Map _args, String home, Paths paths) {
   String target = paths.distMac
+  def prefix = products.pp("prefix")
 
   Map args = new HashMap(_args)
-  args.bundleIdentifier = "com.jetbrains.intellij.ce"
+  args.bundleIdentifier = products.pp("bundleIdentifier")
   args.doc_types = """
       <dict>
         <key>CFBundleTypeExtensions</key>
@@ -192,7 +218,7 @@ private layoutMac(Map _args, String home, Paths paths) {
           <string>ipr</string>
         </array>
         <key>CFBundleTypeIconFile</key>
-        <string>idea.icns</string>
+        <string>${prefix}.icns</string>
         <key>CFBundleTypeName</key>
         <string>IntelliJ IDEA Project File</string>
         <key>CFBundleTypeRole</key>
@@ -202,7 +228,8 @@ private layoutMac(Map _args, String home, Paths paths) {
   args."idea.properties.path" = "${paths.distAll}/bin/idea.properties"
   args.urlSchemes = ["idea"]
   args.mac_no_yjp = true
-  args.executable = "idea"
+  args.executable = prefix
+  args.icns = products.pp("icns")
   layoutMacApp(target, home, args)
 }
 
@@ -215,9 +242,14 @@ private layoutUnix(Map args, String home, Paths paths) {
     }
   }
 
-  ant.copy(file: "$home/platform/icons/src/icon_CE_128.png", tofile: "$target/bin/idea.png")
+  def name = products.pp("prefix")
+  def icon128 = products.pp("icon128")
+  def ico = products.pp("ico")
 
-  unixScripts(target, home, "idea.sh", args)
-  unixVMOptions(target, "idea")
+  ant.copy(file: icon128, tofile: "$target/bin/${name}.png")
+  ant.copy(file: ico, tofile: "$target/bin/${name}.ico")
+
+  unixScripts(target, home, "${name}.sh", args)
+  unixVMOptions(target, "${name}")
   unixReadme(target, home, args)
 }
