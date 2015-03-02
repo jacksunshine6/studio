@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+
 import org.apache.tools.ant.BuildException
-import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 
 // Returns the product specific value for a given property
 def pp(String property) {
@@ -55,7 +55,7 @@ def pp(String property) {
     prefix: "studio",
     code: "AI",
     appInfoModule: "adt-branding",
-    appInfoModulePath: "android/adt-branding", // ../adt/idea/adt-branding
+    appInfoModulePath: "../adt/idea/adt-branding",
     appInfoFile: {-> "${projectBuilder.moduleOutput(findModule("adt-branding"))}/idea/AndroidStudioApplicationInfo.xml"},
     buildNumber: "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
     bundleIdentifier: "com.google.android.studio",
@@ -67,16 +67,68 @@ def pp(String property) {
     archiveName: { -> "android-studio-${buildNumber}"},
     ideJvmArgs: "-Didea.platform.prefix=AndroidStudio",
     maySkipAndroidPlugin: false,
-    relativeAndroidHome: "android", // ../adt/idea in AOSP checkout
-    relativeAndroidToolsBaseHome: "android/tools-base", // ../base in AOSP checkout
+    relativeAndroidHome: "../adt/idea",
+    relativeAndroidToolsBaseHome: "../base",
 
-    buildUpdater: false,
+    buildUpdater: true,
     excludedPlugins: ["ant", "ByteCodeViewer", "devkit", "eclipse", "javaFX", "uiDesigner", "xpath", "xslt-debugger"],
-    customLayout: {targetDirectory -> },
+    customLayout: { targetDirectory ->
+      layout(targetDirectory) {
+        dir("gradle") {
+          dir("m2repository") {
+            fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
+          }
+        }
 
-    icon128: "$home/android/adt-branding/src/artwork/icon_AS_128.png", // ../adt/idea in AOSP checkout
-    ico: "$home/android/adt-branding/src/artwork/androidstudio.ico", // ../adt/idea in AOSP checkout
-    icns: "$home/android/adt-branding/src/artwork/AndroidStudio.icns", // ../adt/idea in AOSP checkout
+        dir ("plugins") {
+          dir("google-cloud-tools") {
+            dir("lib") {
+              jar("google-cloud-tools.jar") {
+                module("google-cloud-tools")
+              }
+              dir("templates") {
+                fileset(dir: "${home}/../studio/google/cloud/tools/resources/templates")
+              }
+              dir("clientTemplates") {
+                fileset(dir: "${home}/../studio/google/cloud/tools/resources/clientTemplates")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/lib") {
+                include(name: "**/*.jar")
+              }
+            }
+          }
+
+          dir("google-login") {
+            dir("lib") {
+              jar("google-login.jar") {
+                module("google-login")
+              }
+              fileset(dir: "${home}/../studio/google/login/lib") {
+                include(name: "**/*.jar")
+              }
+              // Additional libraries that need to be manually copied
+              fileset(file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.8.0-rc/google-api-java-client-min-repackaged.jar")
+            }
+          }
+
+          dir("google-cloud-testing") {
+            dir("lib") {
+              jar("google-cloud-testing.jar") {
+                module("google-cloud-testing")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
+                include(name: "**/*.jar")
+              }
+            }
+          }
+        }
+      }
+      ant.unzip(src: "${home}/../external/gradle/gradle-2.2.1-bin.zip", dest: "${targetDirectory}/gradle")
+    },
+
+    icon128: "$home/../adt/idea/adt-branding/src/artwork/icon_AS_128.png",
+    ico: "$home/../adt/idea/adt-branding/src/artwork/androidstudio.ico",
+    icns: "$home/../adt/idea/adt-branding/src/artwork/AndroidStudio.icns",
   ]
 
   // map from product name to product properties

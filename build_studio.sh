@@ -44,7 +44,7 @@ echo "## Qualifier: $QUAL"
 echo "## Build Num: $BNUM"
 echo
 
-$ANT "-Dout=$OUT" "-DbuildNumber=$BNUM"
+$ANT "-Dout=$OUT" "-Dbuild=$BNUM"
 
 echo "## Copying android-studio destination files"
 cp -rfv "$OUT"/artifacts/android-studio* "$DIST"/
