@@ -20,10 +20,6 @@ includeTargets << new File("${guessHome(this)}/build/scripts/cucumber-tests.gant
 
 requireProperty("out", "$home/out")
 
-target(check: "Ensure the environment is configured") {
-  tempDir = p("teamcity.build.tempDir")
-}
-
 target(compile: "Compile project") {
   ant.delete(failonerror: false) {
     fileset(dir: "$home/reports")
@@ -43,14 +39,13 @@ private pass(String prop) {
 }
 
 target('run_tests': 'Run java tests') {
-  depends([check, compile])
+  depends([compile])
 
   def classpathFile = "$home/junit.classpath"
   List<String> testRuntimeClasspath = projectBuilder.moduleRuntimeClasspath(findModule("community-main"), true)
   new File(classpathFile).text = testRuntimeClasspath.findAll({ new File((String)it).exists() }).join('\n')
 
   testcases.each { testCase ->
-    projectBuilder.stage("NOW EXECUTING: $testCase")
     ant.junit(fork: "yes", showoutput: "true", logfailedtests: false) {
       jvmarg(value: "-Dclasspath.file=${classpathFile}")
       pass("idea.test.group")
@@ -91,5 +86,5 @@ target('run_tests': 'Run java tests') {
 }
 
 target('default' : "Run all tests") {
-  depends([compile, run_tests])
+  depends([compile, run_tests, run_cucumber_tests])
 }
