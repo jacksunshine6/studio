@@ -13,12 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import org.jetbrains.jps.model.java.JpsJavaClasspathKind
-import org.jetbrains.jps.model.module.JpsLibraryDependency
-import org.jetbrains.jps.model.library.JpsOrderRootType
-import org.jetbrains.jps.util.JpsPathUtil
-
 import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
@@ -30,7 +24,7 @@ target('default': "Developers update") {
 }
 
 String appInfoFileName() {
-  return "idea/AndroidStudioApplicationInfo.xml"
+  return products.pp("appInfoFile")()
 }
 
 String patchAppDescriptor(String targetDirectory) {
@@ -39,24 +33,19 @@ String patchAppDescriptor(String targetDirectory) {
   ant.delete(dir: patchedDirectory)
 
   layout(patchedDirectory) {
-    module("adt-branding") {
+    module(products.pp("appInfoModule")) {
       include(name: appInfoFileName())
     }
   }
 
-  ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_NUMBER__", value: "AI-$snapshot")
+  def code = products.pp("code")
+  ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_NUMBER__", value: "${code}-$snapshot")
   ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_DATE__", value: new Date().format("yyyyMMddHHmm"))
 
   return patchedDirectory
 }
 
 def layoutFull(String home, String targetDirectory, String patchedDescriptorDir = null) {
-  buildSearchableOptions("${projectBuilder.moduleOutput(findModule("resources-en"))}/search", [], {
-    projectBuilder.moduleRuntimeClasspath(findModule("community-main"), false).each {
-      ant.pathelement(location: it)
-    }
-  }, "-Didea.platform.prefix=AndroidStudio -Didea.no.jre.check=true")
-
   projectBuilder.stage("layout to $targetDirectory")
 
   List<String> jpsCommonModules = ["jps-model-impl", "jps-model-serialization"]
@@ -164,10 +153,22 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         module("colorSchemes")
         module("resources")
         module("platform-resources")
-        module("community-resources")
-        module("adt-branding") {
-          if (patchedDescriptorDir != null) {
-            exclude(name: appInfoFileName())
+
+        def appInfoModule = products.pp("appInfoModule")
+        def appInfoInCommunity = "community-resources".equals(appInfoModule)
+
+        if (appInfoInCommunity) {
+          module("community-resources") {
+            if (patchedDescriptorDir != null) {
+              exclude(name: appInfoFileName())
+            }
+          }
+        } else {
+          module("community-resources")
+          module(appInfoModule) {
+            if (patchedDescriptorDir != null) {
+              exclude(name: appInfoFileName())
+            }
           }
         }
         if (patchedDescriptorDir != null) {
@@ -225,26 +226,25 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
     layoutCommunityPlugins(home)
 
-    // javaFX not needed in AS
-    //dir("plugins") {
-    //  dir("javaFX") {
-    //    dir("lib") {
-    //      jar("javaFX.jar") {
-    //        noResources("javaFX")
-    //        noResources("javaFX-CE")
-    //      }
-    //      resources(["javaFX", "javaFX-CE"])
-    //      jar("javaFX-jps-plugin.jar") {
-    //        module("javaFX-jps-plugin")
-    //      }
-    //      jar("common-javaFX-plugin.jar") {
-    //        module("common-javaFX-plugin")
-    //      }
-    //    }
-    //
-    //    fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
-    //  }
-    //}
+    dir("plugins") {
+      dir("javaFX") {
+        dir("lib") {
+          jar("javaFX.jar") {
+            noResources("javaFX")
+            noResources("javaFX-CE")
+          }
+          resources(["javaFX", "javaFX-CE"])
+          jar("javaFX-jps-plugin.jar") {
+            module("javaFX-jps-plugin")
+          }
+          jar("common-javaFX-plugin.jar") {
+            module("common-javaFX-plugin")
+          }
+        }
+
+        fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
+      }
+    }
 
     dir("plugins") {
       dir("IntelliLang") {
@@ -260,14 +260,10 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         }
       }
     }
-
-    dir("gradle") {
-      dir("m2repository") {
-        fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
-      }
-    }
   }
-  ant.unzip(src: "${home}/../external/gradle/gradle-2.2.1-bin.zip", dest: "${targetDirectory}/gradle")
+
+  // product specific custom layout
+  products.pp("customLayout")(targetDirectory)
 
   printUnusedModules(info.usedModules)
 
@@ -275,8 +271,18 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 }
 
 public def layoutCommunityPlugins(String home) {
-  layoutAndroid()
-  layoutGoogle()
+  def androidHome = products.pp("relativeAndroidHome")
+  def androidToolsBaseHome = products.pp("relativeAndroidToolsBaseHome")
+  def maySkipAndroid = products.pp("maySkipAndroidPlugin")
+  if (new File("$home/$androidHome").exists()) {
+    layoutAndroid("$home/$androidHome", "$home/$androidToolsBaseHome")
+  }
+  else if (maySkipAndroid) {
+    projectBuilder.warning("Android plugin sources aren't found at $androidHome. Android plugin is excluded from layout.")
+  }
+  else {
+    projectBuilder.error("Android plugin sources aren't found at $androidHome.")
+  }
 
   dir("plugins") {
     def simplePlugins = ["commander", "copyright", "java-i18n", "hg4idea", "github"] //, "tasks-time-tracking"]
@@ -285,21 +291,18 @@ public def layoutCommunityPlugins(String home) {
       layoutPlugin it
     }
 
-    // ant not needed in AS
-    // layoutPlugin("ant", "ant", "antIntegration") {
-    //   jar("ant-jps-plugin.jar") {
-    //     module("ant-jps-plugin")
-    //   }
-    // }
-
-    // uiDesigner not needed in AS
-    // layoutPlugin("uiDesigner", "ui-designer", "uiDesigner") {
-    //   dir("jps") {
-    //     jar("ui-designer-jps-plugin.jar") {
-    //       module("ui-designer-jps-plugin")
-    //     }
-    //   }
-    // }
+    layoutPlugin("ant", "ant", "antIntegration") {
+      jar("ant-jps-plugin.jar") {
+        module("ant-jps-plugin")
+      }
+    }
+    layoutPlugin("uiDesigner", "ui-designer", "uiDesigner") {
+      dir("jps") {
+        jar("ui-designer-jps-plugin.jar") {
+          module("ui-designer-jps-plugin")
+        }
+      }
+    }
 
     pluginDir("properties") {
       dir("lib") {
@@ -416,14 +419,13 @@ public def layoutCommunityPlugins(String home) {
       }
     }
 
-    // ByteCodeViewer not needed in AS
-    // pluginDir("ByteCodeViewer") {
-    //   dir("lib") {
-    //     jar("byteCodeViewer.jar") {
-    //       noResources("ByteCodeViewer")
-    //     }
-    //   }
-    // }
+    pluginDir("ByteCodeViewer") {
+      dir("lib") {
+        jar("byteCodeViewer.jar") {
+          noResources("ByteCodeViewer")
+        }
+      }
+    }
 
     pluginDir("cvsIntegration") {
       dir("lib") {
@@ -453,38 +455,36 @@ public def layoutCommunityPlugins(String home) {
       }
     }
 
-    // xpath not needed in AS
-    // layoutPlugin("xpath") {
-    //   dir("rt") {
-    //     jar("xslt-rt.jar") {module("xslt-rt")}
-    //   }
-    // }
+    layoutPlugin("xpath") {
+      dir("rt") {
+        jar("xslt-rt.jar") {module("xslt-rt")}
+      }
+    }
 
-    // xslt-debugger not needed in AS
-    // layoutPlugin("xslt-debugger") {
-    //   jar("xslt-debugger-engine.jar") {
-    //     module("xslt-debugger-engine") {
-    //       excludes: "lib"
-    //     }
-    //   }
-    //   fileset(dir: "$home/plugins/xslt-debugger/engine/lib") {
-    //     include(name: "**/rmi-stubs.jar")
-    //   }
-    //   dir("rt") {
-    //     jar("xslt-debugger-engine-impl.jar") {
-    //       module("xslt-debugger-engine-impl") {
-    //         exclude(name: "lib")
-    //         exclude(name: "**/*.jar")
-    //         exclude(name: "**/*.html")
-    //       }
-    //     }
-    //     fileset(dir: "$home/plugins/xslt-debugger/engine/impl/lib") {
-    //       include(name: "**/*.jar")
-    //       exclude(name: "**/rmi-stubs.jar")
-    //       include(name: "**/*.html")
-    //     }
-    //   }
-    // }
+    layoutPlugin("xslt-debugger") {
+      jar("xslt-debugger-engine.jar") {
+        module("xslt-debugger-engine") {
+          excludes: "lib"
+        }
+      }
+      fileset(dir: "$home/plugins/xslt-debugger/engine/lib") {
+        include(name: "**/rmi-stubs.jar")
+      }
+      dir("rt") {
+        jar("xslt-debugger-engine-impl.jar") {
+          module("xslt-debugger-engine-impl") {
+            exclude(name: "lib")
+            exclude(name: "**/*.jar")
+            exclude(name: "**/*.html")
+          }
+        }
+        fileset(dir: "$home/plugins/xslt-debugger/engine/impl/lib") {
+          include(name: "**/*.jar")
+          exclude(name: "**/rmi-stubs.jar")
+          include(name: "**/*.html")
+        }
+      }
+    }
 
     pluginDir("Groovy") {
       dir("lib") {
@@ -531,25 +531,22 @@ public def layoutCommunityPlugins(String home) {
       }
     }
 
-    // devkit not needed in AS
-    // layoutPlugin("devkit") {
-    //   jar("devkit-jps-plugin.jar") {
-    //     module("devkit-jps-plugin")
-    //   }
-    //   fileset(dir: "${home}/plugins/devkit/lib") {
-    //     include(name: "**/*.jar")
-    //   }
-    // }
-
-    // eclipse not needed in AS
-    // layoutPlugin("eclipse") {
-    //   jar("eclipse-jps-plugin.jar") {
-    //     module("eclipse-jps-plugin")
-    //   }
-    //   jar("common-eclipse-util.jar") {
-    //     module("common-eclipse-util")
-    //   }
-    // }
+    layoutPlugin("devkit") {
+      jar("devkit-jps-plugin.jar") {
+        module("devkit-jps-plugin")
+      }
+      fileset(dir: "${home}/plugins/devkit/lib") {
+        include(name: "**/*.jar")
+      }
+    }
+    layoutPlugin("eclipse") {
+      jar("eclipse-jps-plugin.jar") {
+        module("eclipse-jps-plugin")
+      }
+      jar("common-eclipse-util.jar") {
+        module("common-eclipse-util")
+      }
+    }
 
     layoutPlugin("terminal") {
       fileset(dir: "$home/plugins/terminal/lib") {
@@ -604,93 +601,6 @@ public def layoutCommunityPlugins(String home) {
   }
 }
 
-def layoutGoogle() {
-  dir("plugins") {
-    layoutPlugin("google-cloud-tools") {
-      jar("google-cloud-tools.jar") {
-        module("google-cloud-tools")
-      }
-      dir("templates") {
-        fileset(dir: "${home}/../studio/google/cloud/tools/resources/templates")
-      }
-      dir("clientTemplates") {
-        fileset(dir: "${home}/../studio/google/cloud/tools/resources/clientTemplates")
-      }
-      fileset(dir: "${home}/../studio/google/cloud/tools/lib") {
-        include(name: "**/*.jar")
-      }
-    }
-    layoutPlugin("google-login") {
-      jar("google-login.jar") {
-        module("google-login")
-      }
-      fileset(dir: "${home}/../studio/google/login/lib") {
-        include(name: "**/*.jar")
-      }
-      // Additional libraries that need to be manually copied, see how freemarker
-      // is copied by the Android plugin
-      fileset(file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.8.0-rc/google-api-java-client-min-repackaged.jar")
-    }
-    layoutPlugin("google-cloud-testing") {
-      jar("google-cloud-testing.jar") {
-        module("google-cloud-testing")
-      }
-      fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
-        include(name: "**/*.jar")
-      }
-    }
-  }
-}
-
-private Set<String> findModuleDependencies(List<String> modules) {
-  Set<String> paths = new HashSet<String>();
-  modules.each {
-    m = findModule(it)
-    m.getDependenciesList().getDependencies().each {
-      projectBuilder.stage("looking at dependency " + it);
-
-      if (it instanceof JpsLibraryDependency) {  // only want library dependencies (and not other modules)
-        lib = it.getLibrary()
-        if (lib != null) {
-          libroots = lib.getRoots(JpsOrderRootType.COMPILED) // only want compile (and not test)
-          libroots.each {
-            paths.addAll(JpsPathUtil.urlToFile(it.getUrl()).getAbsolutePath());
-            projectBuilder.stage("Module: " + m.getName() + ", Dependency: " + it.getUrl());
-          }
-        }
-      }
-    }
-  }
-  return paths;
-}
-
-// Obtain the absolute path to the NOTICE file corresponding to the given jar file.
-// The NOTICE file is assumed to be present in the same folder as the jar file. It is an error if it is missing
-private File getNoticeFileForJar(String jarPath) {
-  File parentFile = new File(jarPath).getParentFile()
-  File notice = new File(parentFile, "NOTICE")
-  if (!notice.exists()) {
-    notice = new File(parentFile, "NOTICE.txt")
-  }
-  if (!notice.exists()) {
-    notice = new File(parentFile, "LICENSE.txt")
-  }
-  if (!notice.exists()) {
-    notice = new File(parentFile, "LICENSE")
-  }
-
-  return notice
-}
-
-private void appendToFile(File to, File from) {
-  if (from.exists()) {
-    to.append(from.getName() + ":\n")
-    to.append(from.getText("UTF-8"), "UTF-8")
-    projectBuilder.stage("Appending NOTICE file: " + from.getAbsolutePath())
-  } else {
-    projectBuilder.stage("Skipping non-existent NOTICE file: " + from.getAbsolutePath())
-  }
-}
 
 def layoutPlugin(String moduleName) {
   layoutPlugin(moduleName, moduleName, {})
@@ -717,6 +627,11 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
     if (!pluginFilter.contains(moduleName) && !pluginFilter.contains(pluginName)) return
   }
 
+  def excludedPlugins = products.pp("excludedPlugins")
+  if (excludedPlugins.contains(moduleName) || excludedPlugins.contains(pluginName)) {
+    return
+  }
+
   dir(pluginName) {
     dir("lib") {
       jar("${jarName}.jar") {
@@ -732,6 +647,11 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
 def pluginDir(String dirName, Closure initializer) {
   if (isDefined("pluginFilter")) {
     if (!pluginFilter.contains(dirName)) return
+  }
+
+  def excludedPlugins = products.pp("excludedPlugins")
+  if (excludedPlugins.contains(dirName)) {
+    return
   }
 
   dir(dirName) {
@@ -796,103 +716,61 @@ def reorder(String home, String targetDirectory) {
   }
 }
 
-def layoutAndroid() {
+def layoutAndroid(String androidHome, String androidToolsBaseHome) {
   dir("plugins") {
-    def androidModule = "android"
-    dir(androidModule) {
-      dir("lib") {
-        jar("android.jar") {
-          noResources(androidModule)
-        }
+    layoutPlugin("android") {
+      fileset(dir: "${androidHome}/android/lib") {
+        include(name: "**/*.jar")
+        exclude(name: "**/fest-*.jar")
+        exclude(name: "src/*.jar")
+      }
 
-        jar("resources_en.jar") {
-          module(androidModule) {
-            patternset(refid: "resources.included")
-          }
-          module("ui-designer-core") {
-            patternset(refid: "resources.included")
-          }
-        }
+      jar("android-common.jar") {
+        module("android-common")
+      }
 
-        fileset(dir: "${home}/../adt/idea/android/lib") {
-          include(name: "**/*.jar")
-        }
+      jar("android-rt.jar") {
+        module("android-rt")
+      }
 
-        jar("androidAnnotations.jar") {
-          fileset(dir: "${home}/../adt/idea/android/annotations")
-        }
+      jar("common.jar") {
+        module("common")
+      }
+      jar("sdklib.jar") {
+        module("sdklib")
+      }
+      jar("layoutlib-api.jar") {
+        module("layoutlib-api")
+      }
+      jar("manifest-merger.jar") {
+        module("manifest-merger")
+      }
+      jar("sdk-tools.jar") {
+        module("assetstudio")
+        module("ddmlib")
+        module("dvlib")
+        module("draw9patch")
+        module("lint-api")
+        module("lint-checks")
+        module("ninepatch")
+        module("sdk-common")
+        module("perflib")
+      }
+      jar("androidAnnotations.jar") {
+        fileset(dir: "$androidHome/android/annotations")
+      }
+      dir("jps") {
+        jar("android-gradle-jps.jar") { module("android-gradle-jps") }
+      }
+      dir("device-art-resources") {
+        fileset(dir: "$androidHome/android/device-art-resources")
+      }
 
-        // Add Additional libraries that the Android plugin depends on that come from TOOLS_PREBUILTS.
-        // Note: This is a HACK: rather than encoding the full path, we should really query
-        // the project model for the classpath just like we do for the androidModules' dependencies
-        // below
-        // Also see similar issue in Google Cloud Login plugin
-        fileset(file: "${home}/../../prebuilts/tools/common/m2/repository/org/freemarker/freemarker/2.3.20/freemarker-2.3.20.jar")
-
-        androidModules = [
-                "assetstudio",
-                "common",
-                "ddmlib",
-                "draw9patch",
-                "dvlib",
-                "layoutlib-api",
-                "lint-api",
-                "lint-checks",
-                "manifest-merger",
-                "ninepatch",
-                "perflib",
-                "sdk-common",
-                "sdklib"
-        ]
-
-        androidModules.each { moduleName ->
-          jar("${moduleName}.jar") {
-            module(moduleName)
-          }
-        }
-
-        // copy over dependencies of all android modules
-        androidModuleDeps = findModuleDependencies(androidModules)
-        androidModuleDeps.each {
-          fileset(file: it)
-        }
-
-        // Create a single NOTICE file with the contents of all the NOTICES of the dependencies.
-        // I couldn't figure out the right ant commands to be able to change the name of the file
-        // when copying, so we'll just call it by its final name (NOTICE)
-        File noticeFile = new File(System.getProperty("java.io.tmpdir") + File.separator + "NOTICE")
-        noticeFile.deleteOnExit()
-        androidModuleDeps.each {
-          appendToFile(noticeFile, getNoticeFileForJar(it))
-        }
-        appendToFile(noticeFile, new File("${home}/../../prebuilts/tools/common/m2/repository/org/freemarker/freemarker/2.3.20/NOTICE"))
-        fileset(file: noticeFile.getPath())
-
-        jar("android-common.jar") {
-          module("android-common")
-        }
-
-        jar("android-rt.jar") {
-          module("android-rt")
-        }
-
-        dir("jps") {
-          jar("android-jps-plugin.jar") { module("android-jps-plugin") }
-          jar("android-gradle-jps.jar") { module("android-gradle-jps") }
-        }
-
-        dir("device-art-resources") {
-          fileset(dir: "${home}/../adt/idea/android/device-art-resources")
-        }
-
-        dir("templates") {
-          fileset(dir: "${home}/../base/templates") {
-            include(name: "activities/**")
-            include(name: "gradle/**")
-            include(name: "other/**")
-            include(name: "gradle-projects/**")
-          }
-        }
+      dir("jps") {
+        jar("android-jps-plugin.jar") { module("android-jps-plugin") }
+      }
+      dir("templates") {
+        fileset(dir: "$androidToolsBaseHome/templates")
       }
     }
   }
