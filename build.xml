@@ -3,7 +3,7 @@
     -Dout=/path/to/out/dir, defaults to ${basedir}/out
     -Dbuild=123, defaults to SNAPSHOT
     -Dtestpatterns=com.foo.*, defaults to empty string
-    -Dproduct=foo, defaults to idea
+    -Dproduct=foo, defaults to studio
  -->
 <project name="IntelliJ IDEA Community Edition" default="all">
   <property name="project.home" value="${basedir}"/>
@@ -16,11 +16,12 @@
     <isset property="build" />
   </condition>
 
-  <condition property="test.patterns" value="${testpatterns}" else="">
+  <condition property="test.patterns" value="${testpatterns}"
+             else="org.jetbrains.android.*;com.android.tools.idea.*;com.google.gct.*;com.intellij.android.*">
     <isset property="testpatterns" />
   </condition>
 
-  <condition property="product.name" value="${product}" else="idea">
+  <condition property="product.name" value="${product}" else="studio">
     <isset property="product" />
   </condition>
 
@@ -60,6 +61,13 @@
 
   <target name="test" depends="init">
     <call_gant script="${project.home}/build/scripts/tests.gant"/>
+  </target>
+
+  <target name="guiTests" depends="init">
+    <delete>
+      <fileset dir="${project.home}/build" includes="TEST-com.android.tools.idea.tests.gui.*"/>
+    </delete>
+    <call_gant script="${project.home}/build/scripts/gui_tests.gant"/>
   </target>
 
   <!-- The build task creates an updater.jar in ${out.dir}. This task bundles the updater and its dependencies into a single jar -->
