@@ -24,7 +24,7 @@ target('default': "Developers update") {
 }
 
 String appInfoFileName() {
-  return "idea/IdeaApplicationInfo.xml"
+  return pp("appInfoFile")()
 }
 
 String patchAppDescriptor(String targetDirectory) {
@@ -33,12 +33,13 @@ String patchAppDescriptor(String targetDirectory) {
   ant.delete(dir: patchedDirectory)
 
   layout(patchedDirectory) {
-    module("community-resources") {
+    module(pp("appInfoModule")) {
       include(name: appInfoFileName())
     }
   }
 
-  ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_NUMBER__", value: "IC-$snapshot")
+  def code = pp("code")
+  ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_NUMBER__", value: "${code}-$snapshot")
   ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_DATE__", value: new Date().format("yyyyMMddHHmm"))
 
   return patchedDirectory
@@ -152,9 +153,22 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         module("colorSchemes")
         module("resources")
         module("platform-resources")
-        module("community-resources") {
-          if (patchedDescriptorDir != null) {
-            exclude(name: appInfoFileName())
+
+        def appInfoModule = pp("appInfoModule")
+        def appInfoInCommunity = "community-resources".equals(appInfoModule)
+
+        if (appInfoInCommunity) {
+          module("community-resources") {
+            if (patchedDescriptorDir != null) {
+              exclude(name: appInfoFileName())
+            }
+          }
+        } else {
+          module("community-resources")
+          module(appInfoModule) {
+            if (patchedDescriptorDir != null) {
+              exclude(name: appInfoFileName())
+            }
           }
         }
         if (patchedDescriptorDir != null) {
@@ -248,17 +262,26 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
     }
   }
 
+  // product specific custom layout
+  pp("customLayout")(targetDirectory)
+
   printUnusedModules(info.usedModules)
 
   //reorder(targetDirectory)
 }
 
 public def layoutCommunityPlugins(String home) {
-  if (!isDefined("maySkipAndroidPlugin") || new File("$home/android").exists()) {
-    layoutAndroid("$home/android")
+  def androidHome = pp("relativeAndroidHome")
+  def androidToolsBaseHome = pp("relativeAndroidToolsBaseHome")
+  def maySkipAndroid = pp("maySkipAndroidPlugin")
+  if (new File("$home/$androidHome").exists()) {
+    layoutAndroid("$home/$androidHome", "$home/$androidToolsBaseHome")
+  }
+  else if (maySkipAndroid) {
+    projectBuilder.warning("Android plugin sources aren't found at ${androidHome}. Android plugin is excluded from layout.")
   }
   else {
-    projectBuilder.warning("Android plugin sources aren't found at $home/android. Android plugin is excluded from layout.")
+    projectBuilder.error("Android plugin sources aren't found at ${androidHome}.")
   }
 
   dir("plugins") {
@@ -604,6 +627,11 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
     if (!pluginFilter.contains(moduleName) && !pluginFilter.contains(pluginName)) return
   }
 
+  def excludedPlugins = pp("excludedPlugins")
+  if (excludedPlugins.contains(moduleName) || excludedPlugins.contains(pluginName)) {
+    return
+  }
+
   dir(pluginName) {
     dir("lib") {
       jar("${jarName}.jar") {
@@ -619,6 +647,11 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
 def pluginDir(String dirName, Closure initializer) {
   if (isDefined("pluginFilter")) {
     if (!pluginFilter.contains(dirName)) return
+  }
+
+  def excludedPlugins = pp("excludedPlugins")
+  if (excludedPlugins.contains(dirName)) {
+    return
   }
 
   dir(dirName) {
@@ -683,7 +716,7 @@ def reorder(String home, String targetDirectory) {
   }
 }
 
-def layoutAndroid(String androidHome) {
+def layoutAndroid(String androidHome, String androidToolsBaseHome) {
   dir("plugins") {
     layoutPlugin("android") {
       fileset(dir: "${androidHome}/android/lib") {
@@ -737,7 +770,7 @@ def layoutAndroid(String androidHome) {
         jar("android-jps-plugin.jar") { module("android-jps-plugin") }
       }
       dir("templates") {
-        fileset(dir: "$androidHome/tools-base/templates")
+        fileset(dir: "$androidToolsBaseHome/templates")
       }
     }
   }
