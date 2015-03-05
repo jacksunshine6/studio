@@ -24,7 +24,7 @@ target('default': "Developers update") {
 }
 
 String appInfoFileName() {
-  return products.pp("appInfoFile")()
+  return pp("appInfoFile")()
 }
 
 String patchAppDescriptor(String targetDirectory) {
@@ -33,12 +33,12 @@ String patchAppDescriptor(String targetDirectory) {
   ant.delete(dir: patchedDirectory)
 
   layout(patchedDirectory) {
-    module(products.pp("appInfoModule")) {
+    module(pp("appInfoModule")) {
       include(name: appInfoFileName())
     }
   }
 
-  def code = products.pp("code")
+  def code = pp("code")
   ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_NUMBER__", value: "${code}-$snapshot")
   ant.replace(file: "$patchedDirectory/${appInfoFileName()}", token: "__BUILD_DATE__", value: new Date().format("yyyyMMddHHmm"))
 
@@ -154,7 +154,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         module("resources")
         module("platform-resources")
 
-        def appInfoModule = products.pp("appInfoModule")
+        def appInfoModule = pp("appInfoModule")
         def appInfoInCommunity = "community-resources".equals(appInfoModule)
 
         if (appInfoInCommunity) {
@@ -263,7 +263,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
   }
 
   // product specific custom layout
-  products.pp("customLayout")(targetDirectory)
+  pp("customLayout")(targetDirectory)
 
   printUnusedModules(info.usedModules)
 
@@ -271,17 +271,17 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 }
 
 public def layoutCommunityPlugins(String home) {
-  def androidHome = products.pp("relativeAndroidHome")
-  def androidToolsBaseHome = products.pp("relativeAndroidToolsBaseHome")
-  def maySkipAndroid = products.pp("maySkipAndroidPlugin")
+  def androidHome = pp("relativeAndroidHome")
+  def androidToolsBaseHome = pp("relativeAndroidToolsBaseHome")
+  def maySkipAndroid = pp("maySkipAndroidPlugin")
   if (new File("$home/$androidHome").exists()) {
     layoutAndroid("$home/$androidHome", "$home/$androidToolsBaseHome")
   }
   else if (maySkipAndroid) {
-    projectBuilder.warning("Android plugin sources aren't found at $androidHome. Android plugin is excluded from layout.")
+    projectBuilder.warning("Android plugin sources aren't found at ${androidHome}. Android plugin is excluded from layout.")
   }
   else {
-    projectBuilder.error("Android plugin sources aren't found at $androidHome.")
+    projectBuilder.error("Android plugin sources aren't found at ${androidHome}.")
   }
 
   dir("plugins") {
@@ -627,7 +627,7 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
     if (!pluginFilter.contains(moduleName) && !pluginFilter.contains(pluginName)) return
   }
 
-  def excludedPlugins = products.pp("excludedPlugins")
+  def excludedPlugins = pp("excludedPlugins")
   if (excludedPlugins.contains(moduleName) || excludedPlugins.contains(pluginName)) {
     return
   }
@@ -649,7 +649,7 @@ def pluginDir(String dirName, Closure initializer) {
     if (!pluginFilter.contains(dirName)) return
   }
 
-  def excludedPlugins = products.pp("excludedPlugins")
+  def excludedPlugins = pp("excludedPlugins")
   if (excludedPlugins.contains(dirName)) {
     return
   }
