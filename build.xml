@@ -81,5 +81,5 @@
     </jarjar>
   </target>
 
-  <target name="all" depends="cleanup,build"/>
+  <target name="all" depends="cleanup,build,fullupdater"/>
 </project>
