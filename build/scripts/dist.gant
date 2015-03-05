@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+
+import org.apache.tools.ant.BuildException
+
 import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
@@ -55,10 +58,14 @@ class Paths {
 def paths = new Paths(out)
 setProperty("paths", paths)
 
-def products = includeFile("$home/build/scripts/products.gant")
-setProperty("products", products)
+def productPropertiesPath = "$home/build/scripts/" + p("product") + "_properties.gant"
+if (!new File(productPropertiesPath).exists()) {
+  throw new BuildException("No product specific properties file found at: " + productPropertiesPath)
+}
+def productProperties = includeFile(productPropertiesPath).getProperties(guessHome(this))
+setProperty("pp", productProperties)
 
-setProperty("maySkipAndroidPlugin", products.pp("maySkipAndroidPlugin"))
+setProperty("maySkipAndroidPlugin", pp("maySkipAndroidPlugin"))
 
 target(compile: "Compile project") {
   loadProject()
@@ -77,7 +84,7 @@ target(compile: "Compile project") {
 }
 
 private String appInfoFile() {
-  return products.pp("appInfoFile")()
+  return pp("appInfoFile")()
 }
 
 target('default': 'The default target') {
@@ -90,17 +97,17 @@ target('default': 'The default target') {
 
   indexSearchableOptions()
 
-  layoutAll([buildNumber: products.pp("buildNumber"),
-             system_selector: products.pp("systemSelector")(),
-             platform_prefix: products.pp("platformPrefix"),
-             ide_jvm_args: products.pp("ideJvmArgs"),
+  layoutAll([buildNumber: pp("buildNumber"),
+             system_selector: pp("systemSelector")(),
+             platform_prefix: pp("platformPrefix"),
+             ide_jvm_args: pp("ideJvmArgs"),
              tools_jar: true],
             home, null, paths, true)
-  String archiveName = products.pp("archiveName")()
+  String archiveName = pp("archiveName")()
   String macZip = "$paths.artifacts/${archiveName}.mac.zip"
   notifyArtifactBuilt(macZip)
 
-  if (products.pp("buildUpdater")) {
+  if (pp("buildUpdater")) {
     // Generate updater.jar from the updater module (patch updater)
     layoutUpdater(out)
   }
@@ -114,13 +121,13 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
 
   indexSearchableOptions()
 
-  layoutAll([buildNumber: products.pp("buildNumber"),
-             system_selector: products.pp("systemSelector")(),
-             platform_prefix: products.pp("platformPrefix"),
-             ide_jvm_args: products.pp("ideJvmArgs"),
+  layoutAll([buildNumber: pp("buildNumber"),
+             system_selector: pp("systemSelector")(),
+             platform_prefix: pp("platformPrefix"),
+             ide_jvm_args: pp("ideJvmArgs"),
              tools_jar: true],
              home, null, paths)
-  String macZipPrefix = products.pp("prefix") + products.pp("buildNumber")
+  String macZipPrefix = pp("prefix") + pp("buildNumber")
   String macZip = "$paths.artifacts/${macZipPrefix}.mac.zip"
   notifyArtifactBuilt(macZip)
 }
@@ -168,10 +175,10 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   layoutMac(args, home, paths)
   layoutUnix(args, home, paths)
 
-  def macAppRoot = products.pp("macAppRoot")()
-  def winAppRoot = products.pp("winAppRoot")()
-  def linAppRoot = products.pp("linAppRoot")()
-  def archiveName = products.pp("archiveName")()
+  def macAppRoot = pp("macAppRoot")()
+  def winAppRoot = pp("winAppRoot")()
+  def linAppRoot = pp("linAppRoot")()
+  def archiveName = pp("archiveName")()
 
   buildWinZip(winAppRoot, "$paths.artifacts/${archiveName}.win.zip", [paths.distAll, paths.distWin])
 
@@ -190,27 +197,31 @@ private layoutWin(Map args, String home, Paths paths) {
     }
   }
 
-  def name = products.pp("prefix")
-  def ico = products.pp("ico")
+  def name = pp("prefix")
+  def ico = pp("ico")
 
   ant.copy(file: ico, tofile: "$target/bin/${name}.ico")
 
-  winScripts(target, home, "${name}.bat", args)
+  if (pp("includeBatchLauncher")) {
+    winScripts(target, home, "${name}.bat", args)
+  }
   winVMOptions(target, args, "${name}.exe", "${name}64.exe")
-  def appInfoModulePath = products.pp("appInfoModulePath")
+  def appInfoModulePath = pp("appInfoModulePath")
   List resourcePaths = ["$home/${appInfoModulePath}/src", "$home/platform/icons/src"]
   buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/${name}.exe", appInfoFile(),
                    "$home/build/conf/ideaCE-launcher.properties", args.ce_exe_selector, resourcePaths)
   buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/${name}64.exe", appInfoFile(),
                    "$home/build/conf/ideaCE64-launcher.properties", args.ce_exe_selector, resourcePaths)
+
+  pp("customWinLayout")(target, home)
 }
 
 private layoutMac(Map _args, String home, Paths paths) {
   String target = paths.distMac
-  def prefix = products.pp("prefix")
+  def prefix = pp("prefix")
 
   Map args = new HashMap(_args)
-  args.bundleIdentifier = products.pp("bundleIdentifier")
+  args.bundleIdentifier = pp("bundleIdentifier")
   args.doc_types = """
       <dict>
         <key>CFBundleTypeExtensions</key>
@@ -229,8 +240,9 @@ private layoutMac(Map _args, String home, Paths paths) {
   args.urlSchemes = ["idea"]
   args.mac_no_yjp = true
   args.executable = prefix
-  args.icns = products.pp("icns")
+  args.icns = pp("icns")
   layoutMacApp(target, home, args)
+  pp("customMacLayout")(target, home)
 }
 
 private layoutUnix(Map args, String home, Paths paths) {
@@ -242,9 +254,9 @@ private layoutUnix(Map args, String home, Paths paths) {
     }
   }
 
-  def name = products.pp("prefix")
-  def icon128 = products.pp("icon128")
-  def ico = products.pp("ico")
+  def name = pp("prefix")
+  def icon128 = pp("icon128")
+  def ico = pp("ico")
 
   ant.copy(file: icon128, tofile: "$target/bin/${name}.png")
   ant.copy(file: ico, tofile: "$target/bin/${name}.ico")
@@ -252,4 +264,5 @@ private layoutUnix(Map args, String home, Paths paths) {
   unixScripts(target, home, "${name}.sh", args)
   unixVMOptions(target, "${name}")
   unixReadme(target, home, args)
+  pp("customLinLayout")(target, home)
 }
