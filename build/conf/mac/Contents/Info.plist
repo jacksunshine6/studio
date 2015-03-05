@@ -31,7 +31,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>@@bundle_name@@</string>
+    <string>@@bundle_name@@@@product_state@@</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIdentifier</key>
@@ -39,7 +39,7 @@
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleGetInfoString</key>
-    <string>@@bundle_name@@ @@version@@, build @@build@@. Copyright @@company_name@@, (c) @@min_year@@-@@year@@</string>
+    <string>@@bundle_name@@ @@version@@, build @@build@@. Copyright JetBrains s.r.o., (c) 2000-@@year@@</string>
     <key>CFBundleShortVersionString</key>
     <string>@@version@@</string>
     <key>CFBundleVersion</key>
