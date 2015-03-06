@@ -40,6 +40,7 @@ def getProperties(String root) {
                  relativeAndroidHome         : "android",
                  relativeAndroidToolsBaseHome: "android/tools-base",
 
+                 includeYourkitAgent         : true,
                  includeBatchLauncher        : true,
                  buildUpdater                : false,
                  excludedPlugins             : [],

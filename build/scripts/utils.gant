@@ -388,7 +388,7 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
 
   new File("$path/bin/idea.properties").text = effectiveProperties.toString()
   String ideaVmOptions = "$mem64 -XX:+UseCompressedOops".split(" ").join("\n")
-  if (isEap() && !args.mac_no_yjp) {
+  if (isEap() && pp("includeYourkitAgent") && !args.mac_no_yjp) {
     ideaVmOptions += " ${yjpOptions(args.system_selector)}"
   }
   new File("$path/bin/${executable}.vmoptions").text = ideaVmOptions
@@ -541,7 +541,7 @@ binding.setVariable("unixScripts", { String target, String home, String name, Ma
 
 binding.setVariable("winVMOptions", { String target, Map args, String name, String name64 = null ->
   if (name != null) {
-    def options = isEap() && args.system_selector != null ? vmOptions32yjp(args.system_selector) : vmOptions32()
+    def options = isEap() && pp("includeYourkitAgent") && args.system_selector != null ? vmOptions32yjp(args.system_selector) : vmOptions32()
     options += " -Didea.paths.selector=" + args.system_selector + "\n"
     if (args.ide_jvm_args != null) {
       options += args.ide_jvm_args + "\n"
@@ -550,7 +550,7 @@ binding.setVariable("winVMOptions", { String target, Map args, String name, Stri
   }
 
   if (name64 != null) {
-    def options = isEap() && args.system_selector != null ? vmOptions64yjp(args.system_selector) : vmOptions64()
+    def options = isEap() && pp("includeYourkitAgent") && args.system_selector != null ? vmOptions64yjp(args.system_selector) : vmOptions64()
     options += " -Didea.paths.selector=" + args.system_selector + "\n"
     if (args.ide_jvm_args != null) {
       options += args.ide_jvm_args + "\n"
