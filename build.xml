@@ -40,7 +40,7 @@
     <attribute name="script" />
     <sequential>
       <java failonerror="true" jar="${project.home}/lib/ant/lib/ant-launcher.jar" fork="true">
-        <jvmarg line="-Xmx2048m -XX:MaxPermSize=512m"/>
+        <jvmarg line="-Xmx2048m -Xss1m -XX:MaxPermSize=512m"/>
         <jvmarg value="-Dout=${out.dir}" />
         <jvmarg value="-DbuildNumber=${build.number}" />
         <jvmarg value="-Didea.test.patterns=${test.patterns}" />
