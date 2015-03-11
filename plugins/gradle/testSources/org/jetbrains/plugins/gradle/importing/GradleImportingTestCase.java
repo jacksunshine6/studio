@@ -34,24 +34,16 @@ import com.intellij.util.PathUtil;
 import com.intellij.util.containers.ContainerUtil;
 import org.gradle.util.GradleVersion;
 import org.gradle.wrapper.GradleWrapperMain;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.CustomMatcher;
-import org.hamcrest.Matcher;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.plugins.gradle.VersionMatcherRule;
 import org.jetbrains.plugins.gradle.settings.DistributionType;
 import org.jetbrains.plugins.gradle.settings.GradleProjectSettings;
 import org.jetbrains.plugins.gradle.settings.GradleSettings;
-import org.jetbrains.plugins.gradle.tooling.annotation.TargetVersions;
-import org.jetbrains.plugins.gradle.tooling.util.VersionMatcher;
 import org.jetbrains.plugins.gradle.util.GradleConstants;
 import org.junit.Rule;
 import org.junit.rules.TestName;
-import org.junit.rules.TestWatcher;
-import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -198,29 +190,5 @@ public abstract class GradleImportingTestCase extends ExternalSystemImportingTes
   @NotNull
   private static File wrapperJar() {
     return new File(PathUtil.getJarPathForClass(GradleWrapperMain.class));
-  }
-
-  private static class VersionMatcherRule extends TestWatcher {
-
-    @Nullable
-    private CustomMatcher myMatcher;
-
-    @NotNull
-    public Matcher getMatcher() {
-      return myMatcher != null ? myMatcher : CoreMatchers.anything();
-    }
-
-    @Override
-    protected void starting(Description d) {
-      final TargetVersions targetVersions = d.getAnnotation(TargetVersions.class);
-      if (targetVersions == null) return;
-
-      myMatcher = new CustomMatcher<String>("Gradle version '" + targetVersions.value() + "'") {
-        @Override
-        public boolean matches(Object item) {
-          return item instanceof String && new VersionMatcher(GradleVersion.version(item.toString())).isVersionMatch(targetVersions);
-        }
-      };
-    }
   }
 }
