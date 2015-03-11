@@ -713,7 +713,8 @@ public class XDebugSessionImpl implements XDebugSession {
       }
     }
 
-    myActiveNonLineBreakpoint = !(breakpoint instanceof XLineBreakpoint<?>) ? breakpoint : null;
+    myActiveNonLineBreakpoint =
+      (!(breakpoint instanceof XLineBreakpoint) || ((XLineBreakpoint)breakpoint).getType().canBeHitInOtherPlaces()) ? breakpoint : null;
     positionReached(suspendContext);
 
     UIUtil.invokeLaterIfNeeded(new Runnable() {
@@ -861,7 +862,12 @@ public class XDebugSessionImpl implements XDebugSession {
           mySessionTab.detachFromSession();
         }
         else if (myConsoleView != null) {
-          Disposer.dispose(myConsoleView);
+          AppUIUtil.invokeOnEdt(new Runnable() {
+            @Override
+            public void run() {
+              Disposer.dispose(myConsoleView);
+            }
+          });
         }
 
         myTopFramePosition = null;
