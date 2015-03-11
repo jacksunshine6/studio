@@ -28,6 +28,7 @@ import com.intellij.diff.tools.util.*;
 import com.intellij.diff.tools.util.base.HighlightPolicy;
 import com.intellij.diff.tools.util.twoside.TwosideTextDiffViewer;
 import com.intellij.diff.util.DiffDividerDrawUtil;
+import com.intellij.diff.util.DiffDrawUtil;
 import com.intellij.diff.util.DiffUserDataKeysEx.ScrollToPolicy;
 import com.intellij.diff.util.DiffUtil;
 import com.intellij.diff.util.DiffUtil.DocumentData;
@@ -586,7 +587,7 @@ public class SimpleDiffViewer extends TwosideTextDiffViewer {
         return;
       }
 
-      Editor modifiedEditor = side.other(myModifyOpposite).selectNotNull(myEditor1, myEditor2);
+      Editor modifiedEditor = side.other(myModifyOpposite).select(myEditor1, myEditor2);
       if (!DiffUtil.isEditable(modifiedEditor)) {
         e.getPresentation().setEnabledAndVisible(false);
         return;
@@ -604,7 +605,7 @@ public class SimpleDiffViewer extends TwosideTextDiffViewer {
       final Side side = Side.fromLeft(editor == myEditor1);
       final List<SimpleDiffChange> selectedChanges = getSelectedChanges(side);
 
-      Editor modifiedEditor = side.other(myModifyOpposite).selectNotNull(myEditor1, myEditor2);
+      Editor modifiedEditor = side.other(myModifyOpposite).select(myEditor1, myEditor2);
       String title = e.getPresentation().getText() + " selected changes";
       DiffUtil.executeWriteCommand(modifiedEditor.getDocument(), e.getProject(), title, new Runnable() {
         @Override
@@ -830,9 +831,12 @@ public class SimpleDiffViewer extends TwosideTextDiffViewer {
 
   private class MyDividerPainter implements DiffSplitter.Painter, DiffDividerDrawUtil.DividerPaintable {
     @Override
-    public void paint(@NotNull Graphics g, @NotNull Component divider) {
+    public void paint(@NotNull Graphics g, @NotNull JComponent divider) {
       if (myEditor1 == null || myEditor2 == null) return;
       Graphics2D gg = getDividerGraphics(g, divider);
+
+      gg.setColor(DiffDrawUtil.getDividerColor(myEditor1));
+      gg.fill(gg.getClipBounds());
 
       //DividerPolygonUtil.paintSimplePolygons(gg, divider.getWidth(), myEditor1, myEditor2, this);
       DiffDividerDrawUtil.paintPolygons(gg, divider.getWidth(), myEditor1, myEditor2, this);
