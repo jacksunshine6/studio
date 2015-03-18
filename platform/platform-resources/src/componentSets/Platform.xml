@@ -142,6 +142,12 @@
       <interface-class>org.jetbrains.ide.BuiltInServerManager</interface-class>
       <implementation-class>org.jetbrains.ide.BuiltInServerManagerImpl</implementation-class>
     </component>
+
+    <component>
+      <interface-class>com.intellij.ide.externalComponents.ExternalComponentManager</interface-class>
+      <implementation-class>com.intellij.ide.externalComponents.ExternalComponentManagerImpl</implementation-class>
+      <loadForDefaultProject/>
+    </component>
   </application-components>
 
   <project-components>

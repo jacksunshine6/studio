@@ -15,8 +15,12 @@
  */
 package com.intellij.openapi.updateSettings.impl;
 
+import com.google.common.collect.Lists;
 import com.intellij.diagnostic.IdeErrorsDialog;
 import com.intellij.ide.IdeBundle;
+import com.intellij.ide.externalComponents.ExternalComponentManager;
+import com.intellij.ide.externalComponents.ExternalComponentSource;
+import com.intellij.ide.externalComponents.UpdatableExternalComponent;
 import com.intellij.ide.plugins.*;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.*;
@@ -168,10 +172,12 @@ public final class UpdateChecker {
 
     final Collection<PluginDownloader> updatedPlugins;
     final Collection<IdeaPluginDescriptor> incompatiblePlugins;
+    final Collection<ExternalUpdate> externalUpdates;
 
     if (newChannelReady(result.getChannelToPropose())) {
       updatedPlugins = null;
       incompatiblePlugins = null;
+      externalUpdates = null;
     }
     else {
       BuildNumber buildNumber = null;
@@ -186,6 +192,7 @@ public final class UpdateChecker {
 
       incompatiblePlugins = buildNumber != null ? new HashSet<IdeaPluginDescriptor>() : null;
       updatedPlugins = checkPluginsUpdate(manualCheck, updateSettings, indicator, incompatiblePlugins, buildNumber);
+      externalUpdates = updateExternal(manualCheck, updateSettings, indicator);
     }
 
     // show result
@@ -193,7 +200,7 @@ public final class UpdateChecker {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
       public void run() {
-        showUpdateResult(project, result, updateSettings, updatedPlugins, incompatiblePlugins, enableLink, manualCheck);
+        showUpdateResult(project, result, updateSettings, updatedPlugins, incompatiblePlugins, externalUpdates, enableLink, enableLink);
         if (callback != null) {
           callback.setDone();
         }
@@ -321,6 +328,45 @@ public final class UpdateChecker {
     return toUpdate.isEmpty() ? null : toUpdate.values();
   }
 
+  public static Collection<ExternalUpdate> updateExternal(boolean manualCheck, UpdateSettings updateSettings, @Nullable ProgressIndicator indicator) {
+    List<ExternalUpdate> result = Lists.newArrayList();
+    ExternalComponentManager manager = ExternalComponentManager.getInstance();
+    if (indicator != null) {
+      indicator.setText("Fetching available updates for external components...");
+    }
+
+    for (ExternalComponentSource source : manager.getComponentSources()) {
+      if (indicator != null) {
+        indicator.checkCanceled();
+      }
+      if (!updateSettings.getEnabledExternalUpdateSources().contains(source.getName())) {
+        continue;
+      }
+      try {
+        Collection<UpdatableExternalComponent> available = source.getAvailableVersions(indicator, updateSettings);
+        List<UpdatableExternalComponent> siteResult = Lists.newArrayList();
+        for (UpdatableExternalComponent component : available) {
+          if (component.isUpdateFor(manager.findExistingComponentMatching(component, source))) {
+            siteResult.add(component);
+          }
+        }
+        if (!siteResult.isEmpty()) {
+          result.add(new ExternalUpdate(siteResult, source));
+        }
+      }
+      catch (Exception e) {
+        String message = e.getMessage();
+        if (message == null) {
+          message = "Unknown";
+        }
+        LOG.warn(e);
+        showErrorMessage(manualCheck, IdeBundle.message("updates.external.error.message", source.getName(), message));
+      }
+    }
+
+    return result;
+  }
+
   public static void checkAndPrepareToInstall(PluginDownloader downloader,
                                               InstalledPluginsState state,
                                               Map<PluginId, PluginDownloader> toUpdate,
@@ -386,12 +432,15 @@ public final class UpdateChecker {
                                        final UpdateSettings updateSettings,
                                        final Collection<PluginDownloader> updatedPlugins,
                                        final Collection<IdeaPluginDescriptor> incompatiblePlugins,
+                                       final Collection<ExternalUpdate> externalUpdates,
                                        final boolean enableLink,
                                        final boolean alwaysShowResults) {
     final UpdateChannel channelToPropose = checkForUpdateResult.getChannelToPropose();
     final UpdateChannel updatedChannel = checkForUpdateResult.getUpdatedChannel();
+    boolean foundUpdate = false;
 
     if (newChannelReady(channelToPropose)) {
+      foundUpdate = true;
       Runnable runnable = new Runnable() {
         @Override
         public void run() {
@@ -417,6 +466,7 @@ public final class UpdateChecker {
       }
     }
     else if (updatedChannel != null) {
+      foundUpdate = true;
       Runnable runnable = new Runnable() {
         @Override
         public void run() {
@@ -433,6 +483,7 @@ public final class UpdateChecker {
       }
     }
     else if (updatedPlugins != null && !updatedPlugins.isEmpty()) {
+      foundUpdate = true;
       Runnable runnable = new Runnable() {
         @Override
         public void run() {
@@ -451,10 +502,33 @@ public final class UpdateChecker {
           }
         }, ", ");
         String message = IdeBundle.message("updates.plugins.ready.message", updatedPlugins.size(), plugins);
-        showNotification(project, message, false, runnable, NotificationUniqueType.PLUGINS_UPDATE);
+
+        showNotification(project, message, false, runnable);
       }
     }
-    else if (alwaysShowResults) {
+    if (externalUpdates != null && !externalUpdates.isEmpty()) {
+      foundUpdate = true;
+      for (ExternalUpdate update : externalUpdates) {
+        final ExternalComponentSource source = update.getSource();
+        final Collection<UpdatableExternalComponent> components = update.getComponents();
+        Runnable runnable = new Runnable() {
+          @Override
+          public void run() {
+            source.installUpdates(components);
+          }
+        };
+
+        if (alwaysShowResults) {
+          runnable.run();
+        }
+        else {
+          String updates = StringUtil.join(components, ", ");
+          String message = IdeBundle.message("updates.external.ready.message", components.size(), updates);
+          showNotification(project, message, false, runnable);
+        }
+      }
+    }
+    if (!foundUpdate && alwaysShowResults) {
       new NoUpdatesDialog(enableLink).show();
     }
   }
