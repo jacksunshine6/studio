@@ -212,14 +212,12 @@ public class RunIdeConsoleAction extends DumbAwareAction {
       consoleView.print("\n", ConsoleViewContentType.ERROR_OUTPUT);
     }
     selectContent(descriptor);
-    consoleView.scrollToEnd();
   }
 
   private static void printInContent(RunContentDescriptor descriptor, Object o, ConsoleViewContentType contentType) {
     selectContent(descriptor);
     ConsoleViewImpl consoleView = (ConsoleViewImpl)descriptor.getExecutionConsole();
     consoleView.print(o + "\n", contentType);
-    consoleView.scrollToEnd();
   }
 
   private static void selectContent(RunContentDescriptor descriptor) {
@@ -234,7 +232,9 @@ public class RunIdeConsoleAction extends DumbAwareAction {
 
     WeakReference<RunContentDescriptor> ref = psiFile.getCopyableUserData(DESCRIPTOR_KEY);
     RunContentDescriptor existing = ref == null ? null : ref.get();
-    if (existing != null && existing.getExecutionConsole() != null) return existing;
+    if (existing != null && existing.getExecutionConsole() != null) {
+      return ensureIdeBound(project, existing, engine);
+    }
     ConsoleView consoleView = TextConsoleBuilderFactory.getInstance().createBuilder(project).getConsole();
 
     DefaultActionGroup toolbarActions = new DefaultActionGroup();
@@ -249,32 +249,24 @@ public class RunIdeConsoleAction extends DumbAwareAction {
         return true;
       }
     };
-    Bindings bindings = engine.getBindings(ScriptContext.ENGINE_SCOPE);
-    bindings.put(IDE, new IDE(project, descriptor));
 
     Executor executor = DefaultRunExecutor.getRunExecutorInstance();
-    //toolbarActions.add(new DumbAwareAction("Rerun", null, AllIcons.Actions.Rerun) {
-    //  @Override
-    //  public void update(@NotNull AnActionEvent e) {
-    //    ProgressIndicator indicator = indicatorRef.get();
-    //    e.getPresentation().setEnabled(file.isValid() && (indicator == null || !indicator.isRunning()));
-    //  }
-    //
-    //  @Override
-    //  public void actionPerformed(@NotNull AnActionEvent e) {
-    //    consoleView.clear();
-    //    rerunRunnable.run();
-    //  }
-    //});
-    for (AnAction action : consoleView.createConsoleActions()) {
-      toolbarActions.add(action);
-    }
+    toolbarActions.addAll(consoleView.createConsoleActions());
     toolbarActions.add(new CloseAction(executor, descriptor, project));
     psiFile.putCopyableUserData(DESCRIPTOR_KEY, new WeakReference<RunContentDescriptor>(descriptor));
     ExecutionManager.getInstance(project).getContentManager().showRunContent(executor, descriptor);
-    return descriptor;
+    return ensureIdeBound(project, descriptor, engine);
   }
 
+  private static RunContentDescriptor ensureIdeBound(@NotNull Project project,
+                                                     @NotNull RunContentDescriptor descriptor,
+                                                     @NotNull ScriptEngine engine) {
+    Bindings bindings = engine.getBindings(ScriptContext.ENGINE_SCOPE);
+    if (!bindings.containsKey(IDE)) {
+      bindings.put(IDE, new IDE(project, descriptor));
+    }
+    return descriptor;
+  }
 
   private static class MyRunAction extends DumbAwareAction {
 
@@ -296,7 +288,7 @@ public class RunIdeConsoleAction extends DumbAwareAction {
       if (project == null || editor == null || virtualFile == null) return;
       Engines.prepareEngines(true);
       ScriptEngineFactory factory = Engines.ourEngines.get(virtualFile.getExtension());
-      if (engine == null || engine.getFactory() != factory) {
+      if (engine == null || !engine.getFactory().getClass().isInstance(factory)) {
         engine = factory == null ? null : factory.getScriptEngine();
       }
       if (engine == null) {
@@ -309,9 +301,10 @@ public class RunIdeConsoleAction extends DumbAwareAction {
   }
 
   public static class IDE {
-    private final Map<Object, Object> bindings = ContainerUtil.newConcurrentMap();
     public final Application application = ApplicationManager.getApplication();
     public final Project project;
+
+    private final Map<Object, Object> bindings = ContainerUtil.newConcurrentMap();
     private final WeakReference<RunContentDescriptor> descriptor;
 
     IDE(Project project, RunContentDescriptor descriptor) {
