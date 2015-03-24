@@ -145,7 +145,7 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
   private Image myCurrentOverImg;
   private TabInfo myCurrentOverInfo;
   private MyDropAreaPainter myCurrentPainter;
-  
+
   private RunnerContentUi myOriginal;
   private final CopyOnWriteArraySet<Listener> myDockingListeners = new CopyOnWriteArraySet<Listener>();
   private final Set<RunnerContentUi> myChildren = new TreeSet<RunnerContentUi>(new Comparator<RunnerContentUi>() {
@@ -229,7 +229,7 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
     myTabs.getPresentation().setPaintBorder(0, 0, 0, 0).setPaintFocus(false)
       .setRequestFocusOnLastFocusedComponent(true);
     myTabs.getComponent().setBackground(myToolbar.getBackground());
-    myTabs.getComponent().setBorder(new EmptyBorder(0, 2, 0, 0));
+    myTabs.getComponent().setBorder(new EmptyBorder(0, 1, 0, 0));
 
     final NonOpaquePanel wrappper = new NonOpaquePanel(new BorderLayout(0, 0));
     wrappper.add(myToolbar, BorderLayout.WEST);
@@ -588,10 +588,10 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
     // 1/3 (left) |   (center/bottom) | 1/3 (right)
     if (point.x < size.width / 3) return PlaceInGrid.left;
     if (point.x > size.width * 2 / 3) return PlaceInGrid.right;
-    
+
     // 3/4 (center with tab titles) | 1/4 (bottom)
     if (point.y > size.height * 3 / 4) return PlaceInGrid.bottom;
-    
+
     return PlaceInGrid.center;
   }
 
@@ -1382,7 +1382,7 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
     public MyComponent() {
       setOpaque(true);
       setFocusCycleRoot(true);
-      setBorder(new ToolWindow.Border(true, false, true, true));
+      setBorder(new ToolWindow.Border(false, false, false, false));
     }
 
     @Override
