@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2012 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.intellij.ui.tabs.impl.singleRow;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.ui.tabs.JBTabsPosition;
 import com.intellij.ui.tabs.impl.JBTabsImpl;
 import com.intellij.ui.tabs.impl.ShapeTransform;
 import com.intellij.ui.tabs.impl.TabLabel;
@@ -112,7 +113,7 @@ public abstract class SingleRowLayoutStrategy {
 
     public int getToFitLength(final SingleRowPassInfo data) {
       if (data.hToolbar != null) {
-        return myTabs.getWidth() - data.insets.left - data.insets.right - data.hToolbar.getMinimumSize().width;  
+        return myTabs.getWidth() - data.insets.left - data.insets.right - data.hToolbar.getMinimumSize().width;
       } else {
         return myTabs.getWidth() - data.insets.left - data.insets.right;
       }
@@ -136,7 +137,7 @@ public abstract class SingleRowLayoutStrategy {
     }
 
     public Rectangle getLayoutRec(final int position, final int fixedPos, final int length, final int fixedFitLength) {
-      return new Rectangle(position, fixedPos, length, fixedFitLength);
+      return new Rectangle(position, fixedPos + (myTabs.getTabsPosition() == JBTabsPosition.bottom ? 1 : 0), length, fixedFitLength);
     }
 
     public int getStartPosition(final SingleRowPassInfo data) {
