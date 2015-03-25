@@ -254,7 +254,9 @@ public class AboutPopup {
       } else {
         g2.setColor(JBColor.BLACK);
       }
-      g2.drawString("\u00A9 2000\u2013" + Calendar.getInstance().get(Calendar.YEAR) + " JetBrains s.r.o. All rights reserved.", JBUI.scale(30), JBUI.scale(284));
+      g2.drawString(
+        "\u00A9 2000\u2013" + Calendar.getInstance().get(Calendar.YEAR) + " " + appInfo.getCompanyName() + ". All rights reserved.",
+        JBUI.scale(30), JBUI.scale(284));
     }
 
     public String getText() {
