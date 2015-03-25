@@ -27,26 +27,34 @@ import java.io.IOException;
 /**
  * @author yole
  */
-public abstract class BaseSchemeProcessor<T extends ExternalizableScheme> implements SchemeProcessor<T> {
+public abstract class BaseSchemeProcessor<T extends ExternalizableScheme> implements SchemeProcessor<T>, SchemeExtensionProvider {
   @Override
   public void initScheme(@NotNull T scheme) {
   }
 
   @Override
-  public void onSchemeAdded(@NotNull final T scheme) {
+  public void onSchemeAdded(@NotNull T scheme) {
   }
 
   @Override
-  public void onSchemeDeleted(@NotNull final T scheme) {
+  public void onSchemeDeleted(@NotNull T scheme) {
   }
 
   @Override
-  public void onCurrentSchemeChanged(final Scheme newCurrentScheme) {
+  public void onCurrentSchemeChanged(Scheme newCurrentScheme) {
   }
 
   @Nullable
   public T readScheme(@NotNull Element element) throws InvalidDataException, IOException, JDOMException {
     return readScheme(new Document((Element)element.detach()));
+  }
+
+  @Nullable
+  /**
+   * @param duringLoad If occurred during {@link SchemesManager#loadSchemes()} call
+   */
+  public T readScheme(@NotNull Element element, boolean duringLoad) throws InvalidDataException, IOException, JDOMException {
+    return readScheme(element);
   }
 
   @Override
@@ -66,5 +74,16 @@ public abstract class BaseSchemeProcessor<T extends ExternalizableScheme> implem
   @NotNull
   public State getState(@NotNull T scheme) {
     return shouldBeSaved(scheme) ? State.POSSIBLY_CHANGED : State.NON_PERSISTENT;
+  }
+
+  @Override
+  public boolean isUpgradeNeeded() {
+    return false;
+  }
+
+  @NotNull
+  @Override
+  public String getSchemeExtension() {
+    return ".xml";
   }
 }
