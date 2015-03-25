@@ -757,6 +757,7 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
         module("lint-checks")
         module("ninepatch")
         module("perflib")
+        module("chartlib")
       }
       jar("androidAnnotations.jar") {
         fileset(dir: "$androidHome/android/annotations")
