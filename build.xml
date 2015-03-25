@@ -16,7 +16,8 @@
     <isset property="build" />
   </condition>
 
-  <condition property="test.patterns" value="${testpatterns}" else="">
+  <condition property="test.patterns" value="${testpatterns}"
+             else="org.jetbrains.android.*;com.android.tools.idea.*;com.google.gct.*;com.intellij.android.*">
     <isset property="testpatterns" />
   </condition>
 
@@ -59,7 +60,7 @@
   </target>
 
   <target name="test" depends="init">
-    <call_gant script="${project.home}/build/scripts/tests.gant" test.patterns="org.jetbrains.android.*;com.android.tools.idea.*;com.google.gct.*;com.intellij.android.*"/>
+    <call_gant script="${project.home}/build/scripts/tests.gant"/>
   </target>
 
   <target name="guiTests" depends="init">
@@ -69,7 +70,7 @@
     <call_gant script="${project.home}/build/scripts/gui_tests.gant"/>
   </target>
 
-  <!-- The build task creates an updater.jar in ${out.dir}. This task bundles log4j & the updater into a single jar -->
+  <!-- The build task creates an updater.jar in ${out.dir}. This task bundles the updater and its dependencies into a single jar -->
   <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask" classpath="${project.home}/build/lib/jarjar-1.0.jar"/>
   <target name="fullupdater" depends="build">
     <jarjar jarfile="${out.dir}/updater-full.jar">
@@ -80,5 +81,5 @@
     </jarjar>
   </target>
 
-  <target name="all" depends="cleanup,build,fullupdater"/>
+  <target name="all" depends="cleanup,build"/>
 </project>
