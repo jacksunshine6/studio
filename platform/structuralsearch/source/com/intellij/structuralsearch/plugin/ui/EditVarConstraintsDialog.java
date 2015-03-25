@@ -26,10 +26,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
-import com.intellij.structuralsearch.MatchVariableConstraint;
-import com.intellij.structuralsearch.NamedScriptableDefinition;
-import com.intellij.structuralsearch.ReplacementVariableDefinition;
-import com.intellij.structuralsearch.SSRBundle;
+import com.intellij.structuralsearch.*;
 import com.intellij.structuralsearch.impl.matcher.CompiledPattern;
 import com.intellij.structuralsearch.impl.matcher.predicates.ScriptSupport;
 import com.intellij.structuralsearch.plugin.replace.ReplaceOptions;
@@ -97,7 +94,7 @@ class EditVarConstraintsDialog extends DialogWrapper {
 
   private static Project myProject;
 
-  EditVarConstraintsDialog(final Project project,SearchModel _model,List<Variable> _variables, boolean replaceContext, FileType fileType) {
+  EditVarConstraintsDialog(final Project project, SearchModel _model, List<Variable> _variables, final FileType fileType) {
     super(project, false);
 
     variables = _variables;
@@ -105,13 +102,18 @@ class EditVarConstraintsDialog extends DialogWrapper {
 
     setTitle(SSRBundle.message("editvarcontraints.edit.variables"));
 
-    regexp.getDocument().addDocumentListener(new MyDocumentListener(notRegexp, applyWithinTypeHierarchy, wholeWordsOnly));
+    regexp.getDocument().addDocumentListener(new MyDocumentListener(notRegexp, wholeWordsOnly));
+    regexp.getDocument().addDocumentListener(new DocumentAdapter() {
+      @Override
+      public void documentChanged(DocumentEvent e) {
+        applyWithinTypeHierarchy.setEnabled(e.getDocument().getTextLength() > 0 && fileType == StdFileTypes.JAVA);
+      }
+    });
     read.addChangeListener(new MyChangeListener(notRead, false));
     write.addChangeListener(new MyChangeListener(notWrite, false));
     regexprForExprType.getDocument().addDocumentListener(new MyDocumentListener(exprTypeWithinHierarchy, notExprType));
     formalArgType.getDocument().addDocumentListener(new MyDocumentListener(formalArgTypeWithinHierarchy, invertFormalArgType));
 
-    partOfSearchResults.setEnabled(!replaceContext); // todo: this doesn't do anything
     containedInConstraints.setVisible(false);
     withinCombo.getComboBox().setEditable(true);
 
@@ -277,7 +279,7 @@ class EditVarConstraintsDialog extends DialogWrapper {
       return;
     }
 
-    MatchVariableConstraint varInfo = getOrAddVariableConstraint(varName, configuration);
+    MatchVariableConstraint varInfo = UIUtil.getOrAddVariableConstraint(varName, configuration);
 
     varInfo.setInvertReadAccess(notRead.isSelected());
     varInfo.setReadAccess(read.isSelected());
@@ -297,7 +299,16 @@ class EditVarConstraintsDialog extends DialogWrapper {
     varInfo.setWithinHierarchy(applyWithinTypeHierarchy.isSelected());
     varInfo.setInvertRegExp(notRegexp.isSelected());
 
-    varInfo.setPartOfSearchResults(partOfSearchResults.isEnabled() && partOfSearchResults.isSelected());
+    final boolean target = partOfSearchResults.isSelected();
+    if (target) {
+      final MatchOptions matchOptions = configuration.getMatchOptions();
+      for (String name : matchOptions.getVariableConstraintNames()) {
+        if (!name.equals(varName)) {
+          matchOptions.getVariableConstraint(name).setPartOfSearchResults(false);
+        }
+      }
+    }
+    varInfo.setPartOfSearchResults(target);
 
     varInfo.setInvertExprType(notExprType.isSelected());
     varInfo.setNameOfExprType(regexprForExprType.getDocument().getText());
@@ -311,17 +322,6 @@ class EditVarConstraintsDialog extends DialogWrapper {
     final String withinConstraint = (String)withinCombo.getComboBox().getEditor().getItem();
     varInfo.setWithinConstraint(withinConstraint.length() > 0 ? "\"" + withinConstraint +"\"":"");
     varInfo.setInvertWithinConstraint(invertWithinIn.isSelected());
-  }
-
-  private static MatchVariableConstraint getOrAddVariableConstraint(String varName, Configuration configuration) {
-    MatchVariableConstraint varInfo = configuration.getMatchOptions().getVariableConstraint(varName);
-
-    if (varInfo == null) {
-      varInfo = new MatchVariableConstraint();
-      varInfo.setName(varName);
-      configuration.getMatchOptions().addVariableConstraint(varInfo);
-    }
-    return varInfo;
   }
 
   private static ReplacementVariableDefinition getOrAddReplacementVariableDefinition(String varName, Configuration configuration) {
@@ -357,7 +357,8 @@ class EditVarConstraintsDialog extends DialogWrapper {
       setSearchConstraintsVisible(true);
     }
 
-    MatchVariableConstraint varInfo = configuration.getMatchOptions().getVariableConstraint(varName);
+    final MatchOptions matchOptions = configuration.getMatchOptions();
+    final MatchVariableConstraint varInfo = matchOptions.getVariableConstraint(varName);
 
     if (varInfo == null) {
       notRead.setSelected(false);
@@ -371,7 +372,7 @@ class EditVarConstraintsDialog extends DialogWrapper {
       maxoccurs.setText("1");
       maxoccursUnlimited.setSelected(false);
       applyWithinTypeHierarchy.setSelected(false);
-      partOfSearchResults.setSelected(false);
+      partOfSearchResults.setSelected(UIUtil.isTarget(varName, matchOptions));
 
       regexprForExprType.getDocument().setText("");
       notExprType.setSelected(false);
@@ -406,7 +407,7 @@ class EditVarConstraintsDialog extends DialogWrapper {
         maxoccurs.setText(Integer.toString(varInfo.getMaxCount()));
       }
 
-      partOfSearchResults.setSelected( partOfSearchResults.isEnabled() && varInfo.isPartOfSearchResults() );
+      partOfSearchResults.setSelected(UIUtil.isTarget(varName, matchOptions));
 
       exprTypeWithinHierarchy.setSelected(varInfo.isExprTypeWithinHierarchy());
       regexprForExprType.getDocument().setText(varInfo.getNameOfExprType());
@@ -427,7 +428,7 @@ class EditVarConstraintsDialog extends DialogWrapper {
     containedInConstraints.setVisible(contextVar);
     textConstraintsPanel.setVisible(!contextVar);
     expressionConstraints.setVisible(!contextVar);
-    partOfSearchResults.setVisible(!contextVar);
+    partOfSearchResults.setEnabled(!contextVar);
     occurencePanel.setVisible(!contextVar);
   }
 

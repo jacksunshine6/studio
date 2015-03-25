@@ -382,6 +382,14 @@ public class NewMethodRefHighlightingTest extends LightDaemonAnalyzerTestCase {
     doTest(false);
   }
 
+  public void testSecondSearchIfFirstParameterIsASubtypeOfReferenceTypeFromExpressionDeclaration() throws Exception {
+    doTest();
+  }
+
+  public void testEnsureNotResolvedMethodRefsAreNotMarkedAsExact() throws Exception {
+    doTest();
+  }
+
   private void doTest() {
     doTest(false);
   }
