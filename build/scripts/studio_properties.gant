@@ -66,6 +66,14 @@ def getProperties(String root) {
                      }
 
                      dir("plugins") {
+                       dir("android-ndk") {
+                         dir("lib") {
+                           jar("android-ndk.jar") {
+                             module("android-ndk")
+                           }
+                         }
+                       }
+
                        dir("google-cloud-tools") {
                          dir("lib") {
                            jar("google-cloud-tools.jar") {

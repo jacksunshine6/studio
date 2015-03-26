@@ -50,6 +50,12 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
   List<String> jpsCommonModules = ["jps-model-impl", "jps-model-serialization"]
   List<String> openapiModules = [platformApiModules,
+    "cidr-common",
+    "cidr-debugger",
+    "cidr-ide",
+    "cidr-lang",
+    "cidr-lang-dfa",
+    "cidr-util",
     "compiler-openapi",
     "debugger-openapi",
     "dom-openapi",
