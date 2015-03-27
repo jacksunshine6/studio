@@ -87,9 +87,8 @@ def getProperties(String root) {
                            fileset(dir: "${home}/../studio/google/login/lib") {
                              include(name: "**/*.jar")
                            }
-                           // Additional libraries that need to be manually copied
-                           fileset(
-                                   file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.8.0-rc/google-api-java-client-min-repackaged.jar")
+                           // Additional libraries that need to be manually copied, this is exported to cloud tools/testing
+                           fileset(file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.20.0/google-api-java-client-min-repackaged-1.20.0.jar")
                          }
                        }
 
