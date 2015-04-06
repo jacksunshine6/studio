@@ -33,6 +33,7 @@ import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.WindowManager;
+import com.intellij.ui.BrowserHyperlinkListener;
 import com.intellij.ui.HyperlinkAdapter;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.util.SystemProperties;
@@ -42,7 +43,10 @@ import org.jetbrains.annotations.PropertyKey;
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import java.awt.*;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -63,25 +67,51 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   @Override
   public void initComponent() {
     checkJvm();
+    checkIBusPresent();
     startDiskSpaceMonitoring();
   }
 
   private void checkJvm() {
     if (StringUtil.containsIgnoreCase(System.getProperty("java.vm.name", ""), "OpenJDK")) {
-      notifyUnsupportedJvm("unsupported.jvm.openjdk.message");
+      notifyUnsupported("unsupported.jvm.openjdk.message");
     }
     else if (StringUtil.endsWithIgnoreCase(System.getProperty("java.version", ""), "-ea")) {
-      notifyUnsupportedJvm("unsupported.jvm.ea.message");
+      notifyUnsupported("unsupported.jvm.ea.message");
     }
   }
 
-  private void notifyUnsupportedJvm(@PropertyKey(resourceBundle = "messages.IdeBundle") final String key) {
+  private void checkIBusPresent() {
+    if (SystemInfo.isLinux || SystemInfo.isFreeBSD) {
+      try {
+        Process proc = Runtime.getRuntime().exec("/bin/ps -C ibus-daemon");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+        try {
+          for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+            if (line.contains("ibus-daemon")) {
+              notifyUnsupported("unsupported.ibus.message");
+              break;
+            }
+          }
+        } finally {
+          reader.close();
+        }
+      } catch (IOException ex) {
+        // Ignored, this is best-effort.
+      }
+    }
+  }
+
+  private void notifyUnsupported(@PropertyKey(resourceBundle = "messages.IdeBundle") final String key) {
     final String ignoreKey = "ignore." + key;
-    final String message = IdeBundle.message(key) + IdeBundle.message("unsupported.jvm.link");
-    showNotification(ignoreKey, message, new HyperlinkAdapter() {
+    final String message = IdeBundle.message(key) + IdeBundle.message("unsupported.dismiss.link");
+    showNotification(ignoreKey, message, new BrowserHyperlinkListener() {
       @Override
       protected void hyperlinkActivated(HyperlinkEvent e) {
-        myProperties.setValue(ignoreKey, "true");
+        if (e.getURL() == null) {
+          myProperties.setValue(ignoreKey, "true");
+        } else {
+          super.hyperlinkActivated(e);
+        }
       }
     });
   }
