@@ -148,6 +148,10 @@ public class ConfigImportHelper {
           }
         }
       }
+      if (maxFile != null) {
+        // Already have the config folder so don't prepend  CONFIG_RELATED_PATH below
+        return maxFile;
+      }
     }
 
     return maxFile != null ? new File(maxFile, CONFIG_RELATED_PATH) : null;
