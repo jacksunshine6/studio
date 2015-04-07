@@ -133,14 +133,13 @@ public class ConfigImportHelper {
     // Android Studio: Attempt to find user settings from earlier versions where the settings names
     // are different from the current setting name
     if (maxFile == null) {
-      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview"));
-      File beta = new File(PathManager.getDefaultConfigPathFor("AndroidStudioBeta"));
-      File v1_0 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
-      for (File file : new File[] { preview, beta, v1_0 }) {
+      File v1_1 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
+      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview1.2"));
+      for (File file : new File[] { v1_1, preview }) {
         if (!file.isDirectory()) {
           continue;
         }
-        File options = new File(file, CONFIG_RELATED_PATH + OPTIONS_XML);
+        File options = new File(file, OPTIONS_XML);
         if (options.exists()) {
           final long modified = options.lastModified();
           if (modified > lastModified) {
