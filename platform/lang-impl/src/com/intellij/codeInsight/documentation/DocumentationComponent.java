@@ -21,6 +21,7 @@ import com.intellij.codeInsight.hint.ElementLocationUtil;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.HintUtil;
 import com.intellij.icons.AllIcons;
+import com.intellij.ide.BrowserUtil;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.actions.BaseNavigateToSourceAction;
 import com.intellij.ide.actions.ExternalJavaDocAction;
@@ -42,7 +43,6 @@ import com.intellij.openapi.ui.popup.JBPopup;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
 import com.intellij.pom.Navigatable;
 import com.intellij.psi.PsiElement;
@@ -56,7 +56,6 @@ import com.intellij.ui.components.JBLayeredPane;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.Consumer;
 import com.intellij.util.containers.HashMap;
-import com.intellij.util.io.URLUtil;
 import com.intellij.util.ui.GraphicsUtil;
 import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NonNls;
@@ -69,11 +68,9 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 import javax.swing.text.*;
-import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
 import java.awt.*;
 import java.awt.event.*;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.List;
@@ -96,7 +93,7 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
   private volatile boolean myIsEmpty;
   private boolean myIsShown;
   private final JLabel myElementLabel;
-  private Style myFontSizeStyle;
+  private final MutableAttributeSet myFontSizeStyle = new SimpleAttributeSet();
   private JSlider myFontSizeSlider;
   private final JComponent mySettingsPanel;
   private final MyShowSettingsButton myShowSettingsButton;
@@ -556,36 +553,16 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
   private void setDataInternal(SmartPsiElementPointer element, String text, final Rectangle viewRect, boolean skip) {
     setElement(element);
 
-    boolean justShown = false;
-    if (!myIsShown && myHint != null) {
-      myEditorPane.setText(text);
-      applyFontSize();
+    myEditorPane.setText(text);
+    applyFontSize();
+    
+    if (!myIsShown && myHint != null && !ApplicationManager.getApplication().isUnitTestMode()) {
       myManager.showHint(myHint);
-      myIsShown = justShown = true;
-    }
-
-    if (!justShown) {
-      myEditorPane.setText(text);
-      applyFontSize();
+      myIsShown = true;
     }
 
     if (!skip) {
       myText = text;
-    }
-
-    Document document = myEditorPane.getDocument();
-    if (document instanceof HTMLDocument && element != null) {
-       // set base URL for this javadoc to resolve relative images correctly
-      VirtualFile virtualFile = element.getVirtualFile();
-      VirtualFile directory = virtualFile == null ? null : virtualFile.getParent();
-      String path = directory == null ? "" : directory.getPath()+"/";
-
-      try {
-        URL url = new URL(URLUtil.FILE_PROTOCOL, null, path);
-        ((HTMLDocument)document).setBase(url);
-      }
-      catch (MalformedURLException ignored) {
-      }
     }
 
     //noinspection SSBasedInspection
@@ -604,9 +581,6 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
     }
 
     final StyledDocument styledDocument = (StyledDocument)document;
-    if (myFontSizeStyle == null) {
-      myFontSizeStyle = styledDocument.addStyle("active", null);
-    }
 
     EditorColorsManager colorsManager = EditorColorsManager.getInstance();
     EditorColorsScheme scheme = colorsManager.getGlobalScheme();
@@ -615,11 +589,10 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
       StyleConstants.setFontFamily(myFontSizeStyle, scheme.getEditorFontName());
     }
 
-    final Style sizeStyle = myFontSizeStyle;
     ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
       @Override
       public void run() {
-        styledDocument.setCharacterAttributes(0, styledDocument.getLength(), sizeStyle, false);
+        styledDocument.setCharacterAttributes(0, styledDocument.getLength(), myFontSizeStyle, false);
       }
     });
   }
@@ -724,7 +697,6 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
     }
   }
 
-
   private class ExternalDocAction extends AnAction implements HintManagerImpl.ActionToIgnore {
     public ExternalDocAction() {
       super(CodeInsightBundle.message("javadoc.action.view.external"), null, AllIcons.Actions.Browser_externalJavaDoc);
@@ -750,10 +722,10 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
         if (!processed) {
           final Component component = PlatformDataKeys.CONTEXT_COMPONENT.getData(e.getDataContext());
           final List<String> urls;
-          if (!StringUtil.isEmptyOrSpaces(myEffectiveExternalUrl)) {
+          if (!StringUtil.isEmptyOrSpaces(myEffectiveExternalUrl) && BrowserUtil.canBeBrowsed(myEffectiveExternalUrl)) {
             urls = Collections.singletonList(myEffectiveExternalUrl);
           } else {
-            urls = provider.getUrlFor(element, originalElement);
+            urls = BrowserUtil.retainBrowsableUrls(provider.getUrlFor(element, originalElement));
             assert urls != null : provider;
             assert !urls.isEmpty() : provider;
           }
@@ -774,7 +746,7 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
           presentation.setEnabled(element != null && ((ExternalDocumentationProvider)provider).hasDocumentationFor(element, originalElement));
         }
         else {
-          final List<String> urls = provider.getUrlFor(element, originalElement);
+          List<String> urls = BrowserUtil.retainBrowsableUrls(provider.getUrlFor(element, originalElement));
           presentation.setEnabled(element != null && urls != null && !urls.isEmpty());
         }
       }
