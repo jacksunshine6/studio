@@ -47,6 +47,7 @@ public class VfsUtilCore {
   private static final Logger LOG = Logger.getInstance("#com.intellij.openapi.vfs.VfsUtilCore");
 
   @NonNls private static final String MAILTO = "mailto";
+
   public static final String LOCALHOST_URI_PATH_PREFIX = "localhost/";
   public static final char VFS_SEPARATOR_CHAR = '/';
 
@@ -439,6 +440,34 @@ public class VfsUtilCore {
     return toIdeaUrl(url, false);
   }
 
+  @NotNull
+  public static String convertFromUrl(@NotNull URL url) {
+    String protocol = url.getProtocol();
+    String path = url.getPath();
+    if (protocol.equals(URLUtil.JAR_PROTOCOL)) {
+      if (StringUtil.startsWithConcatenation(path, URLUtil.FILE_PROTOCOL, PROTOCOL_DELIMITER)) {
+        try {
+          URL subURL = new URL(path);
+          path = subURL.getPath();
+        }
+        catch (MalformedURLException e) {
+          throw new RuntimeException(VfsBundle.message("url.parse.unhandled.exception"), e);
+        }
+      }
+      else {
+        throw new RuntimeException(new IOException(VfsBundle.message("url.parse.error", url.toExternalForm())));
+      }
+    }
+    if (SystemInfo.isWindows || SystemInfo.isOS2) {
+      while (!path.isEmpty() && path.charAt(0) == '/') {
+        path = path.substring(1, path.length());
+      }
+    }
+
+    path = URLUtil.unescapePercentSequences(path);
+    return protocol + "://" + path;
+  }
+
   /**
    * Converts VsfUrl info {@link URL}.
    *
@@ -488,33 +517,6 @@ public class VfsUtilCore {
       LOG.debug("MalformedURLException occurred:" + e.getMessage());
       return null;
     }
-  }
-  @NotNull
-  public static String convertFromUrl(@NotNull URL url) {
-    String protocol = url.getProtocol();
-    String path = url.getPath();
-    if (protocol.equals(URLUtil.JAR_PROTOCOL)) {
-      if (StringUtil.startsWithConcatenation(path, URLUtil.FILE_PROTOCOL, PROTOCOL_DELIMITER)) {
-        try {
-          URL subURL = new URL(path);
-          path = subURL.getPath();
-        }
-        catch (MalformedURLException e) {
-          throw new RuntimeException(VfsBundle.message("url.parse.unhandled.exception"), e);
-        }
-      }
-      else {
-        throw new RuntimeException(new IOException(VfsBundle.message("url.parse.error", url.toExternalForm())));
-      }
-    }
-    if (SystemInfo.isWindows || SystemInfo.isOS2) {
-      while (!path.isEmpty() && path.charAt(0) == '/') {
-        path = path.substring(1, path.length());
-      }
-    }
-
-    path = URLUtil.unescapePercentSequences(path);
-    return protocol + "://" + path;
   }
 
   @NotNull
