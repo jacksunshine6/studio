@@ -196,7 +196,7 @@ public abstract class ComponentStoreImpl implements IComponentStore.Reloadable {
     }
     catch (ReadOnlyModificationException e) {
       LOG.warn(e);
-      readonlyFiles.add(Pair.create(session, e.getFile()));
+      readonlyFiles.add(Pair.create(e.getSession() == null ? session : e.getSession(), e.getFile()));
     }
     catch (Exception e) {
       if (errors == null) {
@@ -299,8 +299,7 @@ public abstract class ComponentStoreImpl implements IComponentStore.Reloadable {
     }
 
     Class<T> stateClass = ComponentSerializationUtil.getStateClass(component.getClass());
-    // todo remove assert before last EAP
-    if (!stateSpec.defaultStateAsResource() && getDefaultState(component, name, stateClass) != null) {
+    if (LOG.isDebugEnabled() && getDefaultState(component, name, stateClass) != null) {
       LOG.error(name + " has default state, but not marked to load it");
     }
 
