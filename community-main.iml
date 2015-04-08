@@ -118,5 +118,6 @@
     <orderEntry type="module" module-name="typeMigration" />
     <orderEntry type="module" module-name="cidr-ide" />
     <orderEntry type="module" module-name="android-ndk" />
+    <orderEntry type="module" module-name="designer" />
   </component>
 </module>
