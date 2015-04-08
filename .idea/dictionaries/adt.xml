@@ -243,6 +243,7 @@
       <w>rasterizer</w>
       <w>realloc</w>
       <w>recurse</w>
+      <w>recycler</w>
       <w>reflow</w>
       <w>reformats</w>
       <w>reimplement</w>
