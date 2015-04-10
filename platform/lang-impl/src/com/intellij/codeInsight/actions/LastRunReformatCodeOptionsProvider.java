@@ -17,6 +17,7 @@ package com.intellij.codeInsight.actions;
 
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.lang.Language;
+import com.intellij.lang.StdLanguages;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 
@@ -75,7 +76,10 @@ public class LastRunReformatCodeOptionsProvider {
 
   public boolean isRearrangeCode(@NotNull Language language) {
     String key = getRearrangeCodeKeyFor(language);
-    return myPropertiesComponent.getBoolean(key, false);
+
+    // Android Studio: Default rearrange=true for XML files
+    //return myPropertiesComponent.getBoolean(key, false);
+    return myPropertiesComponent.getBoolean(key, language == StdLanguages.XML);
   }
 
   private static String getRearrangeCodeKeyFor(@NotNull Language language) {
