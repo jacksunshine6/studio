@@ -22,6 +22,7 @@ def getProperties(String root) {
   def aosp = new File(root, "../adt/idea/android").isDirectory()
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
+  def selector = "AndroidStudioPreview1.2"
 
   return { String key ->
     def props = [prefix                      : "studio",
@@ -34,7 +35,10 @@ def getProperties(String root) {
                  buildNumber                 : "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
                  bundleIdentifier            : "com.google.android.studio",
                  macShowProductState         : false,
-                 systemSelector              : { -> "AndroidStudioPreview1.2" },
+                 systemSelector              : { -> selector },
+                 exe_selector                : selector,
+                 exe_launcher_properties     : "$home/$androidRoot/adt-branding/src/idea/android_studio_launcher.properties",
+                 exe64_launcher_properties   : "$home/$androidRoot/adt-branding/src/idea/android_studio_launcher.properties",
                  platformPrefix              : "AndroidStudio",
                  macAppRoot                  : { -> "Android Studio.app/Contents" },
                  winAppRoot                  : { -> "android-studio" },
