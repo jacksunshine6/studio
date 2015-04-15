@@ -209,6 +209,7 @@ public class CardActionsPanel extends JPanel {
             ActionPlaces.WELCOME_SCREEN,
             new Dimension(32, 32));
       setBorder(new EmptyBorder(3, 3, 3, 3));
+      setForeground(WelcomeScreenColors.WELCOME_HEADER_FOREGROUND);
     }
 
     @Override
