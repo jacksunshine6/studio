@@ -87,10 +87,10 @@ public class CustomizeUIThemeStepPanel extends AbstractCustomizeWizardStep {
     myColumnMode = myThemes.size() > 2;
     JPanel buttonsPanel = new JPanel(new GridLayout(myColumnMode ? myThemes.size() : 1, myColumnMode ? 1 : myThemes.size(), 5, 5));
     ButtonGroup group = new ButtonGroup();
-    ThemeInfo myDefaultTheme = null;
+    ThemeInfo myDefaultTheme = findInitialTheme();
 
     for (final ThemeInfo theme: myThemes) {
-      final JRadioButton radioButton = new JRadioButton(theme.name, myDefaultTheme == null);
+      final JRadioButton radioButton = new JRadioButton(theme.name, myDefaultTheme == null || myDefaultTheme == theme);
       radioButton.setOpaque(false);
       if (myDefaultTheme == null) {
         radioButton.setSelected(true);
@@ -124,8 +124,17 @@ public class CustomizeUIThemeStepPanel extends AbstractCustomizeWizardStep {
       wrapperPanel.add(myPreviewLabel);
       add(wrapperPanel, BorderLayout.CENTER);
     }
-    applyLaf(myDefaultTheme, this);
     myInitial = false;
+  }
+
+  private ThemeInfo findInitialTheme() {
+    LookAndFeel laf = UIManager.getLookAndFeel();
+    for (ThemeInfo theme: myThemes) {
+      if (laf != null && theme.laf.equals(laf.getClass().getCanonicalName())) {
+        return theme;
+      }
+    }
+    return null;
   }
 
   protected void initThemes(Collection<ThemeInfo> result) {
