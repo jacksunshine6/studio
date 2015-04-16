@@ -207,11 +207,12 @@ private layoutWin(Map args, String home, Paths paths) {
   }
   winVMOptions(target, args, "${name}.exe", "${name}64.exe")
   def appInfoModulePath = pp("appInfoModulePath")
+
   List resourcePaths = ["$home/${appInfoModulePath}/src", "$home/platform/icons/src"]
   buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher.exe", "$target/bin/${name}.exe", appInfoFile(),
-                   "$home/build/conf/ideaCE-launcher.properties", args.ce_exe_selector, resourcePaths)
+                   pp("exe_launcher_properties"), pp("exe_selector"), resourcePaths)
   buildWinLauncher(home, "$home/bin/WinLauncher/WinLauncher64.exe", "$target/bin/${name}64.exe", appInfoFile(),
-                   "$home/build/conf/ideaCE64-launcher.properties", args.ce_exe_selector, resourcePaths)
+                   pp("exe64_launcher_properties"), pp("exe_selector"), resourcePaths)
 
   pp("customWinLayout")(target, home)
 }
