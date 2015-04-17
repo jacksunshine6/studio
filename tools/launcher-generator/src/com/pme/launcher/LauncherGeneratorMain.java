@@ -162,6 +162,7 @@ public class LauncherGeneratorMain {
       generator.injectIcon(resourceIDs.get("IDI_WINLAUNCHER"), iconStream);
 
       generator.setVersionInfoString("LegalCopyright", "Copyright (C) 2000-" + year + " " + companyName);
+      generator.setVersionInfoString("CompanyName", companyName);
       generator.setVersionInfoString("ProductName", productFullName);
       generator.setVersionInfoString("FileVersion", versionString);
       generator.setVersionInfoString("FileDescription", productFullName);
