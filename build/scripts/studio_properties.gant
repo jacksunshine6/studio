@@ -83,6 +83,14 @@ def getProperties(String root) {
                          }
                        }
 
+                       dir("google-services") {
+                         dir("lib") {
+                           jar("google-services.jar") {
+                             module("google-services")
+                           }
+                         }
+                       }
+
                        dir("google-login") {
                          dir("lib") {
                            jar("google-login.jar") {
