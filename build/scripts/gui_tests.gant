@@ -47,7 +47,9 @@ target('run_ui_tests': 'Run java tests') {
       };
     }
 
-    commonJvmArgs().each { jvmarg(value: it) }
+    if (isDefined("commonJvmArgsForTests")) {
+      commonJvmArgsForTests().each { jvmarg(value: it) }
+    }
 
     if (isDefined("jvm_args")) {
       jvm_args.each { jvmarg(value: it) }
