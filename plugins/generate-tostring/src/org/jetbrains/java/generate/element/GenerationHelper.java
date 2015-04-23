@@ -59,6 +59,6 @@ public class GenerationHelper {
   public static String getPropertyName(FieldElement fieldElement, Project project) {
     String name = fieldElement.getName();
     JavaCodeStyleManager codeStyleManager = JavaCodeStyleManager.getInstance(project);
-    return codeStyleManager.variableNameToPropertyName(name, VariableKind.FIELD);
+    return codeStyleManager.variableNameToPropertyName(name, fieldElement.isModifierStatic() ? VariableKind.STATIC_FIELD : VariableKind.FIELD);
   }
 }
