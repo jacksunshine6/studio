@@ -24,25 +24,17 @@ import com.intellij.openapi.application.ApplicationNamesInfo;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.ui.popup.Balloon;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.wm.WindowManager;
-import com.intellij.ui.BrowserHyperlinkListener;
-import com.intellij.ui.HyperlinkAdapter;
-import com.intellij.ui.awt.RelativePoint;
 import com.intellij.util.SystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.PropertyKey;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
-import java.awt.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -55,8 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private static final Logger LOG = Logger.getInstance("#com.intellij.ide.SystemHealthMonitor");
 
-  private static final NotificationGroup GROUP = new NotificationGroup("System Health", NotificationDisplayType.STICKY_BALLOON, false);
-  private static final NotificationGroup LOG_GROUP = NotificationGroup.logOnlyGroup("System Health (minor)");
+  private static final NotificationGroup GROUP = new NotificationGroup("System Health", NotificationDisplayType.STICKY_BALLOON, true);
 
   @NotNull private final PropertiesComponent myProperties;
 
@@ -104,19 +95,20 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private void notifyUnsupported(@PropertyKey(resourceBundle = "messages.IdeBundle") final String key) {
     final String ignoreKey = "ignore." + key;
     final String message = IdeBundle.message(key) + IdeBundle.message("unsupported.dismiss.link");
-    showNotification(ignoreKey, message, new BrowserHyperlinkListener() {
+    showNotification(ignoreKey, message, new NotificationListener.UrlOpeningListener(false) {
       @Override
-      protected void hyperlinkActivated(HyperlinkEvent e) {
-        if (e.getURL() == null) {
+      protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent event) {
+        if (event.getURL() == null) {
           myProperties.setValue(ignoreKey, "true");
+          notification.expire();
         } else {
-          super.hyperlinkActivated(e);
+          super.hyperlinkActivated(notification, event);
         }
       }
     });
   }
 
-  private void showNotification(final String ignoreKey, final String message, final HyperlinkAdapter hyperlinkAdapter) {
+  private void showNotification(final String ignoreKey, final String message, final NotificationListener hyperlinkAdapter) {
     if (myProperties.isValueSet(ignoreKey)) {
       return;
     }
@@ -125,26 +117,16 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     app.getMessageBus().connect(app).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
       @Override
       public void appFrameCreated(String[] commandLineArgs, @NotNull Ref<Boolean> willOpenProject) {
-        app.invokeLater(new Runnable() {
-          public void run() {
-            JComponent component = WindowManager.getInstance().findVisibleFrame().getRootPane();
-            if (component != null) {
-              Rectangle rect = component.getVisibleRect();
-              JBPopupFactory.getInstance()
-                .createHtmlTextBalloonBuilder(message, MessageType.WARNING, hyperlinkAdapter)
-                .setFadeoutTime(-1)
-                .setHideOnFrameResize(false)
-                .setHideOnLinkClick(true)
-                .setDisposable(app)
-                .createBalloon()
-                .show(new RelativePoint(component, new Point(rect.x + 30, rect.y + rect.height - 10)), Balloon.Position.above);
+        if (willOpenProject.get()) {
+          app.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+              Notification notification = GROUP.createNotification("System Health", message, NotificationType.WARNING, hyperlinkAdapter);
+              notification.setImportant(true);
+              Notifications.Bus.notify(notification);
             }
-
-            Notification notification = LOG_GROUP.createNotification(message, NotificationType.WARNING);
-            notification.setImportant(true);
-            Notifications.Bus.notify(notification);
-          }
-        });
+          });
+        }
       }
     });
   }
