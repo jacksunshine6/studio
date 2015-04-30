@@ -20,6 +20,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiPolyVariantReference;
 import com.intellij.psi.PsiReference;
 import com.intellij.psi.ResolveResult;
+import com.intellij.util.ArrayUtil;
 import com.jetbrains.python.PyNames;
 import com.jetbrains.python.codeInsight.PyCustomMember;
 import com.jetbrains.python.psi.*;
@@ -151,7 +152,7 @@ public class PyTypeChecker {
         return true;
       }
     }
-    if (actual instanceof PyFunctionType && expected instanceof PyClassType) {
+    if (actual instanceof PyFunctionTypeImpl && expected instanceof PyClassType) {
       final PyClass superClass = ((PyClassType)expected).getPyClass();
       if (PyNames.CALLABLE.equals(superClass.getName())) {
         return true;
@@ -490,10 +491,10 @@ public class PyTypeChecker {
       if (resolved instanceof PyTypedElement) {
         final PyTypedElement typedElement = (PyTypedElement)resolved;
         final PyType type = context.getType(typedElement);
-        if (!(type instanceof PyFunctionType)) {
+        if (!(type instanceof PyFunctionTypeImpl)) {
           return null;
         }
-        final PyCallable callable = ((PyFunctionType)type).getCallable();
+        final PyCallable callable = ((PyFunctionTypeImpl)type).getCallable();
         final String operatorName = typedElement.getName();
         final boolean isRight = PyNames.isRightOperatorName(operatorName);
         final PyExpression arg = isRight ? expr.getLeftExpression() : expr.getRightExpression();
@@ -528,8 +529,8 @@ public class PyTypeChecker {
     resolved = ref.resolve();
     if (resolved instanceof PyTypedElement) {
       final PyType type = context.getType((PyTypedElement)resolved);
-      if (type instanceof PyFunctionType) {
-        final PyCallable callable = ((PyFunctionType)type).getCallable();
+      if (type instanceof PyFunctionTypeImpl) {
+        final PyCallable callable = ((PyFunctionTypeImpl)type).getCallable();
         final PyParameter[] parameters = callable.getParameterList().getParameters();
         if (parameters.length == 2) {
           final PyNamedParameter param = parameters[1].getAsNamed();
@@ -608,6 +609,35 @@ public class PyTypeChecker {
       final List<? extends RatedResolveResult> results = type.resolveMember(name, null, AccessDirection.READ, resolveContext);
       if (results != null && !results.isEmpty()) {
         return results.get(0).getElement();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public static PyType getTargetTypeFromTupleAssignment(@NotNull PyTargetExpression target, @NotNull PyTupleExpression parentTuple,
+                                                        @NotNull PyTupleType assignedTupleType) {
+    final int count = assignedTupleType.getElementCount();
+    final PyExpression[] elements = parentTuple.getElements();
+    if (elements.length == count) {
+      final int index = ArrayUtil.indexOf(elements, target);
+      if (index >= 0) {
+        return assignedTupleType.getElementType(index);
+      }
+      for (int i = 0; i < count; i++) {
+        PyExpression element = elements[i];
+        while (element instanceof PyParenthesizedExpression) {
+          element = ((PyParenthesizedExpression)element).getContainedExpression();
+        }
+        if (element instanceof PyTupleExpression) {
+          final PyType elementType = assignedTupleType.getElementType(i);
+          if (elementType instanceof PyTupleType) {
+            final PyType result = getTargetTypeFromTupleAssignment(target, (PyTupleExpression)element, (PyTupleType)elementType);
+            if (result != null) {
+              return result;
+            }
+          }
+        }
       }
     }
     return null;
