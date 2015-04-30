@@ -71,6 +71,9 @@ setProperty("maySkipAndroidPlugin", pp("maySkipAndroidPlugin"))
 target(compile: "Compile project") {
   loadProject()
 
+  projectBuilder.stage("Cleaning up JPS cache " + projectBuilder.getDataStorageRoot())
+  forceDelete(projectBuilder.dataStorageRoot.absolutePath)
+
   projectBuilder.stage("Cleaning up sandbox folder")
   forceDelete(paths.sandbox)
 
