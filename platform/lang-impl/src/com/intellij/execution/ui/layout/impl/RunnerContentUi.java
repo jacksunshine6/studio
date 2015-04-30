@@ -145,7 +145,7 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
   private Image myCurrentOverImg;
   private TabInfo myCurrentOverInfo;
   private MyDropAreaPainter myCurrentPainter;
-
+  
   private RunnerContentUi myOriginal;
   private final CopyOnWriteArraySet<Listener> myDockingListeners = new CopyOnWriteArraySet<Listener>();
   private final Set<RunnerContentUi> myChildren = new TreeSet<RunnerContentUi>(new Comparator<RunnerContentUi>() {
@@ -588,10 +588,10 @@ public class RunnerContentUi implements ContentUI, Disposable, CellTransform.Fac
     // 1/3 (left) |   (center/bottom) | 1/3 (right)
     if (point.x < size.width / 3) return PlaceInGrid.left;
     if (point.x > size.width * 2 / 3) return PlaceInGrid.right;
-
+    
     // 3/4 (center with tab titles) | 1/4 (bottom)
     if (point.y > size.height * 3 / 4) return PlaceInGrid.bottom;
-
+    
     return PlaceInGrid.center;
   }
 

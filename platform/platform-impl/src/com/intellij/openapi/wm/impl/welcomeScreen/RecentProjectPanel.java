@@ -207,7 +207,7 @@ public class RecentProjectPanel extends JPanel {
   protected Dimension getPreferredScrollableViewportSize() {
     return JBUI.size(250, 400);
   }
-
+  
   protected void addMouseMotionListener() {
 
     MouseAdapter mouseAdapter = new MouseAdapter() {
