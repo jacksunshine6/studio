@@ -42,10 +42,7 @@ import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileEvent;
-import com.intellij.util.LineSeparator;
-import com.intellij.util.PathUtilRt;
-import com.intellij.util.SmartList;
-import com.intellij.util.SystemProperties;
+import com.intellij.util.*;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.ui.UIUtil;
 import org.jdom.Element;
@@ -121,15 +118,40 @@ public class StorageUtil {
   }
 
   @NotNull
-  public static VirtualFile writeFile(@Nullable File file, @NotNull Object requestor, @Nullable VirtualFile virtualFile, @NotNull BufferExposingByteArrayOutputStream content, @Nullable LineSeparator lineSeparatorIfPrependXmlProlog) throws IOException {
-    // mark this action as modifying the file which daemon analyzer should ignore
-    AccessToken token = ApplicationManager.getApplication().acquireWriteActionLock(DocumentRunnable.IgnoreDocumentRunnable.class);
+  public static VirtualFile writeFile(@Nullable File file,
+                                      @NotNull Object requestor,
+                                      @Nullable VirtualFile virtualFile,
+                                      @NotNull BufferExposingByteArrayOutputStream content,
+                                      @Nullable LineSeparator lineSeparatorIfPrependXmlProlog) throws IOException {
+    final VirtualFile result;
+    if (file != null && (virtualFile == null || !virtualFile.isValid())) {
+      result = getOrCreateVirtualFile(requestor, file.getAbsolutePath());
+    }
+    else {
+      result = virtualFile;
+      assert result != null;
+    }
+
+    boolean equals = isEqualContent(result, lineSeparatorIfPrependXmlProlog, content);
+    if (equals) {
+      // commented — the upcoming fix of such warnings will not be cherry-picked to release (is not safe)
+      //LOG.warn("Content equals, but it must be handled not on this level — " + result.getName());
+      return result;
+    }
+    else {
+      doWrite(requestor, result, virtualFile, content, lineSeparatorIfPrependXmlProlog);
+      return result;
+    }
+  }
+
+  private static void doWrite(@NotNull final Object requestor,
+                              @NotNull final VirtualFile file,
+                              @Nullable final VirtualFile proposedFile,
+                              @NotNull final BufferExposingByteArrayOutputStream content,
+                              @Nullable final LineSeparator lineSeparatorIfPrependXmlProlog) throws IOException {
+    AccessToken token = WriteAction.start();
     try {
-      if (file != null && (virtualFile == null || !virtualFile.isValid())) {
-        virtualFile = getOrCreateVirtualFile(requestor, file.getAbsolutePath());
-      }
-      assert virtualFile != null;
-      OutputStream out = virtualFile.getOutputStream(requestor);
+      OutputStream out = file.getOutputStream(requestor);
       try {
         if (lineSeparatorIfPrependXmlProlog != null) {
           out.write(XML_PROLOG);
@@ -140,14 +162,18 @@ public class StorageUtil {
       finally {
         out.close();
       }
-      return virtualFile;
     }
     catch (FileNotFoundException e) {
-      if (virtualFile == null) {
+      if (proposedFile == null) {
         throw e;
       }
       else {
-        throw new ReadOnlyModificationException(virtualFile, e);
+        throw new ReadOnlyModificationException(proposedFile, e, new StateStorage.SaveSession() {
+          @Override
+          public void save() throws IOException {
+            doWrite(requestor, file, proposedFile, content, lineSeparatorIfPrependXmlProlog);
+          }
+        });
       }
     }
     finally {
@@ -155,7 +181,31 @@ public class StorageUtil {
     }
   }
 
-  public static void deleteFile(@NotNull File file, @NotNull Object requestor, @Nullable VirtualFile virtualFile) throws IOException {
+  private static boolean isEqualContent(VirtualFile result,
+                                        @Nullable LineSeparator lineSeparatorIfPrependXmlProlog,
+                                        @NotNull BufferExposingByteArrayOutputStream content) throws IOException {
+    boolean equals = true;
+    int headerLength = lineSeparatorIfPrependXmlProlog == null ? 0 : XML_PROLOG.length + lineSeparatorIfPrependXmlProlog.getSeparatorBytes().length;
+    int toWriteLength = headerLength + content.size();
+
+    if (result.getLength() != toWriteLength) {
+      equals = false;
+    }
+    else {
+      byte[] bytes = result.contentsToByteArray();
+      if (lineSeparatorIfPrependXmlProlog != null) {
+        if (!ArrayUtil.startsWith(bytes, XML_PROLOG) || !ArrayUtil.startsWith(bytes, XML_PROLOG.length, lineSeparatorIfPrependXmlProlog.getSeparatorBytes())) {
+          equals = false;
+        }
+      }
+      if (!ArrayUtil.startsWith(bytes, headerLength, content.toByteArray())) {
+        equals = false;
+      }
+    }
+    return equals;
+  }
+
+  public static void deleteFile(@NotNull File file, @NotNull final Object requestor, @Nullable final VirtualFile virtualFile) throws IOException {
     if (virtualFile == null) {
       LOG.warn("Cannot find virtual file " + file.getAbsolutePath());
     }
@@ -166,7 +216,17 @@ public class StorageUtil {
       }
     }
     else if (virtualFile.exists()) {
-      deleteFile(requestor, virtualFile);
+      try {
+        deleteFile(requestor, virtualFile);
+      }
+      catch (FileNotFoundException e) {
+        throw new ReadOnlyModificationException(virtualFile, e, new StateStorage.SaveSession() {
+          @Override
+          public void save() throws IOException {
+            deleteFile(requestor, virtualFile);
+          }
+        });
+      }
     }
   }
 
@@ -174,9 +234,6 @@ public class StorageUtil {
     AccessToken token = ApplicationManager.getApplication().acquireWriteActionLock(DocumentRunnable.IgnoreDocumentRunnable.class);
     try {
       virtualFile.delete(requestor);
-    }
-    catch (FileNotFoundException e) {
-      throw new ReadOnlyModificationException(virtualFile, e);
     }
     finally {
       token.finish();

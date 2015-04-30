@@ -260,7 +260,7 @@ public class IdeFrameImpl extends JFrame implements IdeFrameEx, DataProvider {
   }
 
   public StatusBar getStatusBar() {
-    return ((IdeRootPane)getRootPane()).getStatusBar();
+    return myRootPane == null ? null : myRootPane.getStatusBar();
   }
 
   public void setTitle(final String title) {
@@ -422,7 +422,7 @@ public class IdeFrameImpl extends JFrame implements IdeFrameEx, DataProvider {
     final LineSeparatorPanel lineSeparatorPanel = new LineSeparatorPanel(project);
     statusBar.addWidget(lineSeparatorPanel, "before " + encodingPanel.ID());
 
-    final ToggleReadOnlyAttributePanel readOnlyAttributePanel = new ToggleReadOnlyAttributePanel();
+    final ToggleReadOnlyAttributePanel readOnlyAttributePanel = new ToggleReadOnlyAttributePanel(project);
 
     final InsertOverwritePanel insertOverwritePanel = new InsertOverwritePanel(project);
     statusBar.addWidget(insertOverwritePanel, "after Encoding");
@@ -463,7 +463,9 @@ public class IdeFrameImpl extends JFrame implements IdeFrameEx, DataProvider {
     WelcomeFrame.notifyFrameClosed(this);
 
     if (myRootPane != null) {
+      // clear both our and swing hard refs
       myRootPane = null;
+      setRootPane(null);
     }
 
     if (myFrameDecorator != null) {
