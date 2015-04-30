@@ -16,6 +16,7 @@
 
 
 import org.apache.tools.ant.BuildException
+import org.jetbrains.jps.gant.LayoutInfo
 
 import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 
@@ -149,7 +150,7 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   ant.echo(message: args.buildNumber, file: "$paths.distAll/build.txt")
 
   def layouts = includeFile("$home/build/scripts/layouts.gant")
-  layouts.layoutFull(home, paths.distAll, null)
+  LayoutInfo info = layouts.layoutFull(home, paths.distAll, null)
   layouts.layout_core(home, paths.artifacts_core)
   notifyArtifactBuilt(paths.artifacts_core)
   if (buildJps) {
@@ -186,6 +187,7 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   buildMacZip(macAppRoot, macZip, [paths.distAll], paths.distMac)
 
   buildTarGz(linAppRoot, "$paths.artifacts/${archiveName}.tar", [paths.distAll, paths.distUnix])
+  return info
 }
 
 private layoutWin(Map args, String home, Paths paths) {
