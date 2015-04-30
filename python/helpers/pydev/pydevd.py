@@ -1,6 +1,5 @@
 #IMPORTANT: pydevd_constants must be the 1st thing defined because it'll keep a reference to the original sys._getframe
 from __future__ import nested_scopes # Jython 2.1 support
-from pydevd_constants import * # @UnusedWildImport
 
 import pydev_monkey_qt
 from pydevd_utils import save_main_module
@@ -28,8 +27,7 @@ from pydevd_comm import  CMD_CHANGE_VARIABLE, \
                          CMD_STEP_INTO, \
                          CMD_STEP_OVER, \
                          CMD_STEP_RETURN, \
-                         CMD_THREAD_CREATE, \
-                         CMD_THREAD_KILL, \
+    CMD_THREAD_KILL, \
                          CMD_THREAD_RUN, \
                          CMD_THREAD_SUSPEND, \
                          CMD_RUN_TO_LINE, \
@@ -52,8 +50,7 @@ from pydevd_comm import  CMD_CHANGE_VARIABLE, \
                          InternalTerminateThread, \
                          InternalRunThread, \
                          InternalStepThread, \
-                         NetCommand, \
-                         NetCommandFactory, \
+    NetCommandFactory, \
                          PyDBDaemonThread, \
                          _queue, \
                          ReaderThread, \
@@ -65,8 +62,7 @@ from pydevd_comm import  CMD_CHANGE_VARIABLE, \
                          StartServer, \
                          InternalSetNextStatementThread, \
                          ReloadCodeCommand, \
-                         ID_TO_MEANING,\
-                         CMD_SET_PY_EXCEPTION, \
+    CMD_SET_PY_EXCEPTION, \
                          CMD_IGNORE_THROWN_EXCEPTION_AT,\
                          InternalGetBreakpointException, \
                          InternalSendCurrExceptionTrace,\
@@ -108,66 +104,69 @@ try:
 except:
     pass
 
+LIB_FILE = 0
+PYDEV_FILE = 1
+
 DONT_TRACE = {
               # commonly used things from the stdlib that we don't want to trace
-              'Queue.py':1,
-              'queue.py':1,
-              'socket.py':1,
-              'weakref.py':1,
-              '_weakrefset.py':1,
-              'linecache.py':1,
-              'threading.py':1,
+              'Queue.py':LIB_FILE,
+              'queue.py':LIB_FILE,
+              'socket.py':LIB_FILE,
+              'weakref.py':LIB_FILE,
+              '_weakrefset.py':LIB_FILE,
+              'linecache.py':LIB_FILE,
+              'threading.py':LIB_FILE,
 
               # thirs party libs that we don't want to trace
-              '_pydev_pluginbase.py':1,
-              '_pydev_pkgutil_old.py':1,
-              '_pydev_uuid_old.py':1,
+              '_pydev_pluginbase.py':PYDEV_FILE,
+              '_pydev_pkgutil_old.py':PYDEV_FILE,
+              '_pydev_uuid_old.py':PYDEV_FILE,
 
               #things from pydev that we don't want to trace
-              '_pydev_execfile.py':1,
-              '_pydev_jython_execfile.py':1,
-              '_pydev_threading':1,
-              '_pydev_Queue':1,
-              'django_debug.py':1,
-              'jinja2_debug.py':1,
-              'pydev_log.py':1,
-              'pydev_monkey.py':1 ,
-              'pydev_monkey_qt.py':1 ,
-              'pydevd.py':1 ,
-              'pydevd_additional_thread_info.py':1,
-              'pydevd_comm.py':1,
-              'pydevd_console.py':1 ,
-              'pydevd_constants.py':1,
-              'pydevd_custom_frames.py':1,
-              'pydevd_dont_trace.py':1,
-              'pydevd_exec.py':1,
-              'pydevd_exec2.py':1,
-              'pydevd_file_utils.py':1,
-              'pydevd_frame.py':1,
-              'pydevd_import_class.py':1 ,
-              'pydevd_io.py':1 ,
-              'pydevd_psyco_stub.py':1,
-              'pydevd_referrers.py':1 ,
-              'pydevd_reload.py':1 ,
-              'pydevd_resolver.py':1 ,
-              'pydevd_save_locals.py':1 ,
-              'pydevd_signature.py':1,
-              'pydevd_stackless.py':1 ,
-              'pydevd_traceproperty.py':1,
-              'pydevd_tracing.py':1 ,
-              'pydevd_utils.py':1,
-              'pydevd_vars.py':1,
-              'pydevd_vm_type.py':1,
-              'pydevd_xml.py':1,
+              '_pydev_execfile.py':PYDEV_FILE,
+              '_pydev_jython_execfile.py':PYDEV_FILE,
+              '_pydev_threading':PYDEV_FILE,
+              '_pydev_Queue':PYDEV_FILE,
+              'django_debug.py':PYDEV_FILE,
+              'jinja2_debug.py':PYDEV_FILE,
+              'pydev_log.py':PYDEV_FILE,
+              'pydev_monkey.py':PYDEV_FILE,
+              'pydev_monkey_qt.py':PYDEV_FILE,
+              'pydevd.py':PYDEV_FILE,
+              'pydevd_additional_thread_info.py':PYDEV_FILE,
+              'pydevd_comm.py':PYDEV_FILE,
+              'pydevd_console.py':PYDEV_FILE,
+              'pydevd_constants.py':PYDEV_FILE,
+              'pydevd_custom_frames.py':PYDEV_FILE,
+              'pydevd_dont_trace.py':PYDEV_FILE,
+              'pydevd_exec.py':PYDEV_FILE,
+              'pydevd_exec2.py':PYDEV_FILE,
+              'pydevd_file_utils.py':PYDEV_FILE,
+              'pydevd_frame.py':PYDEV_FILE,
+              'pydevd_import_class.py':PYDEV_FILE,
+              'pydevd_io.py':PYDEV_FILE,
+              'pydevd_psyco_stub.py':PYDEV_FILE,
+              'pydevd_referrers.py':PYDEV_FILE,
+              'pydevd_reload.py':PYDEV_FILE,
+              'pydevd_resolver.py':PYDEV_FILE,
+              'pydevd_save_locals.py':PYDEV_FILE,
+              'pydevd_signature.py':PYDEV_FILE,
+              'pydevd_stackless.py':PYDEV_FILE,
+              'pydevd_traceproperty.py':PYDEV_FILE,
+              'pydevd_tracing.py':PYDEV_FILE,
+              'pydevd_utils.py':PYDEV_FILE,
+              'pydevd_vars.py':PYDEV_FILE,
+              'pydevd_vm_type.py':PYDEV_FILE,
+              'pydevd_xml.py':PYDEV_FILE,
             }
 
 if IS_PY3K:
     # if we try to trace io.py it seems it can get halted (see http://bugs.python.org/issue4716)
-    DONT_TRACE['io.py'] = 1
+    DONT_TRACE['io.py'] = LIB_FILE
 
     # Don't trace common encodings too
-    DONT_TRACE['cp1252.py'] = 1
-    DONT_TRACE['utf_8.py'] = 1
+    DONT_TRACE['cp1252.py'] = LIB_FILE
+    DONT_TRACE['utf_8.py'] = LIB_FILE
 
 
 connected = False
@@ -346,6 +345,7 @@ class PyDB:
         self.SetTrace = pydevd_tracing.SetTrace
         self.break_on_exceptions_thrown_in_same_context = False
         self.ignore_exceptions_thrown_in_lines_with_ignore_exception = True
+        self.project_roots = None
 
         # Suspend debugger even if breakpoint condition raises an exception
         SUSPEND_ON_BREAKPOINT_EXCEPTION = True
@@ -379,19 +379,45 @@ class PyDB:
             self.plugin = PluginManager(self)
         return self.plugin
 
+    def get_project_roots(self):
+        if self.project_roots is None:
+            roots = os.getenv('IDE_PROJECT_ROOTS', '').split(os.pathsep)
+            pydev_log.debug("IDE_PROJECT_ROOTS %s\n" % roots)
+            self.project_roots = roots
+
+    def not_in_scope(self, filename):
+        self.get_project_roots()
+        filename = os.path.normcase(filename)
+        for root in self.project_roots:
+            root = os.path.normcase(root)
+            if filename.startswith(root):
+                return False
+        return True
+
+    def first_appearance_in_scope(self, trace):
+        if trace is None or self.not_in_scope(trace.tb_frame.f_code.co_filename):
+            return False
+        else:
+            trace = trace.tb_next
+            while trace is not None:
+                frame = trace.tb_frame
+                if not self.not_in_scope(frame.f_code.co_filename):
+                    return False
+                trace = trace.tb_next
+            return True
 
     def haveAliveThreads(self):
         for t in threadingEnumerate():
-            if isinstance(t, PyDBDaemonThread):
-                pydev_log.error_once(
-                    'Error in debugger: Found PyDBDaemonThread through threading.enumerate().\n')
-                
             if getattr(t, 'is_pydev_daemon_thread', False):
                 #Important: Jython 2.5rc4 has a bug where a thread created with thread.start_new_thread won't be
                 #set as a daemon thread, so, we also have to check for the 'is_pydev_daemon_thread' flag.
                 #See: https://github.com/fabioz/PyDev.Debugger/issues/11
                 continue
-            
+
+            if isinstance(t, PyDBDaemonThread):
+                pydev_log.error_once(
+                    'Error in debugger: Found PyDBDaemonThread not marked with is_pydev_daemon_thread=True.\n')
+
             if isThreadAlive(t) and not t.isDaemon():
                 return True
 
@@ -495,7 +521,7 @@ class PyDB:
             _DebugConsoleHelper._return_control_osc = not _DebugConsoleHelper._return_control_osc
             return _DebugConsoleHelper._return_control_osc
 
-        from pydev_ipython.inputhook import get_inputhook, set_return_control_callback
+        from pydev_ipython.inputhook import set_return_control_callback
         set_return_control_callback(return_control)
 
         from pydev_import_hook import import_hook_manager
@@ -526,12 +552,11 @@ class PyDB:
                 for t in all_threads:
                     thread_id = GetThreadId(t)
 
-                    if isinstance(t, PyDBDaemonThread):
-                        pydev_log.error_once('Found PyDBDaemonThread in threading.enumerate.')
-                        
-                    elif getattr(t, 'is_pydev_daemon_thread', False):
+                    if getattr(t, 'is_pydev_daemon_thread', False):
                         pass # I.e.: skip the DummyThreads created from pydev daemon threads
-                        
+                    elif isinstance(t, PyDBDaemonThread):
+                        pydev_log.error_once('Error in debugger: Found PyDBDaemonThread not marked with is_pydev_daemon_thread=True.\n')
+
                     elif isThreadAlive(t):
                         program_threads_alive[thread_id] = t
 
@@ -637,6 +662,7 @@ class PyDB:
         notify_always,
         notify_on_terminate,
         notify_on_first_raise_only,
+        ignore_libraries=False
         ):
         try:
             eb = ExceptionBreakpoint(
@@ -644,6 +670,7 @@ class PyDB:
                 notify_always,
                 notify_on_terminate,
                 notify_on_first_raise_only,
+                ignore_libraries
             )
         except ImportError:
             pydev_log.error("Error unable to add break on exception for: %s (exception could not be imported)\n" % (exception,))
@@ -1121,9 +1148,9 @@ class PyDB:
 
                 elif cmd_id == CMD_ADD_EXCEPTION_BREAK:
                     if text.find('\t') != -1:
-                        exception, notify_always, notify_on_terminate = text.split('\t', 2)
+                        exception, notify_always, notify_on_terminate, ignore_libraries = text.split('\t', 3)
                     else:
-                        exception, notify_always, notify_on_terminate = text, 0, 0
+                        exception, notify_always, notify_on_terminate, ignore_libraries = text, 0, 0, 0
 
                     if exception.find('-') != -1:
                         type, exception = exception.split('-')
@@ -1131,11 +1158,14 @@ class PyDB:
                         type = 'python'
 
                     if type == 'python':
+                        if int(notify_always) == 1:
+                            pydev_log.warn("Deprecated parameter: 'notify always' policy removed in PyCharm\n")
                         exception_breakpoint = self.add_break_on_exception(
                             exception,
                             notify_always=int(notify_always) > 0,
                             notify_on_terminate = int(notify_on_terminate) == 1,
-                            notify_on_first_raise_only=int(notify_always) == 2
+                            notify_on_first_raise_only=int(notify_always) == 2,
+                            ignore_libraries=int(ignore_libraries) > 0
                         )
 
                         if exception_breakpoint is not None:
@@ -1525,7 +1555,11 @@ class PyDB:
 
             #print('trace_dispatch', base, frame.f_lineno, event, frame.f_code.co_name, is_file_to_ignore)
             if is_file_to_ignore:
-                return None
+                if DONT_TRACE[base] == LIB_FILE:
+                    if self.not_in_scope(filename):
+                        return None
+                else:
+                    return None
 
             try:
                 #this shouldn't give an exception, but it could happen... (python bug)
