@@ -13,7 +13,6 @@ import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.containers.Convertor;
 import com.intellij.util.text.DateFormatUtil;
 import com.intellij.util.ui.UIUtil;
-import com.intellij.util.ui.tree.TreeUtil;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -22,7 +21,7 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -44,16 +43,14 @@ public class ExistingTemplatesComponent {
   private final Project project;
 
   private ExistingTemplatesComponent(Project project) {
-
     this.project = project;
-    final DefaultMutableTreeNode root;
-    patternTreeModel = new DefaultTreeModel(
-      root = new DefaultMutableTreeNode(null)
-    );
+    final DefaultMutableTreeNode root = new DefaultMutableTreeNode(null);
+    patternTreeModel = new DefaultTreeModel(root);
+    patternTree = createTree(patternTreeModel);
 
     DefaultMutableTreeNode parent = null;
     String lastCategory = null;
-    LinkedList<Object> nodesToExpand = new LinkedList<Object>();
+    final List<DefaultMutableTreeNode> nodesToExpand = new ArrayList<DefaultMutableTreeNode>();
 
     final List<Configuration> predefined = StructuralSearchUtil.getPredefinedTemplates();
     for (final Configuration info : predefined) {
@@ -74,24 +71,13 @@ public class ExistingTemplatesComponent {
       parent.add(node);
     }
 
-    parent = new DefaultMutableTreeNode(SSRBundle.message("user.defined.category"));
-    userTemplatesNode = parent;
-    root.add(parent);
-    nodesToExpand.add(parent);
-
     final ConfigurationManager configurationManager = StructuralSearchPlugin.getInstance(this.project).getConfigurationManager();
-    if (configurationManager.getConfigurations() != null) {
-      for (final Configuration config : configurationManager.getConfigurations()) {
-        parent.add(new DefaultMutableTreeNode(config));
-      }
-    }
+    userTemplatesNode = new DefaultMutableTreeNode(SSRBundle.message("user.defined.category"));
+    root.add(userTemplatesNode);
+    setUserTemplates(configurationManager);
 
-    patternTree = createTree(patternTreeModel);
-
-    for (final Object aNodesToExpand : nodesToExpand) {
-      patternTree.expandPath(
-        new TreePath(new Object[]{root, aNodesToExpand})
-      );
+    for (final DefaultMutableTreeNode nodeToExpand : nodesToExpand) {
+      patternTree.expandPath(new TreePath(new Object[]{root, nodeToExpand}));
     }
 
     panel = ToolbarDecorator.createDecorator(patternTree)
@@ -150,6 +136,18 @@ public class ExistingTemplatesComponent {
     });
     historyList.setCellRenderer(new ExistingTemplatesListCellRenderer(speedSearch));
     configureSelectTemplateAction(historyList);
+  }
+
+  public void setUserTemplates(ConfigurationManager configurationManager) {
+    userTemplatesNode.removeAllChildren();
+    if (configurationManager.getConfigurations() != null) {
+      for (final Configuration config : configurationManager.getConfigurations()) {
+        userTemplatesNode.add(new DefaultMutableTreeNode(config));
+      }
+    }
+    patternTreeModel.reload(userTemplatesNode);
+
+    patternTree.expandPath(new TreePath(new Object[]{patternTreeModel.getRoot(), userTemplatesNode}));
   }
 
   private void configureSelectTemplateAction(JComponent component) {
@@ -290,28 +288,6 @@ public class ExistingTemplatesComponent {
       // we add by one!
       historyModel.remove(25);
     }
-  }
-
-  private void insertNode(Configuration configuration, DefaultMutableTreeNode parent, int index) {
-    DefaultMutableTreeNode node;
-    patternTreeModel.insertNodeInto(
-      node = new DefaultMutableTreeNode(
-        configuration
-      ),
-      parent,
-      index
-    );
-
-    TreeUtil.selectPath(
-      patternTree,
-      new TreePath(new Object[]{patternTreeModel.getRoot(), parent, node})
-    );
-  }
-
-  void addConfigurationToUserTemplates(Configuration configuration) {
-    insertNode(configuration, userTemplatesNode, userTemplatesNode.getChildCount());
-    ConfigurationManager configurationManager = StructuralSearchPlugin.getInstance(project).getConfigurationManager();
-    configurationManager.addConfiguration(configuration);
   }
 
   public JList getHistoryList() {

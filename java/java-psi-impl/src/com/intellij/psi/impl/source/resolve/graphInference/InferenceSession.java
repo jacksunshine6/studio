@@ -787,20 +787,26 @@ public class InferenceSession {
     return substitutor.substitute(bound);
   }
 
-  private static boolean hasBoundProblems(final List<InferenceVariable> typeParams,
-                                          final PsiSubstitutor substitutor,
-                                          final PsiElement context) {
+  private  boolean hasBoundProblems(final List<InferenceVariable> typeParams,
+                                    final PsiSubstitutor psiSubstitutor,
+                                    final PsiSubstitutor substitutor) {
     for (InferenceVariable typeParameter : typeParams) {
-      if (typeParameter.getCallContext() != context) {
+      if (isForeignVariable(psiSubstitutor, typeParameter)) {
         continue;
       }
       final List<PsiType> extendsTypes = typeParameter.getBounds(InferenceBound.UPPER);
       final PsiType[] bounds = extendsTypes.toArray(new PsiType[extendsTypes.size()]);
-      if (GenericsUtil.findTypeParameterBoundError(typeParameter, bounds, substitutor, context, true) != null) {
+      if (GenericsUtil.findTypeParameterBoundError(typeParameter, bounds, substitutor, myContext, true) != null) {
         return true;
       }
     }
     return false;
+  }
+
+  private boolean isForeignVariable(PsiSubstitutor fullSubstitutor,
+                                    InferenceVariable typeParameter) {
+    return fullSubstitutor.putAll(mySiteSubstitutor).getSubstitutionMap().containsKey(typeParameter.getParameter()) &&
+           typeParameter.getCallContext() != myContext;
   }
 
   private PsiSubstitutor resolveBounds(final Collection<InferenceVariable> inferenceVariables,
@@ -812,7 +818,7 @@ public class InferenceSession {
       if (!myIncorporationPhase.hasCaptureConstraints(vars)) {
         PsiSubstitutor firstSubstitutor = resolveSubset(vars, substitutor, foreignMap);
         if (firstSubstitutor != null) {
-          if (hasBoundProblems(vars, firstSubstitutor, myContext)) {
+          if (hasBoundProblems(vars, substitutor, firstSubstitutor)) {
             firstSubstitutor = null;
           }
         }
@@ -912,7 +918,7 @@ public class InferenceSession {
           foreignMap.put(var, type);
         }
 
-        if (substitutor.putAll(mySiteSubstitutor).getSubstitutionMap().containsKey(typeParameter) && var.getCallContext() != myContext) {
+        if (isForeignVariable(substitutor, var)) {
           continue;
         }
 
@@ -1246,7 +1252,7 @@ public class InferenceSession {
 
       if (methodContainingClass != null) {
         psiSubstitutor = TypeConversionUtil.getClassSubstitutor(methodContainingClass, containingClass, psiSubstitutor);
-        LOG.assertTrue(psiSubstitutor != null);
+        LOG.assertTrue(psiSubstitutor != null, "derived: " + containingClass + "; super: " + methodContainingClass);
       }
 
       for (int i = 0; i < functionalMethodParameters.length; i++) {
@@ -1441,7 +1447,8 @@ public class InferenceSession {
     if (arg instanceof PsiMethodReferenceExpression && ((PsiMethodReferenceExpression)arg).isExact()) {
       final PsiParameter[] sParameters = sInterfaceMethod.getParameterList().getParameters();
       final PsiParameter[] tParameters = tInterfaceMethod.getParameterList().getParameters();
-      LOG.assertTrue(sParameters.length == tParameters.length);
+      LOG.assertTrue(sParameters.length == tParameters.length, 
+                     "s: " + sInterfaceMethod.getParameterList().getText() + "; t: " + tInterfaceMethod.getParameterList().getText());
       for (int i = 0; i < tParameters.length; i++) {
         final PsiType tSubstituted = tSubstitutor.substitute(tParameters[i].getType());
         final PsiType sSubstituted = sSubstitutor.substitute(sParameters[i].getType());
@@ -1465,7 +1472,7 @@ public class InferenceSession {
 
       if (sPrimitive ^ tPrimitive) {
         final PsiMember member = ((PsiMethodReferenceExpression)arg).getPotentiallyApplicableMember();
-        LOG.assertTrue(member != null);
+        LOG.assertTrue(member != null, arg);
         if (member instanceof PsiMethod) {
           final PsiType methodReturnType = ((PsiMethod)member).getReturnType();
           if (sPrimitive && methodReturnType instanceof PsiPrimitiveType && methodReturnType != PsiType.VOID ||

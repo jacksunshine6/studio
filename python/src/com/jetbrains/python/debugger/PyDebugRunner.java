@@ -63,7 +63,7 @@ public class PyDebugRunner extends GenericProgramRunner {
   public static final String CLIENT_PARAM = "--client";
   public static final String PORT_PARAM = "--port";
   public static final String FILE_PARAM = "--file";
-  public static final String PYCHARM_PROJECT_ROOTS = "PYCHARM_PROJECT_ROOTS";
+  public static final String IDE_PROJECT_ROOTS = "IDE_PROJECT_ROOTS";
   @SuppressWarnings("SpellCheckingInspection")
   public static final String GEVENT_SUPPORT = "GEVENT_SUPPORT";
 
@@ -224,12 +224,13 @@ public class PyDebugRunner extends GenericProgramRunner {
 
     if (PyDebuggerOptionsProvider.getInstance(project).isSaveCallSignatures()) {
       debugParams.addParameter("--save-signatures");
-      addProjectRootsToEnv(project, generalCommandLine);
     }
 
     if (PyDebuggerOptionsProvider.getInstance(project).isSupportGeventDebugging()) {
       generalCommandLine.getEnvironment().put(GEVENT_SUPPORT, "True");
     }
+
+    addProjectRootsToEnv(project, generalCommandLine);
 
     final String[] debuggerArgs = new String[]{
       CLIENT_PARAM, "127.0.0.1",
@@ -248,6 +249,6 @@ public class PyDebugRunner extends GenericProgramRunner {
       roots.add(contentRoot.getPath());
     }
 
-    commandLine.getEnvironment().put(PYCHARM_PROJECT_ROOTS, StringUtil.join(roots, File.pathSeparator));
+    commandLine.getEnvironment().put(IDE_PROJECT_ROOTS, StringUtil.join(roots, File.pathSeparator));
   }
 }
