@@ -41,6 +41,7 @@
     <sequential>
       <java failonerror="true" jar="${project.home}/lib/ant/lib/ant-launcher.jar" fork="true">
         <jvmarg line="-Xmx2048m -XX:MaxPermSize=512m"/>
+        <jvmarg value="-Djna.nosys=true" />
         <jvmarg value="-Dout=${out.dir}" />
         <jvmarg value="-DbuildNumber=${build.number}" />
         <jvmarg value="-Didea.test.patterns=${test.patterns}" />
