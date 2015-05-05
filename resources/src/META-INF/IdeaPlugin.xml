@@ -197,6 +197,8 @@
 
     <extensionPoint name="importFilter" interface="com.intellij.codeInsight.ImportFilter"/>
 
+    <extensionPoint name="deprecationFilter" interface="com.intellij.codeInspection.deprecation.DeprecationFilter"/>
+
     <extensionPoint name="debuggerClassFilterProvider" interface="com.intellij.ui.classFilter.DebuggerClassFilterProvider"/>
 
     <extensionPoint name="debuggerEditorTextProvider" beanClass="com.intellij.lang.LanguageExtensionPoint" >
