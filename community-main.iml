@@ -119,5 +119,6 @@
     <orderEntry type="module" module-name="cidr-ide" />
     <orderEntry type="module" module-name="android-ndk" />
     <orderEntry type="module" module-name="designer" />
+    <orderEntry type="module" module-name="sdk-updates" />
   </component>
 </module>
