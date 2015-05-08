@@ -755,6 +755,9 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
       jar("manifest-merger.jar") {
         module("manifest-merger")
       }
+      jar("rpclib.jar") {
+        module("rpclib")
+      }
       jar("sdk-tools.jar") {
         module("assetstudio")
         module("ddmlib")
