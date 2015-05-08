@@ -332,7 +332,7 @@ public final class UpdateChecker {
         continue;
       }
       try {
-        Collection<UpdatableExternalComponent> available = source.getAvailableVersions(indicator);
+        Collection<UpdatableExternalComponent> available = source.getAvailableVersions(indicator, updateSettings);
         List<UpdatableExternalComponent> siteResult = Lists.newArrayList();
         for (UpdatableExternalComponent component : available) {
           if (component.isUpdateFor(manager.findExistingComponentMatching(component, source))) {
