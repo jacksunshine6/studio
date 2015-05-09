@@ -16,6 +16,7 @@
 package com.intellij.ide.externalComponents;
 
 import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,4 +53,7 @@ public interface ExternalComponentSource {
    */
   @NotNull
   String getName();
+
+  @NotNull
+  Collection<? extends Pair<String,String>> getStatuses();
 }

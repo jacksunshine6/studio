@@ -191,7 +191,7 @@ public final class UpdateChecker {
 
       incompatiblePlugins = buildNumber != null ? new HashSet<IdeaPluginDescriptor>() : null;
       updatedPlugins = checkPluginsUpdate(manualCheck, updateSettings, indicator, incompatiblePlugins, buildNumber);
-      externalUpdates = updateExternal(manualCheck, indicator);
+      externalUpdates = updateExternal(manualCheck, updateSettings, indicator);
     }
 
     ApplicationManager.getApplication().invokeLater(new Runnable() {
@@ -317,7 +317,7 @@ public final class UpdateChecker {
     return toUpdate.isEmpty() ? null : toUpdate.values();
   }
 
-  public static Collection<ExternalUpdate> updateExternal(boolean manualCheck, @Nullable ProgressIndicator indicator) {
+  public static Collection<ExternalUpdate> updateExternal(boolean manualCheck, UpdateSettings updateSettings, @Nullable ProgressIndicator indicator) {
     List<ExternalUpdate> result = Lists.newArrayList();
     ExternalComponentManager manager = ExternalComponentManager.getInstance();
     if (indicator != null) {
@@ -327,6 +327,9 @@ public final class UpdateChecker {
     for (ExternalComponentSource source : manager.getComponentSources()) {
       if (indicator != null) {
         indicator.checkCanceled();
+      }
+      if (!updateSettings.getEnabledExternalUpdateSources().contains(source.getName())) {
+        continue;
       }
       try {
         Collection<UpdatableExternalComponent> available = source.getAvailableVersions(indicator);
