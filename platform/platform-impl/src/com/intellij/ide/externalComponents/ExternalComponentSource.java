@@ -16,6 +16,7 @@
 package com.intellij.ide.externalComponents;
 
 import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.updateSettings.impl.UpdateSettings;
 import com.intellij.openapi.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,14 +29,18 @@ import java.util.Collection;
 public interface ExternalComponentSource {
   /**
    * Retrieve information on the updates that this source can provide.
-   * @param indicator A {@link ProgressIndicator} that can be updated to show progress, or can be used to cancel the process.
+   *
+   * @param indicator      A {@link ProgressIndicator} that can be updated to show progress, or can be used to cancel the process.
+   * @param updateSettings The current UpdateSettings
    * @return A Collection of {@link UpdatableExternalComponent}s representing the available updates.
    */
   @NotNull
-  Collection<UpdatableExternalComponent> getAvailableVersions(@Nullable ProgressIndicator indicator);
+  Collection<UpdatableExternalComponent> getAvailableVersions(@Nullable ProgressIndicator indicator,
+                                                              @Nullable UpdateSettings updateSettings);
 
   /**
    * Retrieve information on currently installed components.
+   *
    * @return A Collection of currently installed {@link UpdatableExternalComponent}s.
    */
   @NotNull
@@ -43,17 +48,19 @@ public interface ExternalComponentSource {
 
   /**
    * Install updates for the given {@link UpdatableExternalComponent}s.
+   *
    * @param request
    */
   void installUpdates(@NotNull Collection<UpdatableExternalComponent> request);
 
   /**
    * Gets a human-readable name for this source.
+   *
    * @return The name.
    */
   @NotNull
   String getName();
 
   @NotNull
-  Collection<? extends Pair<String,String>> getStatuses();
+  Collection<? extends Pair<String, String>> getStatuses();
 }
