@@ -15,8 +15,12 @@
  */
 package com.intellij.openapi.updateSettings.impl;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.IdeBundle;
+import com.intellij.ide.externalComponents.ExternalComponentManager;
+import com.intellij.ide.externalComponents.ExternalComponentSource;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
@@ -25,16 +29,26 @@ import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.ui.CollectionComboBoxModel;
+import com.intellij.ui.components.JBCheckBox;
+import com.intellij.uiDesigner.core.GridConstraints;
+import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.util.net.NetUtils;
 import com.intellij.util.text.DateFormatUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.*;
+import java.util.List;
 
 /**
  * @author pti
@@ -81,6 +95,9 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
   public void apply() throws ConfigurationException {
     UpdateSettings settings = UpdateSettings.getInstance();
 
+    List<String> enabledExternalUpdateSources = settings.getEnabledExternalUpdateSources();
+    enabledExternalUpdateSources.clear();
+    enabledExternalUpdateSources.addAll(myUpdatesSettingsPanel.getEnabledExternalUpdateSources());
     boolean wasEnabled = settings.isCheckNeeded();
     settings.setCheckNeeded(myUpdatesSettingsPanel.myCheckForUpdates.isSelected());
     if (wasEnabled != settings.isCheckNeeded()) {
@@ -106,6 +123,7 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     myUpdatesSettingsPanel.myUseSecureConnection.setSelected(settings.isSecureConnection());
     myUpdatesSettingsPanel.updateLastCheckedLabel();
     myUpdatesSettingsPanel.setSelectedChannelType(ChannelStatus.fromCode(settings.getUpdateChannelType()));
+    myUpdatesSettingsPanel.setEnabledExternalUpdateSources(settings.getEnabledExternalUpdateSources());
   }
 
   @Override
@@ -117,6 +135,12 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     UpdateSettings settings = UpdateSettings.getInstance();
     if (settings.isCheckNeeded() != myUpdatesSettingsPanel.myCheckForUpdates.isSelected() ||
         settings.isSecureConnection() != myUpdatesSettingsPanel.myUseSecureConnection.isSelected()) {
+      return true;
+    }
+
+    List<String> external = settings.getEnabledExternalUpdateSources();
+    List<String> newExternal = myUpdatesSettingsPanel.getEnabledExternalUpdateSources();
+    if (external.size() != newExternal.size() || !external.containsAll(newExternal)) {
       return true;
     }
 
@@ -138,6 +162,9 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     private JLabel myLastCheckedDate;
     private JComboBox myUpdateChannels;
     private JCheckBox myUseSecureConnection;
+    private JPanel mySettingsPanel;
+    private JPanel myStatusPanel;
+    private Map<JCheckBox, ExternalComponentSource> myExternalSourceSettings;
 
     public UpdatesSettingsPanel() {
       ApplicationInfo appInfo = ApplicationInfo.getInstance();
@@ -193,6 +220,92 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
 
     public void setSelectedChannelType(ChannelStatus channelType) {
       myUpdateChannels.setSelectedItem(channelType != null ? channelType : ChannelStatus.RELEASE);
+    }
+
+    private void createUIComponents() {
+      myExternalSourceSettings = Maps.newHashMap();
+      List<Pair<String, String>> extraStatuses = Lists.newArrayList();
+
+      for (ExternalComponentSource source : ExternalComponentManager.getInstance().getComponentSources()) {
+        myExternalSourceSettings.put(new JCheckBox(IdeBundle.message("updates.settings.checkbox") + " " + source.getName()), source);
+        extraStatuses.addAll(source.getStatuses());
+      }
+      mySettingsPanel = new JPanel(new GridLayoutManager(1 + myExternalSourceSettings.size(), 2));
+      mySettingsPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
+      myCheckForUpdates = new JCheckBox(IdeBundle.message("updates.settings.checkbox"));
+      myCheckForUpdates.addChangeListener(new ChangeListener() {
+        @Override
+        public void stateChanged(ChangeEvent changeEvent) {
+          for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
+            enabled.setEnabled(myCheckForUpdates.isSelected());
+          }
+        }
+      });
+
+      myUpdateChannels = new JComboBox();
+      int row = 0;
+      GridConstraints enabledConstraints =
+        new GridConstraints(row, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED,
+                            GridConstraints.SIZEPOLICY_FIXED, null, null, null);
+      GridConstraints controlConstraints =
+        new GridConstraints(row, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_GROW,
+                            GridConstraints.SIZEPOLICY_FIXED, null, null, null);
+
+      mySettingsPanel.add(myCheckForUpdates, enabledConstraints);
+      mySettingsPanel.add(myUpdateChannels, controlConstraints);
+      enabledConstraints.setColSpan(2);
+      for (JCheckBox enabledCheckbox : myExternalSourceSettings.keySet()) {
+        row++;
+        enabledConstraints.setRow(row);
+        mySettingsPanel.add(enabledCheckbox, enabledConstraints);
+      }
+
+      myStatusPanel = new JPanel(new GridLayoutManager(extraStatuses.size() + 3, 2));
+      row = 0;
+      GridConstraints statusLabelConstraints =
+        new GridConstraints(row, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED,
+                            GridConstraints.SIZEPOLICY_FIXED, null, null, null);
+      GridConstraints statusValueConstraints =
+        new GridConstraints(row, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED,
+                            GridConstraints.SIZEPOLICY_FIXED, null, null, null);
+      myStatusPanel.add(new JLabel(IdeBundle.message("updates.settings.last.check")), statusLabelConstraints);
+      myLastCheckedDate = new JLabel();
+      myStatusPanel.add(myLastCheckedDate, statusValueConstraints);
+      row++;
+      statusLabelConstraints.setRow(row);
+      statusValueConstraints.setRow(row);
+      myStatusPanel.add(new JLabel(IdeBundle.message("updates.settings.current.version")), statusLabelConstraints);
+      myVersionNumber = new JLabel();
+      myStatusPanel.add(myVersionNumber, statusValueConstraints);
+      row++;
+      statusLabelConstraints.setRow(row);
+      statusValueConstraints.setRow(row);
+      myStatusPanel.add(new JLabel(IdeBundle.message("updates.settings.build.number")), statusLabelConstraints);
+      myBuildNumber = new JLabel();
+      myStatusPanel.add(myBuildNumber, statusValueConstraints);
+      for (Pair<String, String> extra : extraStatuses) {
+        row++;
+        statusLabelConstraints.setRow(row);
+        statusValueConstraints.setRow(row);
+        myStatusPanel.add(new JLabel(extra.first), statusLabelConstraints);
+        myStatusPanel.add(new JLabel(extra.second), statusValueConstraints);
+      }
+    }
+
+    public void setEnabledExternalUpdateSources(List<String> enabledExternalUpdateSources) {
+      for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
+        enabled.setSelected(enabledExternalUpdateSources.contains(myExternalSourceSettings.get(enabled).getName()));
+      }
+    }
+
+    public List<String> getEnabledExternalUpdateSources() {
+      List<String> result = Lists.newArrayList();
+      for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
+        if (enabled.isSelected()) {
+          result.add(myExternalSourceSettings.get(enabled).getName());
+        }
+      }
+      return result;
     }
   }
 }

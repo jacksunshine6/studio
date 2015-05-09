@@ -56,6 +56,8 @@ public class UpdateSettings implements PersistentStateComponent<UpdateSettings.S
     public final List<String> ignoredBuildNumbers = new SmartList<String>();
     @CollectionBean
     public final List<String> outdatedPlugins = new SmartList<String>();
+    @CollectionBean
+    public final List<String> enabledExternalComponentSources = new SmartList<String>();
 
     public boolean CHECK_NEEDED = true;
     public long LAST_TIME_CHECKED = 0;
@@ -81,6 +83,10 @@ public class UpdateSettings implements PersistentStateComponent<UpdateSettings.S
 
   public void setCheckNeeded(boolean value) {
     myState.CHECK_NEEDED = value;
+  }
+
+  public List<String> getEnabledExternalUpdateSources() {
+    return myState.enabledExternalComponentSources;
   }
 
   public boolean isSecureConnection() {
