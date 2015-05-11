@@ -69,10 +69,10 @@ setProperty("pp", productProperties)
 setProperty("maySkipAndroidPlugin", pp("maySkipAndroidPlugin"))
 
 target(compile: "Compile project") {
-  loadProject()
-
   projectBuilder.stage("Cleaning up sandbox folder")
   forceDelete(paths.sandbox)
+
+  loadProject()
 
   [paths.sandbox, paths.distWin, paths.distAll, paths.distUnix, paths.distMac, paths.artifacts, paths.artifacts_core, paths.artifacts_jps].each {
     ant.mkdir(dir: it)
