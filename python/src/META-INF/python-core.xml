@@ -27,6 +27,7 @@
     <lang.findUsagesProvider language="Python" implementationClass="com.jetbrains.python.findUsages.PythonFindUsagesProvider"/>
     <lang.formatter language="Python" implementationClass="com.jetbrains.python.formatter.PythonFormattingModelBuilder"/>
     <preFormatProcessor implementation="com.jetbrains.python.formatter.PyPreFormatProcessor"/>
+    <postFormatProcessor implementation="com.jetbrains.python.formatter.PyTrailingBlankLinesPostFormatProcessor"/>
     <lang.whiteSpaceFormattingStrategy language="Python"
                                        implementationClass="com.jetbrains.python.formatter.PyWhiteSpaceFormattingStrategy"/>
     <lang.lineWrapStrategy language="Python" implementationClass="com.jetbrains.python.formatter.PyLineWrapPositionStrategy"/>
@@ -542,6 +543,10 @@
     <moduleService serviceInterface="com.jetbrains.python.packaging.PyPackageRequirementsSettings"
                    serviceImplementation="com.jetbrains.python.packaging.PyPackageRequirementsSettings"/>
 
+    <!-- typing -->
+    <multiHostInjector implementation="com.jetbrains.python.codeInsight.PyTypingAnnotationInjector"/>
+
+    <lang.inspectionSuppressor language="Python" implementationClass="com.jetbrains.python.inspections.PyInspectionsSuppressor"/>
   </extensions>
 
   <extensionPoints>
@@ -727,6 +732,13 @@
             description="Attach debugger to a Python process">
 
       <add-to-group group-id="ToolsMenu" anchor="first"/>
+    </action>
+
+    <action id="StepIntoMyCode" class="com.jetbrains.python.debugger.PyStepIntoMyCodeAction" icon="PythonIcons.Python.Debug.StepIntoMyCode"
+            text="Step Into My Code" description="Step to the next line executed ignoring libraries">
+      <add-to-group group-id="DebugMainMenu" relative-to-action="StepInto" anchor="after"/>
+      <add-to-group group-id="XDebugger.ToolWindow.TopToolbar" relative-to-action="StepInto" anchor="after"/>
+      <keyboard-shortcut keymap="$default" first-keystroke="alt shift F7"/>
     </action>
 
     <group id="PyPackagingMenu" text="Packaging">
