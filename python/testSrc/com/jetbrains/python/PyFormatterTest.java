@@ -536,6 +536,63 @@ public class PyFormatterTest extends PyTestCase {
     myFixture.checkResultByFile("formatter/" + getTestName(true) + "_after.py");
   }
 
+  // PY-11552
+  public void testExtraBlankLinesBetweenMethodsAndAtTheEnd() {
+    getCommonSettings().KEEP_BLANK_LINES_IN_DECLARATIONS = 1;
+    doTest();
+  }
+
+  // PY-11552
+  public void testTrailingBlankLinesWithBackslashesAtFileEnd() {
+    doTest();
+  }
+
+  // PY-11552
+  public void testTrailingBlankLinesWithBackslashesAtFunctionEnd() {
+    doTest();
+  }
+
+  // PY-11552
+  public void testTrailingBlankLinesWithBackslashesAtFunctionEndNoNewLine() {
+    doTest();
+  }
+
+  // PY-11552
+  public void testTrailingBlankLinesWithBackslashesMixed() {
+    doTest();
+  }
+
+  // PY-11552
+  public void testTrailingBlankLinesInEmptyFile() {
+    doTest();
+  }
+
+  // PY-15530
+  public void testAlignmentInArgumentListWhereFirstArgumentIsEmptyCall() {
+    doTest();
+  }
+
+  public void testAlignmentInListLiteralWhereFirstItemIsEmptyTuple() {
+    doTest();
+  }
+
+  public void testHangingIndentInNamedArgumentValue() {
+    doTest();
+  }
+
+  public void testHangingIndentInParameterDefaultValue() {
+    doTest();
+  }
+
+  // PY-15171
+  public void testHangingIndentInKeyValuePair() {
+    doTest();
+  }
+
+  public void testAlignmentOfEmptyCollectionLiterals() {
+    doTest();
+  }
+
   private CommonCodeStyleSettings getCommonSettings() {
     return settings().getCommonSettings(PythonLanguage.getInstance());
   }
