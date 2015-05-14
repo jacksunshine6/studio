@@ -23,6 +23,8 @@ def getProperties(String root) {
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
   def selector = "AndroidStudioPreview1.3"
+  def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
+  def lldbBinTargetRoot = "bin/lldb"
 
   return { String key ->
     def props = [prefix                      : "studio",
@@ -59,6 +61,10 @@ def getProperties(String root) {
                    }
 
                    layout(targetDirectory) {
+                     dir("${lldbBinTargetRoot}/android") {
+                       fileset(dir: "${lldbBinSrcRoot}/android")
+                     }
+
                      dir("gradle") {
                        dir("m2repository") {
                          fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
@@ -142,12 +148,27 @@ def getProperties(String root) {
                    }
                    ant.copy(  file: "$home/../adt/idea/native/installer/win/builds/uninstall.exe", tofile: "$target/uninstall.exe")
                  },
-                 customLinLayout             : { target, home -> },
-                 customMacLayout             : { target, home -> },
+                 customLinLayout             : { target, home ->
+                   layout(target) {
+                     dir("${lldbBinTargetRoot}/linux") {
+                       fileset(dir: "${lldbBinSrcRoot}/linux")
+                     }
+                   }
+                 },
+                 customMacLayout             : { target, home ->
+                   layout(target) {
+                     dir("${lldbBinTargetRoot}/mac") {
+                       fileset(dir: "${lldbBinSrcRoot}/mac")
+                     }
+                   }
+                 },
 
                  icon128                     : "$home/$androidRoot/adt-branding/src/artwork/icon_AS_128.png",
                  ico                         : "$home/$androidRoot/adt-branding/src/artwork/androidstudio.ico",
-                 icns                        : "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns",]
+                 icns                        : "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns",
+
+                 extraMacBins                : ["${lldbBinTargetRoot}/mac/*"],
+                 extraLinBins                : ["${lldbBinTargetRoot}/linux/LLDBFrontend"],]
 
     return props[key];
   }
