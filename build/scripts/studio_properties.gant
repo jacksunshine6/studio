@@ -115,7 +115,7 @@ def getProperties(String root) {
                        }
                      }
                    }
-                   ant.unzip(src: "${home}/../external/gradle/gradle-2.2.1-bin.zip", dest: "${targetDirectory}/gradle")
+                   ant.unzip(src: "${home}/../external/gradle/gradle-2.4-bin.zip", dest: "${targetDirectory}/gradle")
                  },
                  customWinLayout             : { target, home ->
                    if (!aosp) {
