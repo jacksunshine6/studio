@@ -778,7 +778,6 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
         fileset(dir: "$androidToolsBaseHome/templates")
       }
     }
-    layoutPlugin("designer", "designer")
   }
 }
 
