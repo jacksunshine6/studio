@@ -22,7 +22,7 @@ def getProperties(String root) {
   def aosp = new File(root, "../adt/idea/android").isDirectory()
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
-  def selector = "AndroidStudio1.2"
+  def selector = "AndroidStudioPreview1.3"
 
   return { String key ->
     def props = [prefix                      : "studio",
