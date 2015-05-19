@@ -88,6 +88,9 @@ def getProperties(String root) {
                            jar("google-services.jar") {
                              module("google-services")
                            }
+                           fileset(dir: "${home}/../studio/google/services/lib") {
+                             include(name: "**/*.jar")
+                           }
                          }
                        }
 
