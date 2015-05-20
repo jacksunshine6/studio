@@ -189,9 +189,9 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   buildWinZip(winAppRoot, "$paths.artifacts/${archiveName}.win.zip", [paths.distAll, paths.distWin])
 
   String macZip = "$paths.artifacts/${archiveName}.mac.zip"
-  buildMacZip(macAppRoot, macZip, [paths.distAll], paths.distMac)
+  buildMacZip(macAppRoot, macZip, [paths.distAll], paths.distMac, pp("extraMacBins"))
 
-  buildTarGz(linAppRoot, "$paths.artifacts/${archiveName}.tar", [paths.distAll, paths.distUnix])
+  buildTarGz(linAppRoot, "$paths.artifacts/${archiveName}.tar", [paths.distAll, paths.distUnix], pp("extraLinBins"))
   return info
 }
 
