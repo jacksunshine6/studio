@@ -22,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Interface for classes that can provide information on and updates for installed components.
@@ -63,4 +64,11 @@ public interface ExternalComponentSource {
 
   @NotNull
   Collection<? extends Pair<String, String>> getStatuses();
+
+  /**
+   * Gets a list of all available channels for this source.
+   * @return A list of channel names, or {@code null} to indicate that this source does not have different update channels.
+   */
+  @Nullable
+  List<String> getAllChannels();
 }
