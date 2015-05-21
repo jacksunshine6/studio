@@ -348,6 +348,7 @@ public final class UpdateChecker {
         if (message == null) {
           message = "Unknown";
         }
+        LOG.warn(e);
         showErrorMessage(manualCheck, IdeBundle.message("updates.external.error.message", source.getName(), message));
       }
     }
