@@ -143,6 +143,12 @@ def getProperties(String root) {
                    ant.unzip(src: "${home}/../external/gradle/gradle-2.4-bin.zip", dest: "${targetDirectory}/gradle")
                  },
                  customWinLayout             : { target, home ->
+                   layout(target) {
+                     dir("${lldbBinTargetRoot}/win") {
+                       fileset(dir: "${lldbBinSrcRoot}/win")
+                     }
+                   }
+
                    if (!aosp) {
                      return
                    }
