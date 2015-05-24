@@ -67,6 +67,7 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
   @NonNls private static final String REFERENCE_RENDERER = "Reference renderer";
   @NonNls public static final String RENDERER_TAG = "Renderer";
   @NonNls private static final String RENDERER_ID = "ID";
+  private static final boolean ANDROID_INTEGER_RENDERER = Boolean.getBoolean("android.integer.renderer");
 
   private final EventDispatcher<NodeRendererSettingsListener> myDispatcher = EventDispatcher.create(NodeRendererSettingsListener.class);
   private final List<NodeRenderer> myPluginRenderers = new ArrayList<NodeRenderer>();
@@ -272,6 +273,22 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
     allRenderers.add(myPrimitiveRenderer);
     allRenderers.addAll(myPluginRenderers);
     Collections.addAll(allRenderers, NodeRenderer.EP_NAME.getExtensions());
+
+    if (ANDROID_INTEGER_RENDERER) {
+      int androidIndex = -1;
+      for (int i = 0; i < allRenderers.size(); i++) {
+        if ("android.resource.renderer".equals(allRenderers.get(i).getUniqueId())) {
+          androidIndex = i;
+          break;
+        }
+      }
+
+      if (androidIndex != -1) {
+        NodeRenderer androidRenderer = allRenderers.remove(androidIndex);
+        allRenderers.add(0, androidRenderer);
+      }
+    }
+
     myCustomRenderers.iterateRenderers(new InternalIterator<NodeRenderer>() {
       public boolean visit(final NodeRenderer renderer) {
         allRenderers.add(renderer);
@@ -282,6 +299,7 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
     allRenderers.add(myToStringRenderer);
     allRenderers.add(myArrayRenderer);
     allRenderers.add(myClassRenderer);
+
     return allRenderers;
   }
 
