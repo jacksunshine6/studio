@@ -15,6 +15,7 @@
  */
 package com.intellij.openapi.application;
 
+import com.google.common.io.Files;
 import com.intellij.ide.plugins.IdeaPluginDescriptorImpl;
 import com.intellij.ide.plugins.PluginManager;
 import com.intellij.ide.plugins.PluginManagerCore;
@@ -131,7 +132,27 @@ public class ConfigImportHelper {
     }
 
     // Android Studio: Attempt to find user settings from earlier versions where the settings names
-    // are different from the current setting name
+    // are different from the current setting name. We want to import from the user's most recently actively
+    // used IDE install. If the user has used both Android Studio 1.1 and Android Studio 1.2, we want to
+    // import Android Studio 1.2 settings.
+    //
+    // The reason we even look for old (Android Studio 1.0) settings here is such that users who skipped a
+    // release will still be able to import any settings they've configured in the past.
+    //
+    // Looking at previous versions is complicated slightly by preview versions.
+    // Consider the update to 1.3 final. Should that import from 1.2 final, or 1.3 preview?
+    // That depends; a user may have tried 1.3 preview (and imported 1.2 settings into it), but then
+    // the user gave up on 1.3 preview due to a blocking bug, and continued working and configuring
+    // 1.2. When 1.3 final comes out, should we import 1.3 preview, or the more recently updated 1.2
+    // settings?
+    //
+    // For now, we try the latter: We look at the time stamps of the settings folders
+    // and attempt to pick the most recently modified one. Note that this may not work perfectly: on
+    // some operating systems, updating contents in a folder does *not* update the last modified timestamp
+    // of the folder itself. Therefore, when file stamps are equal (as can be the case when a config
+    // file is copied from an older version to the next), we take the later version. That way, we'll
+    // prefer the highest version number, unless the older version has a more recent modification
+    // date.
     if (maxFile == null) {
       File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview"));
       File beta = new File(PathManager.getDefaultConfigPathFor("AndroidStudioBeta")); // relevant when we switch from beta to stable
@@ -141,8 +162,8 @@ public class ConfigImportHelper {
         }
         File options = new File(file, CONFIG_RELATED_PATH + OPTIONS_XML);
         if (options.exists()) {
-          final long modified = options.lastModified();
-          if (modified > lastModified) {
+          final long modified = file.lastModified();
+          if (modified >= lastModified) {
             lastModified = modified;
             maxFile = file;
           }
@@ -164,6 +185,25 @@ public class ConfigImportHelper {
   private static void doImport(@NotNull File newConfigDir, @NotNull File oldConfigDir, ConfigImportSettings settings, File installationHome) {
     try {
       copy(oldConfigDir, newConfigDir, settings, installationHome);
+
+      // There are a couple of files that live outside the system/ and config/ folders; handle
+      // these here; see https://code.google.com/p/android/issues/detail?id=171122
+      if (!SystemInfo.isMac) {
+        File oldParent = oldConfigDir.getParentFile();
+        File newParent = newConfigDir.getParentFile();
+        if (oldParent != null && newParent!= null) {
+          File[] files = oldParent.listFiles();
+          if (files != null) {
+            for (File file : files) {
+              String path = file.getPath(); // When used with .endsWith(), faster than (and same result as) getName()
+              if (path.endsWith(".properties") || path.endsWith(".vmoptions")) {
+                File dest = new File(newParent, file.getName());
+                Files.copy(file, dest);
+              }
+            }
+          }
+        }
+      }
     }
     catch (IOException e) {
       JOptionPane.showMessageDialog(JOptionPane.getRootFrame(),
