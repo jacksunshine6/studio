@@ -399,6 +399,10 @@ public class LightToolWindow extends JPanel {
     }
   }
 
+  public void minimize() {
+    updateContent(false, true);
+  }
+
   private class HideAction extends AnAction {
     public HideAction() {
       Presentation presentation = getTemplatePresentation();
