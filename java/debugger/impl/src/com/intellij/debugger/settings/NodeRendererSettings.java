@@ -28,6 +28,7 @@ import com.intellij.debugger.ui.tree.DebuggerTreeNode;
 import com.intellij.debugger.ui.tree.ValueDescriptor;
 import com.intellij.debugger.ui.tree.render.*;
 import com.intellij.debugger.ui.tree.render.Renderer;
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.components.*;
 import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.project.Project;
@@ -65,11 +66,13 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
   @NonNls private static final String REFERENCE_RENDERER = "Reference renderer";
   @NonNls public static final String RENDERER_TAG = "Renderer";
   @NonNls private static final String RENDERER_ID = "ID";
-  private static final boolean ANDROID_INTEGER_RENDERER = Boolean.getBoolean("android.integer.renderer");
 
   private final EventDispatcher<NodeRendererSettingsListener> myDispatcher = EventDispatcher.create(NodeRendererSettingsListener.class);
   private final List<NodeRenderer> myPluginRenderers = new ArrayList<NodeRenderer>();
   private RendererConfiguration myCustomRenderers = new RendererConfiguration(this);
+
+  private static final String USE_ANDROID_RENDERER = "use.android.renderer";
+  private boolean myUseAndroidRenderer = PropertiesComponent.getInstance().getBoolean(USE_ANDROID_RENDERER, false);
 
   // base renderers
   private final PrimitiveRenderer myPrimitiveRenderer = new PrimitiveRenderer();
@@ -133,6 +136,16 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
 
   public boolean areAlternateCollectionViewsEnabled() {
     return myAlternateCollectionRenderers[0].isEnabled();
+  }
+
+  // Addition in Android Studio's fork, do not use from Android plugin
+  void setUseAndroidRenderer(boolean en) {
+    myUseAndroidRenderer = en;
+    PropertiesComponent.getInstance().setValue(USE_ANDROID_RENDERER, Boolean.toString(en));
+  }
+
+  boolean isUsingAndroidRenderer() {
+    return myUseAndroidRenderer;
   }
 
   public boolean equals(Object o) {
@@ -276,7 +289,7 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
     allRenderers.addAll(myPluginRenderers);
     Collections.addAll(allRenderers, NodeRenderer.EP_NAME.getExtensions());
 
-    if (ANDROID_INTEGER_RENDERER) {
+    if (myUseAndroidRenderer) {
       int androidIndex = -1;
       for (int i = 0; i < allRenderers.size(); i++) {
         if ("android.resource.renderer".equals(allRenderers.get(i).getUniqueId())) {

@@ -52,6 +52,7 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
   private JCheckBox myCbShowObjectId;
   private JCheckBox myCbShowStringsType;
   private JCheckBox myCbHexValue;
+  private JCheckBox myCbAndroidRenderer;
 
   private StateRestoringCheckBox myCbShowStaticFinalFields;
   //private final ArrayRendererConfigurable myArrayRendererConfigurable;
@@ -122,6 +123,7 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
     myCbShowObjectId = new JCheckBox(DebuggerBundle.message("label.base.renderer.configurable.show.object.id"));
     myCbHexValue = new JCheckBox(DebuggerBundle.message("label.base.renderer.configurable.show.hex.value"));
     myCbShowStringsType = new JCheckBox(DebuggerBundle.message("label.base.renderer.configurable.show.strings.type"));
+    myCbAndroidRenderer = new JCheckBox("Use Android Renderer for integer types");
 
     myCbEnableToString = new JCheckBox(DebuggerBundle.message("label.base.renderer.configurable.enable.toString"));
     myRbAllThatOverride = new JRadioButton(DebuggerBundle.message("label.base.renderer.configurable.all.overriding"));
@@ -171,6 +173,7 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
     //panel.add(arraysPanel, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 3, 1, 1.0, 0.0, GridBagConstraints.NORTH, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     panel.add(myCbShowStringsType, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 3, 1, 1.0, 0.0, GridBagConstraints.NORTH, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     panel.add(myCbHexValue, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 3, 1, 1.0, 0.0, GridBagConstraints.NORTH, GridBagConstraints.HORIZONTAL, new Insets(4, 0, 0, 0), 0, 0));
+    panel.add(myCbAndroidRenderer, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 3, 1, 1.0, 0.0, GridBagConstraints.NORTH, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     panel.add(myCbHideNullArrayElements, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 3, 1, 1.0, 0.0, GridBagConstraints.NORTH, GridBagConstraints.HORIZONTAL, new Insets(4, 0, 0, 0), 0, 0));
 
     panel.add(myCbEnableAlternateViews, new GridBagConstraints(0, GridBagConstraints.RELATIVE, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(4, 0, 0, 10), 0, 0));
@@ -210,6 +213,7 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
 
     PrimitiveRenderer primitiveRenderer = rendererSettings.getPrimitiveRenderer();
     primitiveRenderer.setShowHexValue(myCbHexValue.isSelected());
+    rendererSettings.setUseAndroidRenderer(myCbAndroidRenderer.isSelected());
 
     rendererSettings.fireRenderersChanged();
   }
@@ -253,6 +257,7 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
 
     PrimitiveRenderer primitiveRenderer = rendererSettings.getPrimitiveRenderer();
     myCbHexValue.setSelected(primitiveRenderer.isShowHexValue());
+    myCbAndroidRenderer.setSelected(rendererSettings.isUsingAndroidRenderer());
   }
 
   @Override
@@ -303,6 +308,10 @@ public class DebuggerDataViewsConfigurable implements SearchableConfigurable {
 
     PrimitiveRenderer primitiveRenderer = rendererSettings.getPrimitiveRenderer();
     if (primitiveRenderer.isShowHexValue() != myCbHexValue.isSelected()) {
+      return true;
+    }
+
+    if (myCbAndroidRenderer.isSelected() != rendererSettings.isUsingAndroidRenderer()) {
       return true;
     }
 
