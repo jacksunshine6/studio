@@ -508,7 +508,10 @@ public class BegMenuItemUI extends BasicMenuItemUI {
     if(msm==null){
       msm=MenuSelectionManager.defaultManager();
     }
+    Point screenLocation = menuItem.getBounds().getLocation();
+    SwingUtilities.convertPointToScreen(screenLocation, menuItem.getParent());
     msm.clearSelectedPath();
+    menuItem.setBounds(screenLocation.x, screenLocation.y, menuItem.getWidth(), menuItem.getHeight());
     ((ActionMenuItem)menuItem).fireActionPerformed(
       new ActionEvent(
         menuItem,
