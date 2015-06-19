@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2014 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,11 @@ import com.intellij.codeInsight.hint.ElementLocationUtil;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.HintUtil;
 import com.intellij.icons.AllIcons;
-import com.intellij.ide.BrowserUtil;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.actions.BaseNavigateToSourceAction;
 import com.intellij.ide.actions.ExternalJavaDocAction;
 import com.intellij.lang.documentation.CompositeDocumentationProvider;
 import com.intellij.lang.documentation.DocumentationProvider;
-import com.intellij.lang.documentation.ExternalDocumentationHandler;
 import com.intellij.lang.documentation.ExternalDocumentationProvider;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.*;
@@ -697,6 +695,7 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
     }
   }
 
+
   private class ExternalDocAction extends AnAction implements HintManagerImpl.ActionToIgnore {
     public ExternalDocAction() {
       super(CodeInsightBundle.message("javadoc.action.view.external"), null, AllIcons.Actions.Browser_externalJavaDoc);
@@ -705,32 +704,25 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-      if (myElement != null) {
-        final PsiElement element = myElement.getElement();
-        final DocumentationProvider provider = DocumentationManager.getProviderFromElement(element);
-        final PsiElement originalElement = DocumentationManager.getOriginalElement(element);
-        boolean processed = false;
-        if (provider instanceof CompositeDocumentationProvider) {
-          for (DocumentationProvider p : ((CompositeDocumentationProvider)provider).getAllProviders()) {
-            if (p instanceof ExternalDocumentationHandler && ((ExternalDocumentationHandler)p).handleExternal(element, originalElement)) {
-              processed = true;
-              break;
-            }
-          }
-        }
+      if (myElement == null) {
+        return;
+      }
 
-        if (!processed) {
-          final Component component = PlatformDataKeys.CONTEXT_COMPONENT.getData(e.getDataContext());
-          final List<String> urls;
-          if (!StringUtil.isEmptyOrSpaces(myEffectiveExternalUrl) && BrowserUtil.canBeBrowsed(myEffectiveExternalUrl)) {
-            urls = Collections.singletonList(myEffectiveExternalUrl);
-          } else {
-            urls = BrowserUtil.retainBrowsableUrls(provider.getUrlFor(element, originalElement));
-            assert urls != null : provider;
-            assert !urls.isEmpty() : provider;
-          }
-          ExternalJavaDocAction.showExternalJavadoc(urls, component);
+      final PsiElement element = myElement.getElement();
+      final DocumentationProvider provider = DocumentationManager.getProviderFromElement(element);
+      final PsiElement originalElement = DocumentationManager.getOriginalElement(element);
+      if (!(provider instanceof CompositeDocumentationProvider &&
+            ((CompositeDocumentationProvider)provider).handleExternal(element, originalElement))) {
+        List<String> urls;
+        if (!StringUtil.isEmptyOrSpaces(myEffectiveExternalUrl)) {
+          urls = Collections.singletonList(myEffectiveExternalUrl);
         }
+        else {
+          urls = provider.getUrlFor(element, originalElement);
+          assert urls != null : provider;
+          assert !urls.isEmpty() : provider;
+        }
+        ExternalJavaDocAction.showExternalJavadoc(urls, PlatformDataKeys.CONTEXT_COMPONENT.getData(e.getDataContext()));
       }
     }
 
@@ -746,7 +738,7 @@ public class DocumentationComponent extends JPanel implements Disposable, DataPr
           presentation.setEnabled(element != null && ((ExternalDocumentationProvider)provider).hasDocumentationFor(element, originalElement));
         }
         else {
-          List<String> urls = BrowserUtil.retainBrowsableUrls(provider.getUrlFor(element, originalElement));
+          final List<String> urls = provider.getUrlFor(element, originalElement);
           presentation.setEnabled(element != null && urls != null && !urls.isEmpty());
         }
       }
