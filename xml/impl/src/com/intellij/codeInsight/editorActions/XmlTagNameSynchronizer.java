@@ -22,6 +22,7 @@ import com.intellij.codeInsight.lookup.impl.LookupImpl;
 import com.intellij.codeInspection.htmlInspections.RenameTagBeginOrEndIntentionAction;
 import com.intellij.lang.Language;
 import com.intellij.lang.html.HTMLLanguage;
+import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.lang.xhtml.XHTMLLanguage;
 import com.intellij.lang.xml.XMLLanguage;
 import com.intellij.openapi.Disposable;
@@ -238,7 +239,7 @@ public class XmlTagNameSynchronizer extends CommandAdapter implements Applicatio
       if (myMarkers.isEmpty()) return;
 
       boolean fitsInMarker = fitsInMarker(offset, oldLength);
-      if (!fitsInMarker) {
+      if (!fitsInMarker || myMarkers.size() != myEditor.getCaretModel().getCaretCount()) {
         clearMarkers();
         beforeDocumentChange(event);
       }
@@ -339,9 +340,9 @@ public class XmlTagNameSynchronizer extends CommandAdapter implements Applicatio
 
       if (support == null) return null;
 
-      int diff = offset - element.getTextRange().getStartOffset();
       final TextRange range = support.getTextRange();
-      return range != null ? document.createRangeMarker(range.getStartOffset() + diff, range.getEndOffset() + diff, true) : null;
+      TextRange realRange = InjectedLanguageManager.getInstance(file.getProject()).injectedToHost(element.getContainingFile(), range);
+      return document.createRangeMarker(realRange.getStartOffset(), realRange.getEndOffset(), true);
     }
 
     private static PsiElement findSupportElement(PsiElement element) {
