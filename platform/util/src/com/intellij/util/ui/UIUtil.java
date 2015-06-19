@@ -705,7 +705,7 @@ public class UIUtil {
 
   private static final Map<Class, Ref<Method>> ourDefaultIconMethodsCache = new ConcurrentHashMap<Class, Ref<Method>>();
   public static int getCheckBoxTextHorizontalOffset(@NotNull JCheckBox cb) {
-    // logic copied from javax.swing.plaf.basic.BasicRadioButtonUI.paint
+    // logic copied from javax.swing.plaf.basic.BasicRadioButtonUI.paint 
     ButtonUI ui = cb.getUI();
     String text = cb.getText();
 
@@ -1631,22 +1631,28 @@ public class UIUtil {
                                 boolean toolWindow,
                                 boolean drawTopLine,
                                 boolean drawBottomLine) {
-    g.setColor(getPanelBackground());
-    g.fillRect(x, 0, width, height);
-
-    ((Graphics2D)g).setPaint(getGradientPaint(0, 0, new Color(0, 0, 0, 5), 0, height, new Color(0, 0, 0, 20)));
-    g.fillRect(x, 0, width, height);
-
-    g.setColor(new Color(0, 0, 0, toolWindow ? 90 : 50));
-    if (drawTopLine) g.drawLine(x, 0, width, 0);
-    if (drawBottomLine) g.drawLine(x, height - 1, width, height - 1);
-
-    g.setColor(isUnderDarcula() ? Gray._255.withAlpha(30) : new Color(255, 255, 255, 100));
-    g.drawLine(x, drawTopLine ? 1 : 0, width, drawTopLine ? 1 : 0);
-
-    if (active) {
-      g.setColor(new Color(100, 150, 230, toolWindow ? 50 : 30));
+    height++;
+    GraphicsConfig config = GraphicsUtil.disableAAPainting(g);
+    try {
+      g.setColor(getPanelBackground());
       g.fillRect(x, 0, width, height);
+
+      ((Graphics2D)g).setPaint(getGradientPaint(0, 0, new Color(0, 0, 0, 5), 0, height, new Color(0, 0, 0, 20)));
+      g.fillRect(x, 0, width, height);
+
+      g.setColor(new Color(0, 0, 0, toolWindow ? 90 : 50));
+      if (drawTopLine) g.drawLine(x, 0, width, 0);
+      if (drawBottomLine) g.drawLine(x, height - (isRetina() ? 1 : 2), width, height - (isRetina() ? 1 : 2));
+
+      g.setColor(isUnderDarcula() ? Gray._255.withAlpha(30) : new Color(255, 255, 255, 100));
+      g.drawLine(x, drawTopLine ? 1 : 0, width, drawTopLine ? 1 : 0);
+
+      if (active) {
+        g.setColor(new Color(100, 150, 230, toolWindow ? 50 : 30));
+        g.fillRect(x, 0, width, height);
+      }
+    } finally {
+      config.restore();
     }
   }
 
@@ -2970,9 +2976,9 @@ public class UIUtil {
   public static void setNotOpaqueRecursively(@NotNull Component component) {
     if (!isUnderAquaLookAndFeel()) return;
 
-    if (component.getBackground().equals(getPanelBackground())
-        || component instanceof JScrollPane
-        || component instanceof JViewport
+    if (component.getBackground().equals(getPanelBackground()) 
+        || component instanceof JScrollPane 
+        || component instanceof JViewport 
         || component instanceof JLayeredPane) {
       if (component instanceof JComponent) {
         ((JComponent)component).setOpaque(false);
@@ -3279,6 +3285,11 @@ public class UIUtil {
   @NotNull
   public static String rightArrow() {
     return FontUtil.rightArrow(getLabelFont());
+  }
+
+  @NotNull
+  public static String upArrow(@NotNull String defaultValue) {
+    return FontUtil.upArrow(getLabelFont(), defaultValue);
   }
 
   public static EmptyBorder getTextAlignBorder(@NotNull JToggleButton alignSource) {
