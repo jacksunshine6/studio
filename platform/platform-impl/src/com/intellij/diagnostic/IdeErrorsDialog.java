@@ -1007,10 +1007,11 @@ public class IdeErrorsDialog extends DialogWrapper implements MessagePoolListene
     catch (Throwable t) {
       return null;
     }
-    IdeaPluginDescriptor plugin = PluginManager.getPlugin(pluginId);
-    if (plugin == null || PluginManagerMain.isJetBrainsPlugin(plugin)) {
-      return getCorePluginSubmitter(reporters);
-    }
+    //Android Studio: we always want the Android reporter
+    //IdeaPluginDescriptor plugin = PluginManager.getPlugin(pluginId);
+    //if (plugin == null || PluginManagerMain.isJetBrainsPlugin(plugin)) {
+    //  return getCorePluginSubmitter(reporters);
+    //}
     for (ErrorReportSubmitter reporter : reporters) {
       /** Android Studio: Always use the android error reporter */
       String canonicalName = reporter.getClass().getCanonicalName();
