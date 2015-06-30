@@ -64,6 +64,7 @@ public class LightToolWindow extends JPanel {
   private final String myWidthKey;
   private final JPanel myMinimizeComponent;
   private final AnchoredButton myMinimizeButton;
+  private final JPanel myActionPanel;
 
   private final TogglePinnedModeAction myToggleAutoHideModeAction = new TogglePinnedModeAction();
   private final ToggleDockModeAction myToggleDockModeAction = new ToggleDockModeAction();
@@ -116,21 +117,21 @@ public class LightToolWindow extends JPanel {
     titleLabel.setFont(UIUtil.getLabelFont(UIUtil.FontSize.SMALL));
     header.add(titleLabel, BorderLayout.CENTER);
 
-    JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
-    actionPanel.setBorder(IdeBorderFactory.createEmptyBorder(3, 0, 2, 0));
-    actionPanel.setOpaque(false);
-    header.add(actionPanel, BorderLayout.EAST);
+    myActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+    myActionPanel.setBorder(IdeBorderFactory.createEmptyBorder(3, 0, 2, 0));
+    myActionPanel.setOpaque(false);
+    header.add(myActionPanel, BorderLayout.EAST);
 
     if (actions != null) {
       for (AnAction action : actions) {
-        addAction(actionPanel, action);
+        addAction(myActionPanel, action);
       }
 
-      actionPanel.add(new JLabel(AllIcons.General.Divider));
+      myActionPanel.add(new JLabel(AllIcons.General.Divider));
     }
 
-    addAction(actionPanel, new GearAction());
-    addAction(actionPanel, new HideAction());
+    addAction(myActionPanel, new GearAction());
+    addAction(myActionPanel, new HideAction());
 
     JPanel contentWrapper = new JPanel(new BorderLayout());
     contentWrapper.setBorder(IdeBorderFactory.createBorder(SideBorder.TOP));
@@ -243,16 +244,15 @@ public class LightToolWindow extends JPanel {
         setContentComponent(null);
       }
     }
-    else {
-      String key = getMinKey();
-      if (minimizeParent.getClientProperty(key) == myMinimizeComponent) {
-        minimizeParent.putClientProperty(key, null);
-      }
-      minimizeParent.putClientProperty(isLeft() ? RIGHT_MIN_KEY : LEFT_MIN_KEY, myMinimizeComponent);
-      minimizeParent.revalidate();
+    String key = getMinKey();
+    if (minimizeParent.getClientProperty(key) == myMinimizeComponent) {
+      minimizeParent.putClientProperty(key, null);
     }
+    minimizeParent.putClientProperty(isLeft() ? RIGHT_MIN_KEY : LEFT_MIN_KEY, myMinimizeComponent);
+    minimizeParent.revalidate();
 
     myAnchor = newAnchor;
+    updateHideIcons();
     configureBorder();
     updateWidth();
 
@@ -261,6 +261,11 @@ public class LightToolWindow extends JPanel {
     }
 
     minimizeParent.putClientProperty(IGNORE_WIDTH_KEY, null);
+  }
+
+  private void updateHideIcons() {
+    myActionPanel.remove(myActionPanel.getComponentCount() - 1);
+    addAction(myActionPanel, new HideAction());
   }
 
   private void updateContent(boolean show, boolean flag) {
