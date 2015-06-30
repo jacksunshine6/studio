@@ -217,6 +217,7 @@ public abstract class LightToolWindowManager implements ProjectComponent {
 
   protected final Object getContent(@NotNull DesignerEditorPanelFacade designer) {
     LightToolWindow toolWindow = (LightToolWindow)designer.getClientProperty(getComponentName());
+    assert toolWindow != null;
     return toolWindow.getContent();
   }
 
@@ -249,7 +250,9 @@ public abstract class LightToolWindowManager implements ProjectComponent {
     String key = getComponentName();
     LightToolWindow toolWindow = (LightToolWindow)designer.getClientProperty(key);
     designer.putClientProperty(key, null);
-    toolWindow.dispose();
+    if (toolWindow != null) {
+      toolWindow.dispose();
+    }
   }
 
   private final ParameterizedRunnable<DesignerEditorPanelFacade> myCreateAction = new ParameterizedRunnable<DesignerEditorPanelFacade>() {
@@ -264,7 +267,9 @@ public abstract class LightToolWindowManager implements ProjectComponent {
       @Override
       public void run(DesignerEditorPanelFacade designer) {
         LightToolWindow toolWindow = (LightToolWindow)designer.getClientProperty(getComponentName());
-        toolWindow.updateAnchor(getEditorMode());
+        if (toolWindow != null) {
+          toolWindow.updateAnchor(getEditorMode());
+        }
       }
     };
 
