@@ -72,12 +72,35 @@ def getProperties(String root) {
                              module("google-cloud-tools")
                            }
                            dir("templates") {
-                             fileset(dir: "${home}/../studio/google/cloud/tools/resources/templates")
+                             fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/resources/templates")
                            }
                            dir("clientTemplates") {
-                             fileset(dir: "${home}/../studio/google/cloud/tools/resources/clientTemplates")
+                             fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/resources/clientTemplates")
                            }
-                           fileset(dir: "${home}/../studio/google/cloud/tools/lib") {
+                           fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/lib") {
+                             include(name: "**/*.jar")
+                           }
+                         }
+                       }
+
+                       dir("google-cloud-tools-core") {
+                         dir("lib") {
+                           jar("google-cloud-tools-core.jar") {
+                             module("google-cloud-tools-core-as")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/lib") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/gradle-appengine-builder-model") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/mockito") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/org-eclipse-jgit") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/org-eclipse-jgit-junit") {
                              include(name: "**/*.jar")
                            }
                          }
@@ -97,9 +120,21 @@ def getProperties(String root) {
                        dir("google-login") {
                          dir("lib") {
                            jar("google-login.jar") {
-                             module("google-login")
+                             module("google-login-as")
                            }
-                           fileset(dir: "${home}/../studio/google/login/lib") {
+                           fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/lib") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/jackson-core-asl") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/javax-servlet-api") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/mockito") {
+                             include(name: "**/*.jar")
+                           }
+                           fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/repackaged") {
                              include(name: "**/*.jar")
                            }
                            // Additional libraries that need to be manually copied, this is exported to cloud tools/testing
