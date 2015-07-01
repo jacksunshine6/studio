@@ -98,8 +98,9 @@
       <module fileurl="file://$PROJECT_DIR$/plugins/google-app-engine/google-app-engine.iml" filepath="$PROJECT_DIR$/plugins/google-app-engine/google-app-engine.iml" group="plugins/GAE" />
       <module fileurl="file://$PROJECT_DIR$/plugins/google-app-engine/jps-plugin/google-app-engine-jps-plugin.iml" filepath="$PROJECT_DIR$/plugins/google-app-engine/jps-plugin/google-app-engine-jps-plugin.iml" group="plugins/GAE" />
       <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/testing/google-cloud-testing.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/testing/google-cloud-testing.iml" group="plugins/Google" />
-      <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/tools/google-cloud-tools.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/tools/google-cloud-tools.iml" group="plugins/Google" />
-      <module fileurl="file://$PROJECT_DIR$/../studio/google/login/google-login.iml" filepath="$PROJECT_DIR$/../studio/google/login/google-login.iml" group="plugins/Google" />
+      <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/tools/android-studio-plugin/google-cloud-tools.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/tools/android-studio-plugin/google-cloud-tools.iml" group="plugins/Google" />
+      <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/tools/core-plugin/google-cloud-tools-core-as.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/tools/core-plugin/google-cloud-tools-core-as.iml" group="plugins/Google" />
+      <module fileurl="file://$PROJECT_DIR$/../studio/google/cloud/tools/google-login-plugin/google-login-as.iml" filepath="$PROJECT_DIR$/../studio/google/cloud/tools/google-login-plugin/google-login-as.iml" group="plugins/Google" />
       <module fileurl="file://$PROJECT_DIR$/../studio/google/services/google-services.iml" filepath="$PROJECT_DIR$/../studio/google/services/google-services.iml" group="plugins/Google" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/gradle.iml" filepath="$PROJECT_DIR$/plugins/gradle/gradle.iml" group="plugins/gradle" />
       <module fileurl="file://$PROJECT_DIR$/plugins/gradle/jps-plugin/gradle-jps-plugin.iml" filepath="$PROJECT_DIR$/plugins/gradle/jps-plugin/gradle-jps-plugin.iml" group="plugins/gradle" />
