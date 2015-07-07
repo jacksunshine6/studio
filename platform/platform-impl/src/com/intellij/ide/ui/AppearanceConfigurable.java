@@ -212,6 +212,7 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     settings.OVERRIDE_NONIDEA_LAF_FONTS = myComponent.myOverrideLAFFonts.isSelected();
     settings.MOVE_MOUSE_ON_DEFAULT_BUTTON = myComponent.myMoveMouseOnDefaultButtonCheckBox.isSelected();
     settings.HIDE_NAVIGATION_ON_FOCUS_LOSS = myComponent.myHideNavigationPopupsCheckBox.isSelected();
+    settings.LANGUAGE_FLAGS = myComponent.myShowFlagsForLanguagesCheckBox.isSelected();
     settings.DND_WITH_PRESSED_ALT_ONLY = myComponent.myAltDNDCheckBox.isSelected();
 
     update |= settings.DISABLE_MNEMONICS != myComponent.myDisableMnemonics.isSelected();
@@ -352,6 +353,7 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     myComponent.myHideIconsInQuickNavigation.setSelected(settings.SHOW_ICONS_IN_QUICK_NAVIGATION);
     myComponent.myMoveMouseOnDefaultButtonCheckBox.setSelected(settings.MOVE_MOUSE_ON_DEFAULT_BUTTON);
     myComponent.myHideNavigationPopupsCheckBox.setSelected(settings.HIDE_NAVIGATION_ON_FOCUS_LOSS);
+    myComponent.myShowFlagsForLanguagesCheckBox.setSelected(settings.LANGUAGE_FLAGS);
     myComponent.myAltDNDCheckBox.setSelected(settings.DND_WITH_PRESSED_ALT_ONLY);
     myComponent.myLafComboBox.setSelectedItem(LafManager.getInstance().getCurrentLookAndFeel());
     myComponent.myOverrideLAFFonts.setSelected(settings.OVERRIDE_NONIDEA_LAF_FONTS);
@@ -434,6 +436,7 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
 
     isModified |= myComponent.myMoveMouseOnDefaultButtonCheckBox.isSelected() != settings.MOVE_MOUSE_ON_DEFAULT_BUTTON;
     isModified |= myComponent.myHideNavigationPopupsCheckBox.isSelected() != settings.HIDE_NAVIGATION_ON_FOCUS_LOSS;
+    isModified |= myComponent.myShowFlagsForLanguagesCheckBox.isSelected() != settings.LANGUAGE_FLAGS;
     isModified |= myComponent.myAltDNDCheckBox.isSelected() != settings.DND_WITH_PRESSED_ALT_ONLY;
     isModified |= !Comparing.equal(myComponent.myLafComboBox.getSelectedItem(), LafManager.getInstance().getCurrentLookAndFeel());
     if (WindowManagerEx.getInstanceEx().isAlphaModeSupported()) {
@@ -501,6 +504,7 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     private JSlider myInitialTooltipDelaySlider;
     private ComboBox myPresentationModeFontSize;
     private JCheckBox myNavigateToPreviewCheckBox;
+    private JCheckBox myShowFlagsForLanguagesCheckBox;
     private ColorBlindnessPanel myColorBlindnessPanel;
     private JComboBox myAntialiasingInIDE;
     private JComboBox myAntialiasingInEditor;
