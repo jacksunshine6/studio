@@ -17,10 +17,12 @@ package com.intellij.ide.externalComponents;
 
 import com.google.common.collect.Sets;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.updateSettings.impl.UpdateSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -38,6 +40,16 @@ public class ExternalComponentManagerImpl extends ExternalComponentManager {
   @Override
   public void registerComponentSource(@NotNull ExternalComponentSource site) {
     mySources.add(site);
+    UpdateSettings updateSettings = UpdateSettings.getInstance();
+    List<String> knownSources = updateSettings.getKnownExternalUpdateSources();
+    if (!knownSources.contains(site.getName())) {
+      knownSources.add(site.getName());
+      updateSettings.getEnabledExternalUpdateSources().add(site.getName());
+      List<String> channels = site.getAllChannels();
+      if (channels != null) {
+        updateSettings.getExternalUpdateChannels().put(site.getName(), channels.get(0));
+      }
+    }
   }
 
   /**
