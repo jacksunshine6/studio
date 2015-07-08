@@ -66,7 +66,7 @@ public interface ExternalComponentSource {
   Collection<? extends Pair<String, String>> getStatuses();
 
   /**
-   * Gets a list of all available channels for this source.
+   * Gets a list of all available channels for this source. The first item is the default.
    * @return A list of channel names, or {@code null} to indicate that this source does not have different update channels.
    */
   @Nullable
