@@ -83,7 +83,7 @@ def getProperties(String root) {
                        dir("google-cloud-tools") {
                          dir("lib") {
                            jar("google-cloud-tools.jar") {
-                             module("google-cloud-tools")
+                             module("google-cloud-tools-as")
                            }
                            dir("templates") {
                              fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/resources/templates")
