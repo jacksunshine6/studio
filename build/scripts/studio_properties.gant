@@ -173,6 +173,19 @@ def getProperties(String root) {
                            }
                          }
                        }
+
+                       if (isDefined("studio.ui.tests")) {
+                         dir("android") {
+                           dir("lib") {
+                             fileset(dir: "${home}/${androidRoot}/android/lib") {
+                               include(name: "**/fest-*.jar")
+                             }
+                           }
+                           dir("ui-tests-dir") {
+                             moduleTests("android")
+                           }
+                         }
+                       }
                      }
                    }
                    ant.unzip(src: "${home}/../external/gradle/gradle-2.4-all.zip", dest: "${targetDirectory}/gradle")

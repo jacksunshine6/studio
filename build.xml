@@ -46,6 +46,7 @@
         <jvmarg value="-DbuildNumber=${build.number}" />
         <jvmarg value="-Didea.test.patterns=${test.patterns}" />
         <jvmarg value="-Dproduct=${product.name}" />
+        <jvmarg value="-Dstudio.ui.tests=${studio.ui.tests}" />
         <sysproperty key="java.awt.headless" value="true"/>
         <arg line="&quot;-Dgant.script=@{script}&quot;"/>
         <arg line="&quot;-Dteamcity.build.tempDir=${tmp.dir}&quot;"/>
