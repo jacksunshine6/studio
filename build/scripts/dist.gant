@@ -83,6 +83,10 @@ target(compile: "Compile project") {
   projectBuilder.cleanOutput()
   projectBuilder.buildProduction()
   projectBuilder.makeModuleTests(findModule("jps-builders"))
+
+  if (p("studio.ui.tests")) {
+    projectBuilder.makeModuleTests(findModule("android"))
+  }
 }
 
 private String appInfoFile() {
