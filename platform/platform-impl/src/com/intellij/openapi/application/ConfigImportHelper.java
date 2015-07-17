@@ -155,9 +155,9 @@ public class ConfigImportHelper {
     // date.
     if (maxFile == null) {
       File v1_1 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
-      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview1.2"));
       File v1_2 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.2"));
-      for (File file : new File[] { v1_1, preview, v1_2 }) {
+      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview1.3"));
+      for (File file : new File[] { v1_1, v1_2, preview }) {
         if (!file.isDirectory()) {
           continue;
         }
@@ -171,7 +171,7 @@ public class ConfigImportHelper {
         }
       }
       if (maxFile != null) {
-        // Already have the config folder so don't prepend  CONFIG_RELATED_PATH below
+        // Already have the config folder so don't prepend CONFIG_RELATED_PATH below
         return maxFile;
       }
     }
