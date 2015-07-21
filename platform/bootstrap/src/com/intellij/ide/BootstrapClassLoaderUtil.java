@@ -92,7 +92,20 @@ public class BootstrapClassLoaderUtil extends ClassUtilCore {
       }
     }
     for (URLClassLoader loader : loaders) {
-      ContainerUtil.addAll(classpath, loader.getURLs());
+      if ("sun.misc.Launcher$ExtClassLoader".equals(loader.getClass().getName())) {
+        // The java.ext.dirs system property is deprecated in JDK8 and gone in JDK9. It was used to specify "system" jars and native
+        // libraries that would take precedence over the regular classpath, except that in our case it can lead to duplicate libraries and
+        // startup exceptions, e.g. https://code.google.com/p/android/issues/detail?id=180551
+        // We only allow entries from the running JDK, to keep existing crypto extensions working.
+        String javaHome = System.getProperty("java.home");
+        for (URL url : loader.getURLs()) {
+          if (url.toString().contains(javaHome)) {
+            classpath.add(url);
+          }
+        }
+      } else {
+        ContainerUtil.addAll(classpath, loader.getURLs());
+      }
     }
   }
 
