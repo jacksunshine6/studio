@@ -17,6 +17,7 @@ package com.intellij.ide;
 
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
+import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
 import com.intellij.notification.*;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
@@ -43,11 +44,16 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private static final Logger LOG = Logger.getInstance("#com.intellij.ide.SystemHealthMonitor");
 
   private static final NotificationGroup GROUP = new NotificationGroup("System Health", NotificationDisplayType.STICKY_BALLOON, true);
+
+  /** Count of action events fired. This is used as a proxy for user initiated activity in the IDE. */
+  public static final AtomicLong ourStudioActionCount = new AtomicLong(0);
+  private static final String STUDIO_ACTIVITY_COUNT = "studio.activity.count";
 
   @NotNull private final PropertiesComponent myProperties;
 
@@ -60,6 +66,19 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     checkJvm();
     checkIBusPresent();
     startDiskSpaceMonitoring();
+
+    if (PlatformUsageTracker.trackingEnabled()) {
+      ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
+      startActivityMonitoring();
+
+      Application application = ApplicationManager.getApplication();
+      application.getMessageBus().connect(application).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
+        @Override
+        public void appClosing() {
+          myProperties.setValue(STUDIO_ACTIVITY_COUNT, Long.toString(ourStudioActionCount.get()));
+        }
+      });
+    }
   }
 
   private void checkJvm() {
@@ -155,7 +174,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
                 // file.getUsableSpace() can fail and return 0 e.g. after MacOSX restart or awakening from sleep
                 // so several times try to recalculate usable space on receiving 0 to be sure
                 long fileUsableSpace = file.getUsableSpace();
-                while(fileUsableSpace == 0) {
+                while (fileUsableSpace == 0) {
                   Thread.sleep(5000); // hopefully we will not hummer disk too much
                   fileUsableSpace = file.getUsableSpace();
                 }
@@ -231,4 +250,23 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     }, 1, TimeUnit.SECONDS);
   }
 
+  private static final int INTERVAL_IN_MINUTES = 30;
+
+  private static void startActivityMonitoring() {
+    JobScheduler.getScheduler().scheduleAtFixedRate(new Runnable() {
+      @Override
+      public void run() {
+        long count = ourStudioActionCount.getAndSet(0);
+        if (count == 0) {
+          return;
+        }
+
+        PlatformUsageTracker.trackActivity(count);
+
+        if (ApplicationManager.getApplication().isInternal()) {
+          System.out.printf("%d: Activity Tracker, usage in the last minute: %d\n", System.currentTimeMillis() % 10000, count);
+        }
+      }
+    }, INTERVAL_IN_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
+  }
 }

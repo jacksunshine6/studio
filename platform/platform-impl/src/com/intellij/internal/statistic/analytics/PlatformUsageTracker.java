@@ -73,6 +73,18 @@ public class PlatformUsageTracker {
                           new BasicNameValuePair("exf", fatal ? "1" : "0")));
   }
 
+  public static void trackActivity(long count) {
+    if (!DEBUG && !trackingEnabled()) {
+      return;
+    }
+
+    post(ImmutableList.of(new BasicNameValuePair("t", "event"),
+                          new BasicNameValuePair("ec", "ActivityTracker"),
+                          new BasicNameValuePair("ea", "Hit"),
+                          new BasicNameValuePair("ev", Long.toString(count)),
+                          new BasicNameValuePair("cm1", Long.toString(count))));
+  }
+
   private static void post(@NotNull final List<BasicNameValuePair> parameters) {
     ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
       @Override
