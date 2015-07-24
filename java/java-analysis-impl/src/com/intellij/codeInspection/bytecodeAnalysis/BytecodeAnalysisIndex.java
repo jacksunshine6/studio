@@ -73,7 +73,14 @@ public class BytecodeAnalysisIndex extends FileBasedIndexExtension<Bytes, HEquat
     return new DefaultFileTypeSpecificInputFilter(JavaClassFileType.INSTANCE) {
       @Override
       public boolean acceptInput(@NotNull VirtualFile file) {
-        return ourEnabled && super.acceptInput(file);
+        // Hotfix: "jar:/path/android.jar!..." points to the Android SDK which contains only *stubs* and should
+        // not be analyzed for nullness. See
+        //    https://code.google.com/p/android/issues/detail?id=180771
+        // Rather than doing path-based manipulation here we should probably
+        // call file.getFileSystem() and see if it's a JarFileSystem, and if
+        // so more accurately get the .jar file itself and check to see that it's an
+        // Android SDK. But that requires adding platform-api dependencies etc.
+        return ourEnabled && super.acceptInput(file) && file.getPath().contains("android.jar!/");
       }
     };
   }
