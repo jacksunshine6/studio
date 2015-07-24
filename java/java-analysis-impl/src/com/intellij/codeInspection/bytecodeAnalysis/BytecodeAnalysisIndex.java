@@ -80,7 +80,33 @@ public class BytecodeAnalysisIndex extends FileBasedIndexExtension<Bytes, HEquat
         // call file.getFileSystem() and see if it's a JarFileSystem, and if
         // so more accurately get the .jar file itself and check to see that it's an
         // Android SDK. But that requires adding platform-api dependencies etc.
-        return ourEnabled && super.acceptInput(file) && file.getPath().contains("android.jar!/");
+        if (!ourEnabled || !super.acceptInput(file)) {
+          return false;
+        }
+
+        // Look for platforms/android-?/android.jar!/ with some file separator flexibility.
+        // (We don't want to *just* match android.jar since for example the Android plugin itself
+        // is also packaged as android.jar.)
+
+        String path = file.getPath();
+        int index = path.indexOf("android.jar!/");
+        if (index == -1) {
+          return true;
+        }
+
+        // Make sure this is preceded by android-
+        index = path.lastIndexOf("android-", index);
+        if (index == -1) {
+          return true;
+        }
+
+        // Make sure this is preceded by platforms
+        index = path.lastIndexOf("platforms", index);
+        if (index == -1) {
+          return true;
+        }
+
+        return false;
       }
     };
   }
