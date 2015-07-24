@@ -16,6 +16,7 @@
 package com.intellij.openapi.updateSettings.impl;
 
 import com.intellij.openapi.util.BuildNumber;
+import com.intellij.util.PlatformConfig;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -87,12 +88,18 @@ public class UpdateStrategy {
     List<UpdateChannel> channels = product.getChannels();
     List<UpdateChannel> result = new ArrayList<UpdateChannel>();
     for (UpdateChannel channel : channels) {
-      if ((channel.getMajorVersion() == myMajorVersion && channel.getStatus().compareTo(myChannelStatus) >= 0) ||
-          (channel.getMajorVersion() > myMajorVersion && channel.getStatus() == ChannelStatus.EAP && myChannelStatus == ChannelStatus.EAP)) {
-        if (channel.getMajorVersion() == myMajorVersion && channel.getStatus().compareTo(myChannelStatus) == 0) {
-          result.add(0, channel); // prefer channel that has same status as our selected channel status
-        } else {
-          result.add(channel);
+
+      // If the update is to a new version and on a stabler channel, choose it.
+      if ((channel.getMajorVersion() >= myMajorVersion && channel.getStatus().compareTo(myChannelStatus) >= 0)) {
+        if (PlatformConfig.ALLOW_MAJOR_VERSION_UPDATE ||
+            (channel.getMajorVersion() == myMajorVersion || (channel.getStatus() == ChannelStatus.EAP && myChannelStatus == ChannelStatus.EAP))) {
+          // Prefer channel that has same status as our selected channel status
+          if (channel.getMajorVersion() == myMajorVersion && channel.getStatus().compareTo(myChannelStatus) == 0) {
+            result.add(0, channel);
+          }
+          else {
+            result.add(channel);
+          }
         }
       }
     }
