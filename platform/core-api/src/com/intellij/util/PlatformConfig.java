@@ -23,12 +23,12 @@ public class PlatformConfig {
   /**
    * Whether on EAP builds, the update channel is forced to be EAP.
    */
-  public static boolean FORCE_EAP_UPDATE_CHANNEL = true;
+  public static boolean FORCE_EAP_UPDATE_CHANNEL = false;
 
   /**
    * Whether the updater will allow patch updates to cross major version boundaries.
    */
-  public static boolean ALLOW_MAJOR_VERSION_UPDATE = false;
+  public static boolean ALLOW_MAJOR_VERSION_UPDATE = true;
 
   private PlatformConfig() {} // Do not instantiate.
 }
