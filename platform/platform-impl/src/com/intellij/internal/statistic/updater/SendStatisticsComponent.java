@@ -22,6 +22,7 @@ import com.intellij.internal.statistic.connect.StatisticsService;
 import com.intellij.internal.statistic.connect.StatisticsServiceEP;
 import com.intellij.notification.NotificationDisplayType;
 import com.intellij.notification.NotificationsConfiguration;
+import com.intellij.notification.NotificationsManager;
 import com.intellij.notification.impl.NotificationsConfigurationImpl;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -46,6 +47,12 @@ public class SendStatisticsComponent implements ApplicationComponent {
 
   public SendStatisticsComponent(@NotNull FrameStateManager frameStateManager) {
     myAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, ApplicationManager.getApplication());
+
+    // Ensure that the notification manager (also an application component) is registered first;
+    // otherwise this component's initComponent() call will fire a notification event bus
+    // to show the opt-in dialog, but the notification component may not yet have been initialized
+    // and is therefore not subscribed and listening.
+    NotificationsManager.getNotificationsManager();
 
     NotificationsConfigurationImpl.remove("SendUsagesStatistics");
     NotificationsConfiguration.getNotificationsConfiguration().register(
