@@ -157,7 +157,8 @@ public class ConfigImportHelper {
       File v1_1 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
       File v1_2 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.2"));
       File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview1.3"));
-      for (File file : new File[] { v1_1, v1_2, preview }) {
+      File v1_3 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.3"));
+      for (File file : new File[] { v1_1, v1_2, preview, v1_3 }) {
         if (!file.isDirectory()) {
           continue;
         }
