@@ -225,8 +225,8 @@ def getProperties(String root) {
                  ico                         : "$home/$androidRoot/adt-branding/src/artwork/androidstudio.ico",
                  icns                        : "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns",
 
-                 extraMacBins                : ["${lldbBinTargetRoot}/mac/*"],
-                 extraLinBins                : ["${lldbBinTargetRoot}/linux/LLDBFrontend"],]
+                 extraMacBins                : ["${lldbBinTargetRoot}/mac/bin/LLDBFrontend"],
+                 extraLinBins                : ["${lldbBinTargetRoot}/linux/bin/LLDBFrontend"],]
 
     return props[key];
   }
