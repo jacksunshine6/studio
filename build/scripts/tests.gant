@@ -24,7 +24,7 @@ if ("GIT_TESTS".equalsIgnoreCase(System.getProperty("idea.test.group"))) {
 }
 
 def args = [
-  "-Xmx450m",
+  "-Xmx1024m",
   "-XX:MaxPermSize=430m",
   "-XX:ReservedCodeCacheSize=96m",
   "-Dsun.io.useCanonCaches=false"
