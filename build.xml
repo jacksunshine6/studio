@@ -25,6 +25,10 @@
     <isset property="product" />
   </condition>
 
+  <condition property="studio.ui.tests" value="${enable.ui.tests}" else="">
+    <isset property="enable.ui.tests" />
+  </condition>
+
   <property name="tmp.dir" value="${out.dir}/tmp"/>
 
   <target name="cleanup">
