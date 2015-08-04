@@ -23,6 +23,7 @@ def getProperties(String root) {
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
   def selector = "AndroidStudioPreview1.4"
+  def enableUITests = System.getProperty("studio.ui.tests") ? !System.getProperty("studio.ui.tests").isEmpty() : false
 
   return { String key ->
     def props = [prefix                      : "studio",
@@ -160,7 +161,7 @@ def getProperties(String root) {
                          }
                        }
 
-                       if (isDefined("studio.ui.tests")) {
+                       if (enableUITests) {
                          dir("android") {
                            dir("lib") {
                              fileset(dir: "${home}/${androidRoot}/android/lib") {
