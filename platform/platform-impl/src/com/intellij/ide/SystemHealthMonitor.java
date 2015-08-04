@@ -250,6 +250,9 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     }, 1, TimeUnit.SECONDS);
   }
 
+  // During development, the IDE may not be open for 30 minutes. So we keep a low initial delay so that the activity is reported
+  // soon after startup
+  private static final int INITIAL_DELAY_MINUTES = 1;
   private static final int INTERVAL_IN_MINUTES = 30;
 
   private static void startActivityMonitoring() {
@@ -267,6 +270,6 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
           System.out.printf("%d: Activity Tracker, usage in the last minute: %d\n", System.currentTimeMillis() % 10000, count);
         }
       }
-    }, INTERVAL_IN_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
+    }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
   }
 }
