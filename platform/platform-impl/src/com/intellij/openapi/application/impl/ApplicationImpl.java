@@ -971,6 +971,7 @@ public class ApplicationImpl extends PlatformComponentManagerImpl implements App
   }
 
   private static class NoReadAccessException extends Throwable {}
+  private static class CalledFromWrongThreadException extends Throwable {}
 
   @Override
   public void assertReadAccessAllowed() {
@@ -1031,6 +1032,7 @@ public class ApplicationImpl extends PlatformComponentManagerImpl implements App
   private static void assertIsDispatchThread(Status status, @NotNull String message) {
     if (isDispatchThread(status)) return;
     LOG.error(message,
+              new CalledFromWrongThreadException(),
               "EventQueue.isDispatchThread()="+EventQueue.isDispatchThread(),
               "isDispatchThread()="+isDispatchThread(getStatus()),
               "Toolkit.getEventQueue()="+Toolkit.getDefaultToolkit().getSystemEventQueue(),
