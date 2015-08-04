@@ -16,6 +16,7 @@
 package com.intellij.internal.statistic.analytics;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.intellij.ide.util.PropertiesComponent;
@@ -23,6 +24,7 @@ import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.updateSettings.impl.UpdateChecker;
+import com.intellij.openapi.util.text.StringUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -38,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * This class mirrors some function of the Android plugin's UsageTracker class.
@@ -51,6 +54,8 @@ public class PlatformUsageTracker {
   @NonNls private static final String ANALYTICS_URL = "https://ssl.google-analytics.com/collect";
   @NonNls private static final String ANAYLTICS_ID = "UA-44790371-1";
   @NonNls private static final String ANALYTICS_APP = "Android Studio";
+
+  private static final int MAX_DESCRIPTION_SIZE = 150; // max allowed by GA
 
   private static final List<? extends NameValuePair> analyticsBaseData = ImmutableList
     .of(new BasicNameValuePair("v", "1"),
@@ -69,7 +74,8 @@ public class PlatformUsageTracker {
     }
 
     t = getRootCause(t);
-    post(ImmutableList.of(new BasicNameValuePair("t", "exception"), new BasicNameValuePair("exd", getDescription(t)),
+    post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
+                          new BasicNameValuePair("exd", getDescription(t)),
                           new BasicNameValuePair("exf", fatal ? "1" : "0")));
   }
 
@@ -126,27 +132,81 @@ public class PlatformUsageTracker {
   @VisibleForTesting
   @NotNull
   public static String getDescription(@NotNull Throwable t) {
-    boolean isAndroid = false;
-    for (StackTraceElement el : t.getStackTrace()) {
-      if (el.getClassName().contains("android")) {
-        isAndroid = true;
-        break;
+    StringBuilder sb = new StringBuilder(MAX_DESCRIPTION_SIZE);
+    String simpleName = t.getClass().getSimpleName().replace("Exception", "Ex");
+    sb.append(simpleName);
+
+    StackTraceElement[] stackTraceElements = t.getStackTrace();
+    if (stackTraceElements.length > 0) {
+      sb.append(" @ ");
+    }
+
+    boolean androidPlugin = false;
+    String lastFileName = "";
+
+    int i;
+    for (i = 0; i < stackTraceElements.length && sb.length() < MAX_DESCRIPTION_SIZE; i++) {
+      StackTraceElement el = stackTraceElements[i];
+
+      // skip java[x].* packages
+      String className = el.getClassName();
+      if (className != null && (className.startsWith("java.") || className.startsWith("javax."))) {
+        sb.append('.');
+        continue;
+      }
+
+      if (i != 0) {
+        sb.append(" <- ");
+      }
+
+      // skip filename if it is the same as the previous stack element
+      String fileName = el.getFileName();
+      if (!StringUtil.equals(fileName, lastFileName)) {
+        sb.append(fileName);
+        lastFileName = fileName;
+      }
+
+      sb.append(':');
+      sb.append(el.getLineNumber());
+
+      // track whether we've included an element from the android plugin
+      if (!androidPlugin) {
+        androidPlugin = fromAndroidPlugin(el);
       }
     }
 
-    String sourceLocation = "";
-    if (t.getStackTrace().length > 0) {
-      StackTraceElement loc = t.getStackTrace()[0];
-      sourceLocation = " @ " + loc.getFileName() + ":" + loc.getLineNumber();
-    }
-    String prefix = isAndroid ? "android:" : "";
-    String desc = prefix + t.getClass().getSimpleName() + sourceLocation;
+    String desc = sb.toString();
 
-    if (desc.length() > 150) {
-      desc = desc.substring(0, 150); // quick hack: lets assume this is mostly ASCII
+    // if we have not included an android plugin in the description so far, then let's check to see if one should be..
+    if (!androidPlugin && i < stackTraceElements.length) {
+      for (; i < stackTraceElements.length; i++) {
+        StackTraceElement el = stackTraceElements[i];
+        if (fromAndroidPlugin(el)) {
+          String android = "... <- " + el.getFileName() + ":" + el.getLineNumber();
+          if (desc.length() + android.length() > MAX_DESCRIPTION_SIZE) {
+            desc = desc.substring(0, MAX_DESCRIPTION_SIZE - android.length());
+          }
+          desc += android;
+          break;
+        }
+      }
+    }
+
+    // make sure the description is within size limits
+    if (desc.length() > MAX_DESCRIPTION_SIZE) {
+      desc = desc.substring(0, MAX_DESCRIPTION_SIZE - 1) + ">";
+    }
+
+    // most likely all file names are ASCII, so this should be unnecessary, but lets be safe
+    while (desc.getBytes(Charsets.UTF_8).length > MAX_DESCRIPTION_SIZE) {
+      desc = desc.substring(0, desc.length() - 1);
     }
 
     return desc;
+  }
+
+  private static boolean fromAndroidPlugin(StackTraceElement el) {
+    return el.getClassName().contains("android");
   }
 
   // Similar to ExceptionUntil.getRootCause, but attempts to avoid infinite recursion
