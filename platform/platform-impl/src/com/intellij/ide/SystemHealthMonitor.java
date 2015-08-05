@@ -15,6 +15,7 @@
  */
 package com.intellij.ide;
 
+import com.google.common.base.Strings;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
@@ -29,17 +30,16 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
+import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.util.PlatformUtils;
 import com.intellij.util.SystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.PropertyKey;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -70,12 +70,17 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     if (PlatformUsageTracker.trackingEnabled()) {
       ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
       startActivityMonitoring();
+      reportPreviousCrashes();
 
       Application application = ApplicationManager.getApplication();
       application.getMessageBus().connect(application).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
         @Override
         public void appClosing() {
           myProperties.setValue(STUDIO_ACTIVITY_COUNT, Long.toString(ourStudioActionCount.get()));
+          String recordFile = System.getProperty("studio.record.file");
+          if (!Strings.isNullOrEmpty(recordFile)) {
+            FileUtil.delete(new File(recordFile));
+          }
         }
       });
     }
@@ -148,6 +153,22 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         }
       }
     });
+  }
+
+  private static void reportPreviousCrashes() {
+    File[] previousRecords = new File(PathManager.getTempPath()).listFiles(new FileFilter() {
+      @Override
+      public boolean accept(File pathname) {
+        return pathname.getName().startsWith(PlatformUtils.getPlatformPrefix()) &&
+               !pathname.getAbsolutePath().equals(System.getProperty("studio.record.file"));
+      }
+    });
+    if (previousRecords != null) {
+      for (File record : previousRecords) {
+        PlatformUsageTracker.trackException(new StudioCrash(), true);
+        FileUtil.delete(record);
+      }
+    }
   }
 
   private static void startDiskSpaceMonitoring() {
@@ -272,4 +293,6 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
   }
+
+  private static class StudioCrash extends Throwable {}
 }
