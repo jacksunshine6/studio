@@ -229,6 +229,9 @@ public class DarculaComboBoxUI extends BasicComboBoxUI implements Border {
     Component c;
 
     c = renderer.getListCellRendererComponent(listBox, comboBox.getSelectedItem(), -1, false, false);
+    if (c == null) {
+      return;
+    }
     if (!hasFocus || isPopupVisible(comboBox)) {
       c.setBackground(UIManager.getColor("ComboBox.background"));
     }
