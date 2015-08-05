@@ -28,10 +28,8 @@ import com.intellij.util.ui.UIUtil;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
 
 import static java.io.File.pathSeparator;
 
@@ -79,6 +77,10 @@ public class Main {
       }
     }
 
+    if (shouldReportCrashes()) {
+      createRecordFile();
+    }
+
     try {
       Bootstrap.main(args, Main.class.getName() + "Impl", "start");
     }
@@ -124,6 +126,10 @@ public class Main {
 
   public static boolean isUITraverser(final String[] args) {
     return args.length > 0 && Comparing.strEqual(args[0], "traverseUI");
+  }
+
+  public static boolean shouldReportCrashes() {
+     return !isHeadless && "AndroidStudio".equals(System.getProperty(PLATFORM_PREFIX_PROPERTY));
   }
 
   private static void installPatch() throws IOException {
@@ -204,6 +210,19 @@ public class Main {
       if (!copy.exists()) {
         throw new IOException("Cannot create temporary file: " + copy);
       }
+    }
+  }
+
+  private static void createRecordFile() {
+    try {
+      File f = new File(PathManager.getTempPath(),
+                        String.format("%s.%s", System.getProperty(PLATFORM_PREFIX_PROPERTY), UUID.randomUUID().toString()));
+      if (f.createNewFile()) {
+        // We use a system property to pass the filename across classloaders.
+        System.setProperty("studio.record.file", f.getAbsolutePath());
+      }
+    } catch (IOException ex) {
+      // Keep going anyway.
     }
   }
 
