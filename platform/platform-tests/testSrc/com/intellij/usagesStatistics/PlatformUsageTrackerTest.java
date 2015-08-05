@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 public class PlatformUsageTrackerTest extends TestCase {
   public void testMessageIgnored() {
     IOException ioe = new IOException("File C://User//Data not found");
-    assertTrue(PlatformUsageTracker.getDescription(ioe).startsWith("IOEx @ PlatformUsageTrackerTest.java:37 <-"));
+    assertTrue(PlatformUsageTracker.getDescription(ioe).startsWith("IOEx @ PlatformUsageTrackerTest:37 <"));
   }
 
   public void testRepetitiveFileNames() {
@@ -51,7 +51,7 @@ public class PlatformUsageTrackerTest extends TestCase {
       "\tat com.intellij.psi.stubs.StubIndexImpl.get(StubIndexImpl.java:227)\n" +
       "\tat com.intellij.psi.stubs.StubIndex.getElements(StubIndex.java:144)\n",
       new IndexNotReadyException());
-    assertEquals("IndexNotReadyEx @ FileBasedIndexImpl.java:853 <- :802 <- :786 <- StubIndexImpl.java:250 <- :238 <- StubIndex.java:76 <- :95 <- StubIndexImpl.java:227>",
+    assertEquals("IndexNotReadyEx @ FileBasedIndexImpl:853 < :802 < :786 < StubIndexImpl:250 < :238 < StubIndex:76 < :95 < StubIndexImpl:227 < StubIndex:144",
                  PlatformUsageTracker.getDescription(t));
   }
 
@@ -70,7 +70,7 @@ public class PlatformUsageTrackerTest extends TestCase {
       "\tat com.google.common.collect.Iterators$7.computeNext(Iterators.java:647)\n",
       null
     );
-    assertEquals("Throwable @ Logger.java:126 <- ApplicationImpl.java:976 <- CompositeElement.java:293 <- :263 <- ASTDelegatePsiElement.... <- GradleGroovyFile.java:337",
+    assertEquals("Throwable @ Logger:126 < ApplicationImpl:976 < CompositeElement:293 < :263 < ASTDelegatePsiElement:141 < CompositeElement:263 < GradleGroovyFile:337 >",
                  PlatformUsageTracker.getDescription(t));
   }
 
@@ -81,7 +81,7 @@ public class PlatformUsageTrackerTest extends TestCase {
       "\tat com.android.tools.idea.ddms.adb.AdbService.getDebugBridge(AdbService.java:83)\n",
       null
     );
-    assertEquals("StringIndexOutOfBoundsEx @ . <- AdbService.java:83", PlatformUsageTracker.getDescription(t));
+    assertEquals("StringIndexOutOfBoundsEx @ . < AdbService:83", PlatformUsageTracker.getDescription(t));
   }
 
   // Copied from RenderErrorPanelTest
