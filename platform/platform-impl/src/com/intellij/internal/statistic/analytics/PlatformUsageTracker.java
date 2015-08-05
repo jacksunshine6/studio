@@ -24,6 +24,7 @@ import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.updateSettings.impl.UpdateChecker;
+import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -40,6 +41,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -55,14 +57,43 @@ public class PlatformUsageTracker {
   @NonNls private static final String ANAYLTICS_ID = "UA-44790371-1";
   @NonNls private static final String ANALYTICS_APP = "Android Studio";
 
+  // GA automatically detects the OS from the browser user agent. It is not very clear if it can parse some random UA string,
+  //
+  // Wikipedia reports that the format is typically:
+  //    Mozilla/[version] ([system and browser information]) [platform] ([platform details]) [extensions]
+  // Chrome for example uses:
+  //    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.2 Safari/537.36"
+  // We'll use something like the following:
+  //    Studio/1.4.0.0 (Linux; U; Linux 3.13.0-57-generic; en-us)
+  @NonNls private static final String ANALYTICS_UA = String.format(Locale.US, "Studio/%1$s (%2$s; U; %2$s %3$s; %4$s)",
+                                                                   ApplicationInfo.getInstance().getStrictVersion(),
+                                                                   SystemInfo.OS_NAME,
+                                                                   SystemInfo.OS_VERSION,
+                                                                   getLanguage());
+
   private static final int MAX_DESCRIPTION_SIZE = 150; // max allowed by GA
 
   private static final List<? extends NameValuePair> analyticsBaseData = ImmutableList
     .of(new BasicNameValuePair("v", "1"),
         new BasicNameValuePair("tid", ANAYLTICS_ID),
         new BasicNameValuePair("an", ANALYTICS_APP),
-        new BasicNameValuePair("av", UNIT_TEST_MODE ? "unit-test" : ApplicationInfo.getInstance().getFullVersion()),
+        new BasicNameValuePair("av", UNIT_TEST_MODE ? "unit-test" : ApplicationInfo.getInstance().getStrictVersion()),
         new BasicNameValuePair("cid", UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance())));
+
+  private static String getLanguage() {
+    Locale locale = Locale.getDefault();
+    if (locale == null) {
+      return "";
+    }
+
+    String language = locale.getLanguage();
+    if (language == null) {
+      return "";
+    }
+
+    String country = locale.getCountry();
+    return country == null ? language.toLowerCase(Locale.US) : language.toLowerCase(Locale.US) + "-" + country.toLowerCase(Locale.US);
+  }
 
   public static boolean trackingEnabled() {
     return DEBUG || StatisticsUploadAssistant.isSendAllowed();
@@ -98,6 +129,7 @@ public class PlatformUsageTracker {
         CloseableHttpClient client = HttpClientBuilder.create().build();
         HttpPost request = new HttpPost(ANALYTICS_URL);
         try {
+          request.setHeader("User-Agent", ANALYTICS_UA);
           request.setEntity(new UrlEncodedFormEntity(Iterables.concat(analyticsBaseData, parameters)));
           HttpResponse response = client.execute(request);
           StatusLine status = response.getStatusLine();
