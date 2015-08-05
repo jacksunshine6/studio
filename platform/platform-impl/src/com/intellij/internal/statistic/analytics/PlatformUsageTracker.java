@@ -54,7 +54,7 @@ public class PlatformUsageTracker {
   private static final boolean DEBUG = !UNIT_TEST_MODE && ApplicationManager.getApplication().isInternal();
 
   @NonNls private static final String ANALYTICS_URL = "https://ssl.google-analytics.com/collect";
-  @NonNls private static final String ANAYLTICS_ID = "UA-44790371-1";
+  @NonNls private static final String ANAYLTICS_ID = DEBUG ? "UA-44790371-1" : "UA-19996407-3";
   @NonNls private static final String ANALYTICS_APP = "Android Studio";
 
   // GA automatically detects the OS from the browser user agent. It is not very clear if it can parse some random UA string,
