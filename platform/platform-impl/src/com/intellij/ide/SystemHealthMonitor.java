@@ -156,16 +156,24 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   }
 
   private static void reportPreviousCrashes() {
+    final String recordFile = System.getProperty("studio.record.file");
+
     File[] previousRecords = new File(PathManager.getTempPath()).listFiles(new FileFilter() {
       @Override
       public boolean accept(File pathname) {
         return pathname.getName().startsWith(PlatformUtils.getPlatformPrefix()) &&
-               !pathname.getAbsolutePath().equals(System.getProperty("studio.record.file"));
+               !pathname.getAbsolutePath().equals(recordFile);
       }
     });
     if (previousRecords != null) {
       for (File record : previousRecords) {
-        PlatformUsageTracker.trackException(new StudioCrash(), true);
+        String description = "<unknown>";
+        try {
+          description = FileUtil.loadFile(new File(recordFile));
+        } catch (IOException ex) {
+          // ignored.
+        }
+        PlatformUsageTracker.trackCrash("StudioCrash: " + description);
         FileUtil.delete(record);
       }
     }
@@ -293,6 +301,4 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
   }
-
-  private static class StudioCrash extends Throwable {}
 }
