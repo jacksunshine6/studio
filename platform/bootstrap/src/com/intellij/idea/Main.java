@@ -19,6 +19,7 @@ import com.intellij.ide.Bootstrap;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.SystemInfoRt;
+import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.util.ArrayUtilRt;
 import com.intellij.util.Restarter;
@@ -218,6 +219,13 @@ public class Main {
       File f = new File(PathManager.getTempPath(),
                         String.format("%s.%s", System.getProperty(PLATFORM_PREFIX_PROPERTY), UUID.randomUUID().toString()));
       if (f.createNewFile()) {
+        FileWriter fw = new FileWriter(f);
+        try {
+          fw.write(FileUtil.loadFile(new File(PathManager.getHomePath(), "build.txt")));
+          fw.write(System.getProperty("java.runtime.version"));
+        } finally {
+          fw.close();
+        }
         // We use a system property to pass the filename across classloaders.
         System.setProperty("studio.record.file", f.getAbsolutePath());
       }

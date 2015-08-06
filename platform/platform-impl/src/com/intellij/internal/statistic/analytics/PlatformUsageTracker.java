@@ -42,7 +42,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * This class mirrors some function of the Android plugin's UsageTracker class.
@@ -97,6 +96,16 @@ public class PlatformUsageTracker {
 
   public static boolean trackingEnabled() {
     return DEBUG || StatisticsUploadAssistant.isSendAllowed();
+  }
+
+  public static void trackCrash(@NotNull String description) {
+    if (!DEBUG && !trackingEnabled()) {
+      return;
+    }
+
+    post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
+                          new BasicNameValuePair("exd", description),
+                          new BasicNameValuePair("exf", "1")));
   }
 
   public static void trackException(@NotNull Throwable t, boolean fatal) {
