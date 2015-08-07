@@ -571,14 +571,15 @@ binding.setVariable("unixVMOptions", { String target, String name, String name64
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.vmoptions", eol: "unix")
 })
 
-binding.setVariable("unixReadme", { String target, String home, Map args ->
+binding.setVariable("unixReadme", { String target, String home, String name, Map args ->
   String fullName = args.fullName != null ? args.fullName : p("component.names.fullname")
   String settings_dir = args.system_selector.replaceFirst("\\d+", "")
   copyAndPatchFile("$home/build/Install-Linux-tar.txt", "$target/Install-Linux-tar.txt",
                    ["product_full": fullName,
                     "product": p("component.names.product").toLowerCase(),
                     "system_selector": args.system_selector,
-                    "settings_dir": settings_dir], "@@")
+                    "settings_dir": settings_dir,
+                    "script_name": name], "@@")
   ant.fixcrlf(file: "$target/bin/Install-Linux-tar.txt", eol: "unix")
 })
 

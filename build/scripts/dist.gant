@@ -275,6 +275,6 @@ private layoutUnix(Map args, String home, Paths paths) {
 
   unixScripts(target, home, "${name}.sh", args)
   unixVMOptions(target, "${name}")
-  unixReadme(target, home, args)
+  unixReadme(target, home, "${name}.sh", args)
   pp("customLinLayout")(target, home)
 }
