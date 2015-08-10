@@ -18,6 +18,7 @@ package com.intellij.idea;
 import com.intellij.ide.Bootstrap;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.Comparing;
+import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.SystemInfoRt;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
@@ -219,15 +220,24 @@ public class Main {
       File f = new File(PathManager.getTempPath(),
                         String.format("%s.%s", System.getProperty(PLATFORM_PREFIX_PROPERTY), UUID.randomUUID().toString()));
       if (f.createNewFile()) {
+        // We use a system property to pass the filename across classloaders.
+        System.setProperty("studio.record.file", f.getAbsolutePath());
+
         FileWriter fw = new FileWriter(f);
         try {
-          fw.write(FileUtil.loadFile(new File(PathManager.getHomePath(), "build.txt")));
+          File buildInfo = new File(PathManager.getHomePath(), "build.txt");
+          if (!buildInfo.exists() && SystemInfo.isMac) {
+            // On a Mac, also try to find it under Resources.
+            buildInfo = new File(PathManager.getHomePath(), "Resources/build.txt");
+          }
+
+          if (buildInfo.exists()) {
+            fw.write(FileUtil.loadFile(buildInfo));
+          }
           fw.write(System.getProperty("java.runtime.version"));
         } finally {
           fw.close();
         }
-        // We use a system property to pass the filename across classloaders.
-        System.setProperty("studio.record.file", f.getAbsolutePath());
       }
     } catch (IOException ex) {
       // Keep going anyway.
