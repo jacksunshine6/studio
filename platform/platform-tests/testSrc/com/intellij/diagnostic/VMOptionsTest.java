@@ -15,6 +15,7 @@
  */
 package com.intellij.diagnostic;
 
+import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.io.FileUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.*;
 
 public class VMOptionsTest {
@@ -174,6 +176,21 @@ public class VMOptionsTest {
                  readFile());
   }
 
+  @Test
+  public void testWriteDefaultUserOptions() {
+    System.setProperty("jb.vmOptionsFile", "");
+    File vmoptions = VMOptions.getCustomFile(false);
+    assertNotNull(vmoptions);
+    assertThat(vmoptions.getPath(), startsWith(PathManager.getConfigPath()));
+  }
+
+  @Test
+  public void testWriteCustomUserOptions() {
+    System.setProperty("jb.vmOptionsFile", "/foo,/bar,/baz");
+    File vmoptions = VMOptions.getCustomFile(false);
+    assertNotNull(vmoptions);
+    assertEquals("/baz", vmoptions.getPath());
+  }
 
   private String readFile() {
     try {
