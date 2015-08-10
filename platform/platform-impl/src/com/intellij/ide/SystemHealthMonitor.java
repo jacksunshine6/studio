@@ -169,7 +169,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       for (File record : previousRecords) {
         String description = "<unknown>";
         try {
-          description = FileUtil.loadFile(new File(recordFile));
+          description = FileUtil.loadFile(record);
         } catch (IOException ex) {
           // ignored.
         }
