@@ -17,6 +17,7 @@ package com.intellij.internal.statistic.analytics;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.intellij.ide.util.PropertiesComponent;
@@ -38,6 +39,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.List;
@@ -223,7 +225,7 @@ public class PlatformUsageTracker {
       for (; i < stackTraceElements.length; i++) {
         StackTraceElement el = stackTraceElements[i];
         if (fromAndroidPlugin(el)) {
-          String android = "... < " + el.getFileName() + ":" + el.getLineNumber();
+          String android = "... < " + getBaseName(el.getFileName()) + ":" + el.getLineNumber();
           if (desc.length() + android.length() > MAX_DESCRIPTION_SIZE) {
             desc = desc.substring(0, MAX_DESCRIPTION_SIZE - android.length());
           }
@@ -260,7 +262,11 @@ public class PlatformUsageTracker {
     return e;
   }
 
-  private static String getBaseName(@NotNull String fileName) {
+  private static String getBaseName(@Nullable String fileName) {
+    if (Strings.isNullOrEmpty(fileName)) {
+      return "U";
+    }
+
     int extension = fileName.indexOf('.');
     if (extension > 0) {
       return fileName.substring(0, extension);

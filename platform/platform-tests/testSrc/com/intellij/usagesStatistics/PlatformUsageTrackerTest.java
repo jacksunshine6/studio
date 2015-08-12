@@ -62,7 +62,7 @@ public class PlatformUsageTrackerTest extends TestCase {
       "\tat com.intellij.openapi.application.impl.ApplicationImpl.assertReadAccessAllowed(ApplicationImpl.java:976)\n" +
       "\tat com.intellij.psi.impl.source.tree.CompositeElement.textToCharArray(CompositeElement.java:293)\n" +
       "\tat com.intellij.psi.impl.source.tree.CompositeElement.getText(CompositeElement.java:263)\n" +
-      "\tat com.intellij.extapi.psi.ASTDelegatePsiElement.getText(ASTDelegatePsiElement.java:141)\n" +
+      "\tat com.intellij.extapi.psi.ASTDelegatePsiElement.getText(:141)\n" +
       "\tat com.intellij.psi.impl.source.tree.CompositeElement.getText(CompositeElement.java:263)\n" +
       "\tat com.android.tools.idea.gradle.parser.GradleGroovyFile.getMethodCallName(GradleGroovyFile.java:337)\n" +
       "\tat com.android.tools.idea.gradle.parser.GradleGroovyFile$2.apply(GradleGroovyFile.java:327)\n" +
@@ -70,7 +70,7 @@ public class PlatformUsageTrackerTest extends TestCase {
       "\tat com.google.common.collect.Iterators$7.computeNext(Iterators.java:647)\n",
       null
     );
-    assertEquals("Throwable @ Logger:126 < ApplicationImpl:976 < CompositeElement:293 < :263 < ASTDelegatePsiElement:141 < CompositeElement:263 < GradleGroovyFile:337 >",
+    assertEquals("Throwable @ Logger:126 < ApplicationImpl:976 < CompositeElement:293 < :263 < U:141 < CompositeElement:263 < GradleGroovyFile:337 < :327 < :324 < Iter>",
                  PlatformUsageTracker.getDescription(t));
   }
 
