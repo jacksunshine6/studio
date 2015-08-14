@@ -84,7 +84,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
@@ -132,7 +132,8 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
   private JPanel myMainPanel;
   private final Runnable myFinishProgress;
   private boolean myAllowHeavyFilters = false;
-  private boolean myLastPreserveVisualArea;
+  private boolean myLastStickingToEnd;
+  private boolean myCancelStickToEnd;
 
   private boolean myTooMuchOfOutput;
   private boolean myInDocumentUpdate;
@@ -155,6 +156,7 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
   public void scrollToEnd() {
     if (myEditor == null) return;
     EditorUtil.scrollToTheEnd(myEditor);
+    myCancelStickToEnd = false;
   }
 
   public void foldImmediately() {
@@ -520,6 +522,29 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
     myEditor = createConsoleEditor();
     registerConsoleEditorActions();
     myEditor.getScrollPane().setBorder(null);
+    myEditor.getScrollPane().addMouseWheelListener(new MouseWheelListener() {
+      @Override
+      public void mouseWheelMoved(MouseWheelEvent e) {
+        if (e.getWheelRotation() < 0) {
+          myCancelStickToEnd = true;
+        }
+      }
+    });
+    myEditor.getScrollPane().getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
+      @Override
+      public void adjustmentValueChanged(AdjustmentEvent e) {
+        JScrollBar scrollBar = (JScrollBar)e.getAdjustable();
+        boolean vscrollAtBottom = scrollBar.getValue() == scrollBar.getMaximum() - scrollBar.getVisibleAmount();
+
+        if (e.getValueIsAdjusting()) {
+          myCancelStickToEnd = !vscrollAtBottom;
+        }
+
+        if (vscrollAtBottom && !isStickingToEnd()) {
+          scrollToEnd();
+        }
+      }
+    });
     myHyperlinks = new EditorHyperlinkSupport(myEditor, myProject);
     myEditor.getScrollingModel().addVisibleAreaListener(new VisibleAreaListener() {
       @Override
@@ -531,7 +556,7 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
 
         if (oldR != null && oldR.height <= 0 &&
             e.getNewRectangle().height > 0 &&
-            !shouldPreserveCurrentVisualArea()) {
+            isStickingToEnd()) {
           scrollToEnd();
         }
       }
@@ -654,7 +679,8 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
       //already disposed
       return;
     }
-    final boolean preserveCurrentVisualArea = !clear && shouldPreserveCurrentVisualArea();
+    final boolean shouldStickToEnd = clear || (!myCancelStickToEnd && isStickingToEnd());
+    myCancelStickToEnd = false; // Cancel only needs to last for one update. Next time, isStickingToEnd() will be false.
     if (clear) {
       final DocumentEx document = editor.getDocument();
       synchronized (LOCK) {
@@ -707,7 +733,7 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
     CommandProcessor.getInstance().executeCommand(myProject, new Runnable() {
       @Override
       public void run() {
-        if (preserveCurrentVisualArea) {
+        if (!shouldStickToEnd) {
           myEditor.getScrollingModel().accumulateViewportChanges();
         }
         try {
@@ -728,7 +754,7 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
         }
         finally {
           myInDocumentUpdate = false;
-          if (preserveCurrentVisualArea) {
+          if (!shouldStickToEnd) {
             myEditor.getScrollingModel().flushViewportChanges();
           }
         }
@@ -788,17 +814,17 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
       }
     }
 
-    if (!preserveCurrentVisualArea) {
+    if (shouldStickToEnd) {
       scrollToEnd();
     }
   }
 
-  private boolean shouldPreserveCurrentVisualArea() {
-    if (myEditor == null) return myLastPreserveVisualArea;
+  private boolean isStickingToEnd() {
+    if (myEditor == null) return myLastStickingToEnd;
     Document document = myEditor.getDocument();
     int caretOffset = myEditor.getCaretModel().getOffset();
-    myLastPreserveVisualArea = document.getLineNumber(caretOffset) < document.getLineCount() - 1;
-    return myLastPreserveVisualArea;
+    myLastStickingToEnd = document.getLineNumber(caretOffset) >= document.getLineCount() - 1;
+    return myLastStickingToEnd;
   }
 
   private boolean isTheAmountOfTextTooBig(final int textLength) {
