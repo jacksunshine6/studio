@@ -26,10 +26,15 @@ import com.intellij.openapi.actionSystem.DataProvider;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.impl.ApplicationImpl;
+import com.intellij.openapi.command.CommandProcessor;
+import com.intellij.openapi.command.UndoConfirmationPolicy;
 import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.DocumentRunnable;
 import com.intellij.openapi.editor.LogicalPosition;
+import com.intellij.openapi.editor.ReadOnlyFragmentModificationException;
 import com.intellij.openapi.editor.VisualPosition;
+import com.intellij.openapi.editor.actionSystem.EditorActionManager;
 import com.intellij.openapi.editor.actions.EditorActionUtil;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.event.CaretEvent;
@@ -38,9 +43,13 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.editor.ex.DocumentEx;
 import com.intellij.openapi.editor.ex.util.EditorUtil;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Queryable;
 import com.intellij.openapi.ui.TypingTarget;
 import com.intellij.openapi.util.ActionCallback;
+import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.Grayer;
 import com.intellij.ui.components.Magnificator;
@@ -150,7 +159,12 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
   @Override
   protected void processInputMethodEvent(InputMethodEvent e) {
-    super.processInputMethodEvent(e);
+    // Don't dispatch to super first; now that EditorComponentImpl is a JTextComponent,
+    // this would have the side effect of invoking Swing document machinery which relies
+    // on creating Document positions etc (and won't update the document in an IntelliJ safe
+    // way, such as running through all the carets etc.
+    //    super.processInputMethodEvent(e);
+
     if (!e.isConsumed()) {
       switch (e.getID()) {
         case InputMethodEvent.INPUT_METHOD_TEXT_CHANGED:
@@ -164,6 +178,8 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
       }
       e.consume();
     }
+
+    super.processInputMethodEvent(e);
   }
 
   @Override
@@ -489,23 +505,31 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
     }
 
     @Override
-    public void remove(int i, int i1) throws BadLocationException {
-      notSupported();
+    public void remove(final int offset, final int length) throws BadLocationException {
+      editDocumentSafely(offset, length, null);
     }
 
     @Override
-    public void insertString(int i, String s, AttributeSet attributeSet) throws BadLocationException {
-      notSupported();
+    public void insertString(final int offset, final String text, AttributeSet attributeSet) throws BadLocationException {
+      editDocumentSafely(offset, 0, text);
     }
 
     @Override
-    public String getText(int i, int i1) throws BadLocationException {
-      return myEditor.getDocument().getText();
+    public String getText(final int offset, final int length) throws BadLocationException {
+      return ApplicationManager.getApplication().runReadAction(new Computable<String>() {
+        @Override
+        public String compute() {
+          return myEditor.getDocument().getText(new TextRange(offset, offset + length));
+        }
+      });
     }
 
     @Override
-    public void getText(int i, int i1, Segment segment) throws BadLocationException {
-      notSupported();
+    public void getText(int offset, int length, Segment segment) throws BadLocationException {
+      char[] s = getText(offset, length).toCharArray();
+      segment.array = s;
+      segment.offset = 0;
+      segment.count = s.length;
     }
 
     @Nullable
@@ -541,6 +565,7 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public void render(Runnable runnable) {
+      ApplicationManager.getApplication().runReadAction(runnable);
     }
 
     // ---- Implements Element for the root element ----
@@ -662,6 +687,48 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
     public boolean isLeaf() {
       return false;
     }
+  }
+
+  @Override
+  public void setText(String text) {
+    editDocumentSafely(0, myEditor.getDocument().getTextLength(), text);
+  }
+
+  /** Inserts, removes or replaces the given text at the given offset */
+  private void editDocumentSafely(final int offset, final int length, @Nullable final String text) {
+    final Project project = myEditor.getProject();
+    final Document document = myEditor.getDocument();
+    if (!FileDocumentManager.getInstance().requestWriting(document, project)) {
+      return;
+    }
+    CommandProcessor.getInstance().executeCommand(project, new Runnable() {
+      @Override
+      public void run() {
+        ApplicationManager.getApplication().runWriteAction(new DocumentRunnable(document, project) {
+          @Override
+          public void run() {
+            document.startGuardedBlockChecking();
+            try {
+              if (text == null) {
+                // remove
+                document.deleteString(offset, offset + length);
+              } else if (length == 0) {
+                // insert
+                document.insertString(offset, text);
+              } else {
+                document.replaceString(offset, offset + length, text);
+              }
+            }
+            catch (ReadOnlyFragmentModificationException e) {
+              EditorActionManager.getInstance().getReadonlyFragmentModificationHandler(document).handle(e);
+            }
+            finally {
+              document.stopGuardedBlockChecking();
+            }
+          }
+        });
+      }
+    }, "", document, UndoConfirmationPolicy.DEFAULT, document);
   }
 
   /** {@linkplain DefaultCaret} does a lot of work we don't want (listening
@@ -1021,14 +1088,12 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public void setTextContents(String s) {
-      // TODO: Under write lock?
-      myEditor.getDocument().setText(s);
+      setText(s);
     }
 
     @Override
     public void insertTextAtIndex(int index, String s) {
-      // TODO: Under write lock?
-      myEditor.getDocument().insertString(index, s);
+      editDocumentSafely(index, 0, s);
     }
 
     @Override
@@ -1038,8 +1103,7 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public void delete(int startIndex, int endIndex) {
-      // TODO: Write lock?
-      myEditor.getDocument().deleteString(startIndex, endIndex);
+      editDocumentSafely(startIndex, endIndex - startIndex, null);
     }
 
     @Override
@@ -1064,8 +1128,7 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public void replaceText(int startIndex, int endIndex, String s) {
-      // TODO: Do we need a write lock here?
-      myEditor.getDocument().replaceString(startIndex, endIndex, s);
+      editDocumentSafely(startIndex, endIndex, s);
     }
 
     @Override
