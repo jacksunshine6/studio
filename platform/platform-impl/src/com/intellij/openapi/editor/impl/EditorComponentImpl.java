@@ -174,9 +174,9 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
           //noinspection fallthrough
         case InputMethodEvent.CARET_POSITION_CHANGED:
           myEditor.inputMethodCaretPositionChanged(e);
+          e.consume();
           break;
       }
-      e.consume();
     }
 
     super.processInputMethodEvent(e);
@@ -733,7 +733,7 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
   /** {@linkplain DefaultCaret} does a lot of work we don't want (listening
    * for focus events etc). This exists simply to be able to send caret events to the screen reader. */
-  private static class EditorAccessibilityCaret implements javax.swing.text.Caret {
+  private class EditorAccessibilityCaret implements javax.swing.text.Caret {
     @Override
     public void install(JTextComponent jTextComponent) {
     }
@@ -756,20 +756,20 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public boolean isVisible() {
-      return false;
+      return true;
     }
 
     @Override
-    public void setVisible(boolean b) {
+    public void setVisible(boolean visible) {
     }
 
     @Override
     public boolean isSelectionVisible() {
-      return false;
+      return true;
     }
 
     @Override
-    public void setSelectionVisible(boolean b) {
+    public void setSelectionVisible(boolean visible) {
     }
 
     @Override
@@ -783,7 +783,7 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
     }
 
     @Override
-    public void setBlinkRate(int i) {
+    public void setBlinkRate(int rate) {
     }
 
     @Override
@@ -793,22 +793,22 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public int getDot() {
-      return 0;
+      return myEditor.getCaretModel().getOffset();
     }
 
     @Override
     public int getMark() {
-      return 0;
+      return myEditor.getSelectionModel().getSelectionStart();
     }
 
     @Override
-    public void setDot(int i) {
-      notSupported();
+    public void setDot(int offset) {
+      myEditor.getCaretModel().moveToOffset(offset);
     }
 
     @Override
-    public void moveDot(int i) {
-      notSupported();
+    public void moveDot(int offset) {
+      myEditor.getCaretModel().moveToOffset(offset);
     }
   }
 
