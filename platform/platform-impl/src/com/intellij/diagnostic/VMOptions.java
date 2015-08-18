@@ -194,8 +194,6 @@ public class VMOptions {
 
   @Nullable
   public static File getCustomFile(boolean ifExists) {
-    if (!SystemInfo.isMac) return null;
-
     final File f = new File(doGetSettingsFilePath(true)).getAbsoluteFile();
     if (!f.exists()) {
       if (ifExists) return null;
@@ -213,24 +211,28 @@ public class VMOptions {
 
   @NotNull
   private static String doGetSettingsFilePath(boolean customLocation) {
-    final String vmOptionsFile = System.getProperty("jb.vmOptionsFile");
-    if (!StringUtil.isEmptyOrSpaces(vmOptionsFile)) {
-      return vmOptionsFile;
+    if (customLocation) {
+      // The jb.vmOptionsFile system property, set by the launcher, is a comma-separated list of vmoptions files.
+      // Their order is: application-specific vmoptions, user-specific vmoptions, and optionally overriding vmoptions.
+      final String vmOptionsFile = System.getProperty("jb.vmOptionsFile");
+      if (!StringUtil.isEmptyOrSpaces(vmOptionsFile)) {
+        String[] optionsFiles = vmOptionsFile.split(",");
+        // We might have a third, overriding options file, so we simply return the last one.
+        if (optionsFiles.length > 1) {
+          LOG.debug("doGetSettingsFilePath(true): " + optionsFiles[optionsFiles.length - 1]);
+          return optionsFiles[optionsFiles.length - 1];
+        }
+      }
     }
 
-    if (SystemInfo.isMac) {
-      if (customLocation) {
-        return PathManager.getConfigPath() + "/idea.vmoptions";
-      }
-      else {
-        return PathManager.getBinPath() + "/idea.vmoptions";
-      }
-    }
+    String productName = (ourTestPath != null) ? "test" : ApplicationNamesInfo.getInstance().getProductName().toLowerCase(Locale.US);
+    String platformSuffix = SystemInfo.is64Bit && !SystemInfo.isMac ? "64" : "";
+    String osSuffix = SystemInfo.isWindows ? ".exe" : "";
+    String filePath = (customLocation ? PathManager.getConfigPath() : PathManager.getBinPath()) +
+                      File.separatorChar + productName + platformSuffix + osSuffix + ".vmoptions";
 
-    final String productName = ApplicationNamesInfo.getInstance().getProductName().toLowerCase(Locale.US);
-    final String platformSuffix = SystemInfo.is64Bit ? "64" : "";
-    final String osSuffix = SystemInfo.isWindows ? ".exe" : "";
-    return PathManager.getBinPath() + File.separatorChar + productName + platformSuffix + osSuffix + ".vmoptions";
+    LOG.debug("doGetSettingsFilePath(" + customLocation + "): " + filePath);
+    return filePath;
   }
 
   private static String ourTestPath;
