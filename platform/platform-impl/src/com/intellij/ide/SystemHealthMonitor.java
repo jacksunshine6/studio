@@ -294,10 +294,6 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         }
 
         PlatformUsageTracker.trackActivity(count);
-
-        if (ApplicationManager.getApplication().isInternal()) {
-          System.out.printf("%d: Activity Tracker, usage in the last minute: %d\n", System.currentTimeMillis() % 10000, count);
-        }
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
   }
