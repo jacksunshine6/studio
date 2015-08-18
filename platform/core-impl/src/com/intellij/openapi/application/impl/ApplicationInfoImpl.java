@@ -488,7 +488,8 @@ public class ApplicationInfoImpl extends ApplicationInfoEx {
     StringBuilder buffer = new StringBuilder();
     buffer.append(getVersionName());
     buffer.append(" ");
-    if (getMajorVersion() != null && !isEAP() && !isBetaOrRC()) {
+    if (getMajorVersion() != null) {
+      // In Studio, we always want the FullVersion.
       buffer.append(getFullVersion());
     }
     else {
