@@ -24,7 +24,9 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.updateSettings.impl.ChannelStatus;
 import com.intellij.openapi.updateSettings.impl.UpdateChecker;
+import com.intellij.openapi.updateSettings.impl.UpdateSettings;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import org.apache.http.HttpEntity;
@@ -42,6 +44,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -58,42 +61,30 @@ public class PlatformUsageTracker {
   @NonNls private static final String ANAYLTICS_ID = DEBUG ? "UA-44790371-1" : "UA-19996407-3";
   @NonNls private static final String ANALYTICS_APP = "Android Studio";
 
-  // GA automatically detects the OS from the browser user agent. It is not very clear if it can parse some random UA string,
-  //
-  // Wikipedia reports that the format is typically:
-  //    Mozilla/[version] ([system and browser information]) [platform] ([platform details]) [extensions]
-  // Chrome for example uses:
-  //    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.2 Safari/537.36"
-  // We'll use something like the following:
-  //    Studio/1.4.0.0 (Linux; U; Linux 3.13.0-57-generic; en-us)
-  @NonNls private static final String ANALYTICS_UA = String.format(Locale.US, "Studio/%1$s (%2$s; U; %2$s %3$s; %4$s)",
-                                                                   UNIT_TEST_MODE ? "u" : ApplicationInfo.getInstance().getStrictVersion(),
-                                                                   SystemInfo.OS_NAME,
-                                                                   SystemInfo.OS_VERSION,
-                                                                   getLanguage());
-
   private static final int MAX_DESCRIPTION_SIZE = 150; // max allowed by GA
+
+  // Custom dimensions should match the index given to them in Analytics
+  // See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#customs
+  private static final String CD_OS_NAME = "cd1";
+  private static final String CD_OS_VERSION = "cd2";
+  private static final String CD_JAVA_RUNTIME_VERSION = "cd3";
+  private static final String CD_UPDATE_CHANNEL = "cd4";
+  private static final String CD_LOCALE = "cd5";
 
   private static final List<? extends NameValuePair> analyticsBaseData = ImmutableList
     .of(new BasicNameValuePair("v", "1"),
         new BasicNameValuePair("tid", ANAYLTICS_ID),
         new BasicNameValuePair("an", ANALYTICS_APP),
         new BasicNameValuePair("av", UNIT_TEST_MODE ? "unit-test" : ApplicationInfo.getInstance().getStrictVersion()),
-        new BasicNameValuePair("cid", UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance())));
+        new BasicNameValuePair("cid", UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance())),
+        new BasicNameValuePair(CD_OS_NAME, SystemInfo.OS_NAME),
+        new BasicNameValuePair(CD_OS_VERSION, SystemInfo.OS_VERSION),
+        new BasicNameValuePair(CD_JAVA_RUNTIME_VERSION, SystemInfo.JAVA_RUNTIME_VERSION),
+        new BasicNameValuePair(CD_LOCALE, getLanguage()));
 
   private static String getLanguage() {
     Locale locale = Locale.getDefault();
-    if (locale == null) {
-      return "";
-    }
-
-    String language = locale.getLanguage();
-    if (language == null) {
-      return "";
-    }
-
-    String country = locale.getCountry();
-    return country == null ? language.toLowerCase(Locale.US) : language.toLowerCase(Locale.US) + "-" + country.toLowerCase(Locale.US);
+    return locale == null ? "unknown" : locale.toString();
   }
 
   public static boolean trackingEnabled() {
@@ -105,9 +96,15 @@ public class PlatformUsageTracker {
       return;
     }
 
-    post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
-                          new BasicNameValuePair("exd", description),
-                          new BasicNameValuePair("exf", "1")));
+    try {
+      post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
+                            new BasicNameValuePair("exd", description),
+                            new BasicNameValuePair("exf", "1")));
+    } catch (Throwable throwable) {
+      if (DEBUG) {
+        System.err.println("Unexpected error while reporting a crash: " + throwable);
+      }
+    }
   }
 
   public static void trackException(@NotNull Throwable t, boolean fatal) {
@@ -115,10 +112,16 @@ public class PlatformUsageTracker {
       return;
     }
 
-    t = getRootCause(t);
-    post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
-                          new BasicNameValuePair("exd", getDescription(t)),
-                          new BasicNameValuePair("exf", fatal ? "1" : "0")));
+    try {
+      t = getRootCause(t);
+      post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
+                            new BasicNameValuePair("exd", getDescription(t)),
+                            new BasicNameValuePair("exf", fatal ? "1" : "0")));
+    } catch (Throwable throwable) {
+      if (DEBUG) {
+        System.err.println("Unexpected error while reporting a crash: " + throwable);
+      }
+    }
   }
 
   public static void trackActivity(long count) {
@@ -126,22 +129,31 @@ public class PlatformUsageTracker {
       return;
     }
 
-    post(ImmutableList.of(new BasicNameValuePair("t", "event"),
-                          new BasicNameValuePair("ec", "ActivityTracker"),
-                          new BasicNameValuePair("ea", "Hit"),
-                          new BasicNameValuePair("ev", Long.toString(count)),
-                          new BasicNameValuePair("cm1", Long.toString(count))));
+    try {
+      post(ImmutableList.of(new BasicNameValuePair("t", "event"),
+                            new BasicNameValuePair("ec", "ActivityTracker"),
+                            new BasicNameValuePair("ea", "Hit"),
+                            new BasicNameValuePair("ev", Long.toString(count)),
+                            new BasicNameValuePair("cm1", Long.toString(count))));
+    } catch (Throwable throwable) {
+      if (DEBUG) {
+        System.err.println("Unexpected error while reporting a crash: " + throwable);
+      }
+    }
   }
 
   private static void post(@NotNull final List<BasicNameValuePair> parameters) {
+    String channel = UNIT_TEST_MODE ?
+                     "unit-test" : ChannelStatus.fromCode(UpdateSettings.getInstance().getUpdateChannelType()).getDisplayName();
+    final List<BasicNameValuePair> runtimeData = Collections.singletonList(new BasicNameValuePair(CD_UPDATE_CHANNEL, channel));
+
     ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
       @Override
       public void run() {
         CloseableHttpClient client = HttpClientBuilder.create().build();
         HttpPost request = new HttpPost(ANALYTICS_URL);
         try {
-          request.setHeader("User-Agent", ANALYTICS_UA);
-          request.setEntity(new UrlEncodedFormEntity(Iterables.concat(analyticsBaseData, parameters)));
+          request.setEntity(new UrlEncodedFormEntity(Iterables.concat(analyticsBaseData, runtimeData, parameters)));
           HttpResponse response = client.execute(request);
           StatusLine status = response.getStatusLine();
           HttpEntity entity = response.getEntity(); // throw it away, don't care, not sure if we need to read in the response?
