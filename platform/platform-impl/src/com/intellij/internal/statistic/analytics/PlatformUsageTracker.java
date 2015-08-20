@@ -20,6 +20,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.intellij.ide.SystemHealthMonitor;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
@@ -44,6 +45,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -113,6 +116,8 @@ public class PlatformUsageTracker {
     }
 
     try {
+      SystemHealthMonitor.incrementAndSaveExceptionCount();
+
       t = getRootCause(t);
       post(ImmutableList.of(new BasicNameValuePair("t", "exception"),
                             new BasicNameValuePair("exd", getDescription(t)),
@@ -178,6 +183,69 @@ public class PlatformUsageTracker {
         }
       }
     });
+  }
+
+  // Reports the activity and exception counters to tools.google.com
+  public static void trackExceptionsAndActivity(final long activityCount, final long exceptionCount, final long fatalExceptionCount) {
+    ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          doPing();
+        } catch (Throwable t) {
+          if (DEBUG) {
+            System.err.println("Unexpected error while uploading exception metrics: " + t);
+          }
+        }
+      }
+
+      private void doPing() throws IOException {
+        String version = ApplicationInfo.getInstance().getStrictVersion();
+        URL url = getExceptionCounterUrl(version, activityCount, exceptionCount, fatalExceptionCount);
+        if (url == null) {
+          return;
+        }
+
+        // Discard the actual response, but make sure it reads OK
+        HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+
+        int responseCode;
+        try {
+          responseCode = conn.getResponseCode();
+        }
+        catch (UnknownHostException e) {
+          if (DEBUG) {
+            System.err.println("Unexpected exception while sending exception counts: " + e);
+          }
+          return;
+        }
+        finally {
+          conn.disconnect();
+        }
+
+        // tools.google.com is expected to return a 404
+        if (DEBUG && responseCode != HttpURLConnection.HTTP_NOT_FOUND) {
+          System.err.println("Ping did not return a 404");
+        }
+      }
+    });
+  }
+
+  @VisibleForTesting
+  @Nullable
+  public static URL getExceptionCounterUrl(@NotNull String version, long activityCount, long exceptionCount, long fatalExceptionCount) {
+    try {
+      String s = String
+        .format(Locale.US, "https://tools.google.com/service/update?as=androidsdk_excstudio&version=%1$s&activity=%2$s&exc=%3$s&exf=%4$s",
+                URLEncoder.encode(version, "UTF-8"), activityCount, exceptionCount, fatalExceptionCount);
+      return new URL(s);
+    }
+    catch (MalformedURLException e) {
+      return null;
+    }
+    catch (UnsupportedEncodingException e) {
+      return null;
+    }
   }
 
   /**

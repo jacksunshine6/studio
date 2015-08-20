@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -82,6 +83,18 @@ public class PlatformUsageTrackerTest extends TestCase {
       null
     );
     assertEquals("StringIndexOutOfBoundsEx @ . < AdbService:83", PlatformUsageTracker.getDescription(t));
+  }
+
+  public void testExceptionCounterUrl() {
+    URL url = PlatformUsageTracker.getExceptionCounterUrl("1.2.null.null ", 1200, 10, 0);
+    assertNotNull(url);
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.null.null+&activity=1200&exc=10&exf=0",
+                 url.toString());
+
+    url = PlatformUsageTracker.getExceptionCounterUrl("1.2.3.4", 50, 10, 50);
+    assertNotNull(url);
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.3.4&activity=50&exc=10&exf=50",
+                 url.toString());
   }
 
   // Copied from RenderErrorPanelTest

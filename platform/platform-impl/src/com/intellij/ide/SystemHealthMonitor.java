@@ -15,7 +15,9 @@
  */
 package com.intellij.ide;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
+import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
@@ -34,6 +36,7 @@ import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.PlatformUtils;
 import com.intellij.util.SystemProperties;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.PropertyKey;
 
@@ -55,6 +58,13 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   public static final AtomicLong ourStudioActionCount = new AtomicLong(0);
   private static final String STUDIO_ACTIVITY_COUNT = "studio.activity.count";
 
+  /** Count of non fatal exceptions in the IDE. */
+  private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
+
+  /** Count of fatal exceptions in the IDE. */
+  private static final AtomicLong ourStudioFatalExceptionCount = new AtomicLong(0);
+  @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
+
   @NotNull private final PropertiesComponent myProperties;
 
   public SystemHealthMonitor(@NotNull PropertiesComponent properties) {
@@ -69,6 +79,8 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
     if (PlatformUsageTracker.trackingEnabled()) {
       ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
+      ourStudioExceptionCount.set(getPersistedExceptionCount());
+
       startActivityMonitoring();
       reportPreviousCrashes();
 
@@ -166,6 +178,8 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       }
     });
     if (previousRecords != null) {
+      ourStudioFatalExceptionCount.set(previousRecords.length);
+
       for (File record : previousRecords) {
         String description = "<unknown>";
         try {
@@ -286,13 +300,43 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     JobScheduler.getScheduler().scheduleAtFixedRate(new Runnable() {
       @Override
       public void run() {
-        long count = ourStudioActionCount.getAndSet(0);
-        if (count == 0) {
-          return;
+        long activityCount = ourStudioActionCount.getAndSet(0);
+
+        long exceptionCount = ourStudioExceptionCount.getAndSet(0);
+        long fatalExceptionCount = ourStudioFatalExceptionCount.getAndSet(0);
+
+        if (activityCount > 0) {
+          PlatformUsageTracker.trackActivity(activityCount);
         }
 
-        PlatformUsageTracker.trackActivity(count);
+        if (activityCount > 0 || exceptionCount > 0 || fatalExceptionCount > 0) {
+          PlatformUsageTracker.trackExceptionsAndActivity(activityCount, exceptionCount, fatalExceptionCount);
+        }
+
+        persistExceptionCount(0);
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
+  }
+
+  public static void incrementAndSaveExceptionCount() {
+    persistExceptionCount(ourStudioExceptionCount.incrementAndGet());
+  }
+
+  private static void persistExceptionCount(long count) {
+    try {
+      File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+      Files.write(Long.toString(count), f, Charsets.UTF_8);
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private static long getPersistedExceptionCount() {
+    try {
+      File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+      String contents = Files.toString(f, Charsets.UTF_8);
+      return Long.parseLong(contents);
+    } catch (Throwable t) {
+      return 0;
+    }
   }
 }
