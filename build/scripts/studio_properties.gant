@@ -54,7 +54,7 @@ def getProperties(String root) {
                  relativeAndroidToolsBaseHome: "$toolsBaseRoot",
 
                  includeYourkitAgent         : false,
-                 includeBatchLauncher        : false,
+                 includeBatchLauncher        : enableUITests,
                  buildUpdater                : aosp,
                  excludedPlugins             : ["ant", "ByteCodeViewer", "devkit", "eclipse", "javaFX", "uiDesigner", "xpath", "xslt-debugger"],
                  customLayout                : { targetDirectory ->
