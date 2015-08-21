@@ -15,6 +15,7 @@
  */
 package com.intellij.ide.plugins;
 
+import com.google.common.base.Strings;
 import com.intellij.ide.ClassUtilCore;
 import com.intellij.ide.IdeBundle;
 import com.intellij.ide.StartupProgress;
@@ -167,6 +168,10 @@ public class PluginManagerCore {
   private static boolean isUnitTestMode() {
     final Application app = ApplicationManager.getApplication();
     return app != null && app.isUnitTestMode();
+  }
+
+  private static boolean isUITestMode() {
+    return !Strings.isNullOrEmpty(System.getenv("UI_TEST_MODE"));
   }
 
   public static void savePluginsList(@NotNull Collection<String> ids, boolean append, @NotNull File plugins) throws IOException {
@@ -338,7 +343,7 @@ public class PluginManagerCore {
                                                      @NotNull ClassLoader[] parentLoaders,
                                                      @NotNull IdeaPluginDescriptor pluginDescriptor) {
 
-    if (pluginDescriptor.getUseIdeaClassLoader()) {
+    if (pluginDescriptor.getUseIdeaClassLoader() || isUITestMode()) {
       try {
         final ClassLoader loader = PluginManagerCore.class.getClassLoader();
         final Method addUrlMethod = getAddUrlMethod(loader);
