@@ -122,5 +122,6 @@
     <orderEntry type="module" module-name="designer" />
     <orderEntry type="module" module-name="sdk-updates" />
     <orderEntry type="module" module-name="designer" />
+    <orderEntry type="module" module-name="analytics" />
   </component>
 </module>
