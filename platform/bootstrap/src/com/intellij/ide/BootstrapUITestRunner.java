@@ -15,6 +15,8 @@
  */
 package com.intellij.ide;
 
+import com.intellij.openapi.application.PathManager;
+
 import java.io.File;
 import java.lang.reflect.Method;
 
@@ -30,11 +32,13 @@ public class BootstrapUITestRunner {
 
 
   private static String getTestClasspath() {
+    String ideaHome = PathManager.getHomePath();
+
     StringBuilder classpath = new StringBuilder();
     // We have to load UI tests together with the android module classpath.
-    classpath.append(new File(UITESTS_ROOT).getAbsolutePath());
+    classpath.append(new File(ideaHome, UITESTS_ROOT).getAbsolutePath());
 
-    for(File entry : new File(ANDROID_ROOT).listFiles()) {
+    for(File entry : new File(ideaHome, ANDROID_ROOT).listFiles()) {
       if (entry.isFile() && entry.getName().endsWith(".jar")) {
         classpath.append(File.pathSeparator);
         classpath.append(entry.getAbsolutePath());
