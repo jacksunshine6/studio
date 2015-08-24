@@ -244,5 +244,7 @@
     <extensionPoint name="testStatusListener" interface="com.intellij.execution.testframework.TestStatusListener"/>
 
     <extensionPoint name="runConfigurationBeforeRunProviderDelegate" interface="com.intellij.execution.impl.RunConfigurationBeforeRunProviderDelegate"/>
+
+    <extensionPoint name="usageUploader" interface="com.intellij.internal.statistic.analytics.PlatformUsageUploader" />
   </extensionPoints>
 </idea-plugin>

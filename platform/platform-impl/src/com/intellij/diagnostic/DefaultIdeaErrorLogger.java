@@ -76,10 +76,10 @@ public class DefaultIdeaErrorLogger implements ErrorLogger {
     if (ourLoggerBroken) return;
 
     // Android Studio: track exception count
-    if (PlatformUsageTracker.trackingEnabled()) {
+    if (PlatformUsageTracker.getInstance().trackingEnabled()) {
       Throwable t = event.getThrowable();
       if (t != null) {
-        PlatformUsageTracker.trackException(t, false);
+        PlatformUsageTracker.getInstance().trackException(t, false);
       }
     }
 
