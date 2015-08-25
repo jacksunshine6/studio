@@ -61,8 +61,6 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   /** Count of non fatal exceptions in the IDE. */
   private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
 
-  /** Count of fatal exceptions in the IDE. */
-  private static final AtomicLong ourStudioFatalExceptionCount = new AtomicLong(0);
   @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
 
   @NotNull private final PropertiesComponent myProperties;
@@ -178,7 +176,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       }
     });
     if (previousRecords != null) {
-      ourStudioFatalExceptionCount.set(previousRecords.length);
+      long fatalExceptionCount = 0;
 
       for (File record : previousRecords) {
         String description = "<unknown>";
@@ -189,7 +187,10 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         }
         PlatformUsageTracker.trackCrash("StudioCrash: " + description);
         FileUtil.delete(record);
+        fatalExceptionCount++;
       }
+
+      PlatformUsageTracker.trackExceptionsAndActivity(0, 0, fatalExceptionCount);
     }
   }
 
@@ -301,16 +302,14 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       @Override
       public void run() {
         long activityCount = ourStudioActionCount.getAndSet(0);
-
         long exceptionCount = ourStudioExceptionCount.getAndSet(0);
-        long fatalExceptionCount = ourStudioFatalExceptionCount.getAndSet(0);
 
         if (activityCount > 0) {
           PlatformUsageTracker.trackActivity(activityCount);
         }
 
-        if (activityCount > 0 || exceptionCount > 0 || fatalExceptionCount > 0) {
-          PlatformUsageTracker.trackExceptionsAndActivity(activityCount, exceptionCount, fatalExceptionCount);
+        if (activityCount > 0 || exceptionCount > 0) {
+          PlatformUsageTracker.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
         }
 
         persistExceptionCount(0);
