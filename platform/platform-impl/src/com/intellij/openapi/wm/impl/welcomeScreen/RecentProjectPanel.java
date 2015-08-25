@@ -342,7 +342,7 @@ public class RecentProjectPanel extends JPanel {
 
       myName.setText(item.getTemplatePresentation().getText());
       myPath.setText(getTitle2Text(item, myPath));
-
+      getAccessibleContext().setAccessibleName(myName.getText() + " - " + myPath.getText());
       return this;
     }
 
