@@ -86,6 +86,14 @@ def getProperties(String root) {
                          }
                        }
 
+                       dir("analytics") {
+                         dir("lib") {
+                           jar("analytics.jar") {
+                             module("analytics")
+                           }
+                         }
+                       }
+
                        dir("google-cloud-tools") {
                          dir("lib") {
                            jar("google-cloud-tools.jar") {
