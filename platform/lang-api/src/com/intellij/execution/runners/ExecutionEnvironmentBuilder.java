@@ -23,6 +23,8 @@ import com.intellij.execution.configurations.RunnerSettings;
 import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.UserDataHolderBase;
+import com.intellij.util.keyFMap.KeyFMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,6 +46,7 @@ public final class ExecutionEnvironmentBuilder {
   private boolean myAssignNewId;
   @NotNull private Executor myExecutor;
   @Nullable private DataContext myDataContext;
+  @Nullable private KeyFMap myCopyableUserData;
 
   public ExecutionEnvironmentBuilder(@NotNull Project project, @NotNull Executor executor) {
     myProject = project;
@@ -106,6 +109,7 @@ public final class ExecutionEnvironmentBuilder {
     myRunner = copySource.getRunner();
     myContentToReuse = copySource.getContentToReuse();
     myExecutor = copySource.getExecutor();
+    myCopyableUserData = copySource.getUserData(UserDataHolderBase.COPYABLE_USER_MAP_KEY);
   }
 
   @SuppressWarnings("UnusedDeclaration")
@@ -273,6 +277,9 @@ public final class ExecutionEnvironmentBuilder {
     }
     if (myDataContext != null) {
       environment.setDataContext(myDataContext);
+    }
+    if (myCopyableUserData != null) {
+      environment.putUserData(UserDataHolderBase.COPYABLE_USER_MAP_KEY, myCopyableUserData);
     }
     return environment;
   }
