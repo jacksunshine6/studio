@@ -24,6 +24,7 @@ def getProperties(String root) {
                    "${projectBuilder.moduleOutput(findModule("community-resources"))}/idea/IdeaApplicationInfo.xml"
                  },
                  buildNumber                 : "IC-$snapshot",
+                 mainClassName               : "com.intellij.idea.Main",
                  systemSelector              : { -> "IdeaIC${p("component.version.major")}" },
                  exe_selector                : null,
                  exe_launcher_properties     : "$home/build/conf/ideaCE-launcher.properties",

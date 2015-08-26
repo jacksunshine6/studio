@@ -107,6 +107,7 @@ target('default': 'The default target') {
              system_selector: pp("systemSelector")(),
              platform_prefix: pp("platformPrefix"),
              ide_jvm_args: pp("ideJvmArgs"),
+             main_class_name: pp("mainClassName"),
              tools_jar: true],
             home, null, paths, true)
   String archiveName = pp("archiveName")()
@@ -131,6 +132,7 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
              system_selector: pp("systemSelector")(),
              platform_prefix: pp("platformPrefix"),
              ide_jvm_args: pp("ideJvmArgs"),
+             main_class_name: pp("mainClassName"),
              tools_jar: true],
              home, null, paths)
   String macZipPrefix = pp("prefix") + pp("buildNumber")
