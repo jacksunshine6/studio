@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
+import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
 import com.intellij.notification.*;
 import com.intellij.openapi.application.Application;
@@ -75,7 +76,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     checkIBusPresent();
     startDiskSpaceMonitoring();
 
-    if (PlatformUsageTracker.trackingEnabled()) {
+    if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
       ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
       ourStudioExceptionCount.set(getPersistedExceptionCount());
 
@@ -185,12 +186,12 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         } catch (IOException ex) {
           // ignored.
         }
-        PlatformUsageTracker.trackCrash("StudioCrash: " + description);
+        PlatformUsageTracker.getInstance().trackCrash("StudioCrash: " + description);
         FileUtil.delete(record);
         fatalExceptionCount++;
       }
 
-      PlatformUsageTracker.trackExceptionsAndActivity(0, 0, fatalExceptionCount);
+      PlatformUsageTracker.getInstance().trackExceptionsAndActivity(0, 0, fatalExceptionCount);
     }
   }
 
@@ -304,15 +305,10 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         long activityCount = ourStudioActionCount.getAndSet(0);
         long exceptionCount = ourStudioExceptionCount.getAndSet(0);
 
-        if (activityCount > 0) {
-          PlatformUsageTracker.trackActivity(activityCount);
-        }
-
         if (activityCount > 0 || exceptionCount > 0) {
-          PlatformUsageTracker.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+          PlatformUsageTracker.getInstance().trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+          persistExceptionCount(0);
         }
-
-        persistExceptionCount(0);
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
   }
