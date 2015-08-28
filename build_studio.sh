@@ -11,10 +11,11 @@ PROG_DIR=$(dirname "$0")
 
 function die() {
   echo "$*" > /dev/stderr
-  echo "Usage: $0 <out_dir> <dest_dir> <build_number>" > /dev/stderr
+  echo "Usage: $0 <out_dir> <dest_dir> <build_number> [--enable-uitests]" > /dev/stderr
   exit 1
 }
 
+UI_TESTS=
 while [[ -n "$1" ]]; do
   if [[ -z "$OUT" ]]; then
     OUT="$1"
@@ -22,6 +23,8 @@ while [[ -n "$1" ]]; do
     DIST="$1"
   elif [[ -z "$BNUM" ]]; then
     BNUM="$1"
+  elif [[ $1 == "--enable-uitests" ]]; then
+    UI_TESTS=1
   else
     die "[$0] Unknown parameter: $1"
   fi
@@ -42,9 +45,10 @@ echo "## Building android-studio ##"
 echo "## Dest dir : $DIST"
 echo "## Qualifier: $QUAL"
 echo "## Build Num: $BNUM"
+echo "## UI Tests : $UI_TESTS"
 echo
 
-$ANT "-Dout=$OUT" "-Dbuild=$BNUM"
+$ANT "-Dout=$OUT" "-Dbuild=$BNUM" "-Denable.ui.tests=$UI_TESTS"
 
 echo "## Copying android-studio destination files"
 cp -rfv "$OUT"/artifacts/android-studio* "$DIST"/
