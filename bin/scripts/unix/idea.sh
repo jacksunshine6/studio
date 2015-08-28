@@ -132,7 +132,7 @@ fi
 
 MAIN_CLASS_NAME="$@@product_uc@@_MAIN_CLASS_NAME"
 if [ -z "$MAIN_CLASS_NAME" ]; then
-  MAIN_CLASS_NAME="com.intellij.idea.Main"
+  MAIN_CLASS_NAME="@@main_class_name@@"
 fi
 
 VM_OPTIONS=""

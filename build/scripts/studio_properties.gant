@@ -38,6 +38,7 @@ def getProperties(String root) {
                  },
                  buildNumber                 : "AI-$snapshot".replaceAll("SNAPSHOT", p("buildNumber")),
                  bundleIdentifier            : "com.google.android.studio",
+                 mainClassName               : enableUITests ? "com.intellij.ide.BootstrapUITestRunner" : "com.intellij.idea.Main",
                  macShowProductState         : false,
                  systemSelector              : { -> selector },
                  exe_selector                : selector,
