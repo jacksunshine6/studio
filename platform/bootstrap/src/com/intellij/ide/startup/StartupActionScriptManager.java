@@ -73,8 +73,9 @@ public class StartupActionScriptManager {
     File file = new File(getActionScriptPath());
     if (file.exists()) {
       boolean fileCorrupted = false;
-      ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file));
+      ObjectInputStream ois = null;
       try {
+        ois = new ObjectInputStream(new FileInputStream(file));
         //noinspection unchecked
         return (List<ActionCommand>)ois.readObject();
       }
@@ -88,7 +89,7 @@ public class StartupActionScriptManager {
       }
       finally {
         try {
-          ois.close();
+          if (ois != null) ois.close();
         } finally {
           if (fileCorrupted) FileUtil.delete(file); // do not need corrupted file anymore
         }
