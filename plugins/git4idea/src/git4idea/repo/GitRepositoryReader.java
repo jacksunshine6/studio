@@ -47,7 +47,6 @@ import java.util.regex.Pattern;
  * @author Kirill Likhodedov
  */
 class GitRepositoryReader {
-
   private static final Logger LOG = Logger.getInstance(GitRepositoryReader.class);
   private static final Processor<File> NOT_HIDDEN_DIRECTORIES = new Processor<File>() {
     @Override
@@ -70,7 +69,7 @@ class GitRepositoryReader {
   GitRepositoryReader(@NotNull File gitDir) {
     myGitDir = gitDir;
     DvcsUtil.assertFileExists(myGitDir, ".git directory not found in " + gitDir);
-    myHeadFile = new File(myGitDir, "HEAD");
+    myHeadFile = new File(myGitDir, GitUtil.GIT_HEAD);
     DvcsUtil.assertFileExists(myHeadFile, ".git/HEAD file not found in " + gitDir);
     myRefsHeadsDir = new File(new File(myGitDir, "refs"), "heads");
     myRefsRemotesDir = new File(new File(myGitDir, "refs"), "remotes");
