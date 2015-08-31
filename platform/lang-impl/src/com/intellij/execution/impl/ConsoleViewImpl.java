@@ -823,7 +823,20 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
     if (myEditor == null) return myLastStickingToEnd;
     Document document = myEditor.getDocument();
     int caretOffset = myEditor.getCaretModel().getOffset();
-    myLastStickingToEnd = document.getLineNumber(caretOffset) >= document.getLineCount() - 1;
+
+    // TODO: This try-catch is a temporary patch because a large number of users are hitting a case
+    // where the document returns a caret offset while at the same time being empty, so
+    // document.getLineNumber throws an exception. Unfortunately, it's hard to repro - so the plan
+    // now is to patch the crash first and figure out how to repro and fix properly next.
+    try {
+      myLastStickingToEnd = document.getLineNumber(caretOffset) >= document.getLineCount() - 1;
+    }
+    catch (IllegalStateException e) {
+      // If here, it means the document is now empty. Empty documents should automatically stick
+      // to the end.
+      myLastStickingToEnd = true;
+    }
+
     return myLastStickingToEnd;
   }
 
