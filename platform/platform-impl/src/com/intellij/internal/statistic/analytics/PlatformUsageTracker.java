@@ -237,7 +237,8 @@ public class PlatformUsageTracker {
     try {
       String s = String
         .format(Locale.US, "https://tools.google.com/service/update?as=androidsdk_excstudio&version=%1$s&activity=%2$s&exc=%3$s&exf=%4$s",
-                URLEncoder.encode(version, "UTF-8"), activityCount, exceptionCount, fatalExceptionCount);
+                URLEncoder.encode(version, "UTF-8"), Long.toString(activityCount), Long.toString(exceptionCount),
+                Long.toString(fatalExceptionCount));
       return new URL(s);
     }
     catch (MalformedURLException e) {
