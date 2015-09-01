@@ -19,6 +19,7 @@ package com.intellij.psi.impl.cache.impl;
 import com.intellij.injected.editor.VirtualFileWindow;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.GeneratedSourcesFilter;
 import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -68,6 +69,10 @@ public class IndexTodoCacheManagerImpl implements TodoCacheManager {
         @Override
         public void run() {
           for (VirtualFile file : files) {
+            if (GeneratedSourcesFilter.isGeneratedSourceByAnyFilter(file, myProject)) {
+              continue;
+            }
+
             if (projectFileIndex.isInContent(file)) {
               final PsiFile psiFile = myPsiManager.findFile(file);
               if (psiFile != null) {
