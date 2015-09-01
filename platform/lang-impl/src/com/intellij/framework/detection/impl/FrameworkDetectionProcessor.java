@@ -89,7 +89,11 @@ public class FrameworkDetectionProcessor {
 
           if (file.isDirectory()) {
             file.getChildren();  // initialize myChildren field to ensure that refresh will be really performed
-            file.refresh(false, false);
+            // Android Studio: https://code.google.com/p/android/issues/detail?id=184409
+            // In Android Studio, none of this code should ever run (we don't see automatically try to detect any frameworks).
+            // Yet, this refresh present inside a VfsUtilCore.visitChildrenRecursively causes a large number of refreshes to be
+            // performed in a very short time triggering the FrequentEventDetector. So we disable this.
+            // file.refresh(false, false);
           }
           else {
             final FileType fileType = file.getFileType();
