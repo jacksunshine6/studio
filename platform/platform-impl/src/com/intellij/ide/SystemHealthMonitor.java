@@ -62,6 +62,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   /** Count of non fatal exceptions in the IDE. */
   private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
 
+  private static final Object EXCEPTION_COUNT_LOCK = new Object();
   @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
 
   @NotNull private final PropertiesComponent myProperties;
@@ -304,10 +305,14 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       public void run() {
         long activityCount = ourStudioActionCount.getAndSet(0);
         long exceptionCount = ourStudioExceptionCount.getAndSet(0);
+        persistExceptionCount(0);
+        if (ApplicationManager.getApplication().isInternal()) {
+          // should be 0, but accounting for possible crashes in other threads..
+          assert getPersistedExceptionCount() < 5;
+        }
 
         if (activityCount > 0 || exceptionCount > 0) {
           PlatformUsageTracker.getInstance().trackExceptionsAndActivity(activityCount, exceptionCount, 0);
-          persistExceptionCount(0);
         }
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
@@ -315,23 +320,33 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
   public static void incrementAndSaveExceptionCount() {
     persistExceptionCount(ourStudioExceptionCount.incrementAndGet());
+    if (ApplicationManager.getApplication().isInternal()) {
+      // should be 0, but accounting for possible crashes in other threads..
+      assert Math.abs(getPersistedExceptionCount() - ourStudioExceptionCount.get()) < 5;
+    }
   }
 
   private static void persistExceptionCount(long count) {
-    try {
-      File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
-      Files.write(Long.toString(count), f, Charsets.UTF_8);
-    } catch (Throwable ignored) {
+    synchronized (EXCEPTION_COUNT_LOCK) {
+      try {
+        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        Files.write(Long.toString(count), f, Charsets.UTF_8);
+      }
+      catch (Throwable ignored) {
+      }
     }
   }
 
   private static long getPersistedExceptionCount() {
-    try {
-      File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
-      String contents = Files.toString(f, Charsets.UTF_8);
-      return Long.parseLong(contents);
-    } catch (Throwable t) {
-      return 0;
+    synchronized (EXCEPTION_COUNT_LOCK) {
+      try {
+        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        String contents = Files.toString(f, Charsets.UTF_8);
+        return Long.parseLong(contents);
+      }
+      catch (Throwable t) {
+        return 0;
+      }
     }
   }
 }
