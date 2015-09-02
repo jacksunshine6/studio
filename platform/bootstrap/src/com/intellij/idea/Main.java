@@ -74,8 +74,14 @@ public class Main {
         installPatch();
       }
       catch (Throwable t) {
-        showMessage("Update Failed", t);
-        System.exit(UPDATE_FAILED);
+        // If we could not apply the patch, notify the user and indicate a workaround, then continue the
+        // startup process as usual. Note that, at this point, the patch file has been renamed to "_copy", so
+        // the user won't get this error until next time a patch is downloaded.
+        String message = String.format("There was an error applying the update. If the problem persists, " +
+                                       "please download a full installation from the %s download page.\n\n",
+                                       isStudio() ? "Android Studio" : "IntelliJ");
+
+        showMessage("Update Failed", message, t, false);
       }
     }
 
@@ -244,14 +250,22 @@ public class Main {
     }
   }
 
+  private static boolean isStudio() {
+    return "AndroidStudio".equalsIgnoreCase(System.getProperty(PLATFORM_PREFIX_PROPERTY));
+  }
+
   public static void showMessage(String title, Throwable t) {
-    StringWriter message = new StringWriter();
-    message.append("Internal error. Please report to https://");
-    boolean studio = "AndroidStudio".equalsIgnoreCase(System.getProperty(PLATFORM_PREFIX_PROPERTY));
-    message.append(studio ? "code.google.com/p/android/issues" : "youtrack.jetbrains.com");
-    message.append("\n\n");
-    t.printStackTrace(new PrintWriter(message));
-    showMessage(title, message.toString(), true);
+    showMessage(title, "Internal Error. ", t, true);
+  }
+
+  public static void showMessage(String title, String message, Throwable t, boolean error) {
+    StringWriter writer = new StringWriter();
+    writer.append(message);
+    writer.append("Please report to https://");
+    writer.append(isStudio() ? "code.google.com/p/android/issues" : "youtrack.jetbrains.com");
+    writer.append("\n\n");
+    t.printStackTrace(new PrintWriter(writer));
+    showMessage(title, writer.toString(), error);
   }
 
   @SuppressWarnings({"UseJBColor", "UndesirableClassUsage", "UseOfSystemOutOrSystemErr"})
