@@ -71,6 +71,10 @@ binding.setVariable("common_vmoptions", "-XX:+UseConcMarkSweepGC -XX:SoftRefLRUP
 binding.setVariable("vmOptions", { "$common_vmoptions ${isEap() ? '-XX:+HeapDumpOnOutOfMemoryError' : ''}".trim() })
 binding.setVariable("vmOptions32", { "$mem32 ${vmOptions()}".trim() })
 binding.setVariable("vmOptions64", { "$mem64 ${vmOptions()}".trim() })
+binding.setVariable("configNotice", {
+  def notice = pp("configNotice")
+  return notice != null ? notice : ""
+})
 
 binding.setVariable("yjpOptions", { String systemSelector, String platformSuffix = "" ->
   "-agentlib:yjpagent$platformSuffix=probe_disable=*,disablealloc,disabletracing,onlylocal,disableexceptiontelemetry,delay=10000,sessionname=$systemSelector".trim()
@@ -386,12 +390,12 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     }
   }
 
-  new File("$path/bin/idea.properties").text = effectiveProperties.toString()
+  new File("$path/bin/idea.properties").text = configNotice() + effectiveProperties.toString()
   String ideaVmOptions = "$mem64 -XX:+UseCompressedOops"
   if (isEap() && pp("includeYourkitAgent") && !args.mac_no_yjp) {
     ideaVmOptions += " ${yjpOptions(args.system_selector)}"
   }
-  new File("$path/bin/${executable}.vmoptions").text = ideaVmOptions.split(" ").join("\n")
+  new File("$path/bin/${executable}.vmoptions").text = configNotice() + ideaVmOptions.split(" ").join("\n")
 
   String classPath = classPathLibs.collect {"\$APP_PACKAGE/Contents/lib/${it}" }.join(":")
 
@@ -549,7 +553,7 @@ binding.setVariable("winVMOptions", { String target, Map args, String name, Stri
     if (args.ide_jvm_args != null) {
       options += args.ide_jvm_args + "\n"
     }
-    ant.echo(file: "$target/bin/${name}.vmoptions", message: options.replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name}.vmoptions", message: configNotice() + options.replace(' ', '\n'))
   }
 
   if (name64 != null) {
@@ -558,7 +562,7 @@ binding.setVariable("winVMOptions", { String target, Map args, String name, Stri
     if (args.ide_jvm_args != null) {
       options += args.ide_jvm_args + "\n"
     }
-    ant.echo(file: "$target/bin/${name64}.vmoptions", message: options.replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name64}.vmoptions", message: configNotice() + options.replace(' ', '\n'))
   }
 
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.vmoptions", eol: "dos")
@@ -566,10 +570,10 @@ binding.setVariable("winVMOptions", { String target, Map args, String name, Stri
 
 binding.setVariable("unixVMOptions", { String target, String name, String name64 = (name + "64") ->
   if (name != null) {
-    ant.echo(file: "$target/bin/${name}.vmoptions", message: "${vmOptions32()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name}.vmoptions", message: configNotice() + "${vmOptions32()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
   }
   if (name64 != null) {
-    ant.echo(file: "$target/bin/${name64}.vmoptions", message: "${vmOptions64()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name64}.vmoptions", message: configNotice() + "${vmOptions64()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
   }
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.vmoptions", eol: "unix")
 })
@@ -611,6 +615,8 @@ binding.setVariable("forceDelete", { String dirPath ->
 
 binding.setVariable("patchPropertiesFile", { String target, Map args = [:] ->
   String file = "$target/bin/idea.properties"
+
+  ant.echo(file: file, message: configNotice());
 
   if (args.appendices != null) {
     ant.concat(destfile: file, append:  true) {

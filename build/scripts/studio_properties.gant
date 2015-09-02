@@ -33,6 +33,12 @@ def getProperties(String root) {
                  code                        : "AI",
                  appInfoModule               : "adt-branding",
                  appInfoModulePath           : "$androidRoot/adt-branding",
+                 configNotice                : "#\n" +
+                                               "# *DO NOT* modify this file directly. If there is a value that you would like to override,\n" +
+                                               "# please add it to your user specific configuration file.\n" +
+                                               "#\n" +
+                                               "# See http://tools.android.com/tech-docs/configuration\n" +
+                                               "#\n",
                  appInfoFile                 : { ->
                    "${projectBuilder.moduleOutput(findModule("adt-branding"))}/idea/AndroidStudioApplicationInfo.xml"
                  },
