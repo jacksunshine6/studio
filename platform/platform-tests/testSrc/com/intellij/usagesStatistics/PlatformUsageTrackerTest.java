@@ -83,14 +83,14 @@ public class PlatformUsageTrackerTest extends TestCase {
   }
 
   public void testExceptionCounterUrl() {
-    URL url = PlatformUsageTracker.getExceptionCounterUrl("1.2.null.null ", 1200, 10, 0);
+    URL url = PlatformUsageTracker.getExceptionCounterUrl("1.2.null.null ", "u", 1200, 10, 0);
     assertNotNull(url);
-    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.null.null+&activity=1200&exc=10&exf=0",
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.null.null+&activity=1200&exc=10&exf=0&uid=u",
                  url.toString());
 
-    url = PlatformUsageTracker.getExceptionCounterUrl("1.2.3.4", 50, 10, 50);
+    url = PlatformUsageTracker.getExceptionCounterUrl("1.2.3.4", "u", 50, 10, 50);
     assertNotNull(url);
-    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.3.4&activity=50&exc=10&exf=50",
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.3.4&activity=50&exc=10&exf=50&uid=u",
                  url.toString());
   }
 

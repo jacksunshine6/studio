@@ -63,6 +63,8 @@ public class PlatformUsageTracker {
   @NonNls private static final String ANALYTICS_URL = "https://ssl.google-analytics.com/collect";
   @NonNls private static final String ANAYLTICS_ID = DEBUG ? "UA-44790371-1" : "UA-19996407-3";
   @NonNls private static final String ANALYTICS_APP = "Android Studio";
+  private static final String INSTALLATION_ID =
+    UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance());
 
   private static final int MAX_DESCRIPTION_SIZE = 150; // max allowed by GA
 
@@ -79,7 +81,7 @@ public class PlatformUsageTracker {
         new BasicNameValuePair("tid", ANAYLTICS_ID),
         new BasicNameValuePair("an", ANALYTICS_APP),
         new BasicNameValuePair("av", UNIT_TEST_MODE ? "unit-test" : ApplicationInfo.getInstance().getStrictVersion()),
-        new BasicNameValuePair("cid", UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance())),
+        new BasicNameValuePair("cid", INSTALLATION_ID),
         new BasicNameValuePair(CD_OS_NAME, SystemInfo.OS_NAME),
         new BasicNameValuePair(CD_OS_VERSION, SystemInfo.OS_VERSION),
         new BasicNameValuePair(CD_JAVA_RUNTIME_VERSION, SystemInfo.JAVA_RUNTIME_VERSION),
@@ -201,7 +203,7 @@ public class PlatformUsageTracker {
 
       private void doPing() throws IOException {
         String version = ApplicationInfo.getInstance().getStrictVersion();
-        URL url = getExceptionCounterUrl(version, activityCount, exceptionCount, fatalExceptionCount);
+        URL url = getExceptionCounterUrl(version, INSTALLATION_ID, activityCount, exceptionCount, fatalExceptionCount);
         if (url == null) {
           return;
         }
@@ -233,12 +235,16 @@ public class PlatformUsageTracker {
 
   @VisibleForTesting
   @Nullable
-  public static URL getExceptionCounterUrl(@NotNull String version, long activityCount, long exceptionCount, long fatalExceptionCount) {
+  public static URL getExceptionCounterUrl(@NotNull String version,
+                                           @NotNull String installationId,
+                                           long activityCount,
+                                           long exceptionCount,
+                                           long fatalExceptionCount) {
     try {
-      String s = String
-        .format(Locale.US, "https://tools.google.com/service/update?as=androidsdk_excstudio&version=%1$s&activity=%2$s&exc=%3$s&exf=%4$s",
-                URLEncoder.encode(version, "UTF-8"), Long.toString(activityCount), Long.toString(exceptionCount),
-                Long.toString(fatalExceptionCount));
+      String s = String.format(Locale.US,
+                               "https://tools.google.com/service/update?as=androidsdk_excstudio&version=%1$s&activity=%2$s&exc=%3$s&exf=%4$s&uid=%5$s",
+                               URLEncoder.encode(version, "UTF-8"), Long.toString(activityCount), Long.toString(exceptionCount),
+                               Long.toString(fatalExceptionCount), installationId);
       return new URL(s);
     }
     catch (MalformedURLException e) {
