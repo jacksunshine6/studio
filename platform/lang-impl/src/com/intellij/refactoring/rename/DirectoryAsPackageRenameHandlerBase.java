@@ -135,7 +135,17 @@ public abstract class DirectoryAsPackageRenameHandlerBase<T extends PsiDirectory
     else {
       PsiDirectory[] directories = aPackage.getDirectories();
       final VirtualFile[] virtualFiles = occursInPackagePrefixes(aPackage);
-      if (virtualFiles.length == 0 && directories.length == 1) {
+      // In Android Studio, don't ask what to do if the additional packages
+      // are all generated: they'll follow the source package.
+      // See IDEA-125147.
+      int nonGeneratedCount = 0;
+      for (PsiDirectory dir : directories) {
+        VirtualFile virtualFile = dir.getVirtualFile();
+        if (!GeneratedSourcesFilter.isGeneratedSourceByAnyFilter(virtualFile, dir.getProject())) {
+          nonGeneratedCount++;
+        }
+      }
+      if (virtualFiles.length == 0 && nonGeneratedCount <= 1) {
         PsiElementRenameHandler.rename(aPackage, project, nameSuggestionContext, editor);
       }
       else { // the directory corresponds to a package that has multiple associated directories
