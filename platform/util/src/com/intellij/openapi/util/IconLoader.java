@@ -257,7 +257,15 @@ public final class IconLoader {
     Icon disabledIcon = ourIcon2DisabledIcon.get(icon);
     if (disabledIcon == null) {
       if (!isGoodSize(icon)) {
-        LOG.error(icon); // # 22481
+        // Changed in AndroidStudio:
+        // (a) this causes crash reports even though we've gracefully recovered, and
+        // (b) the EMPTY_ICON isn't placed into the ourIcon2DisabledIcon map so we'll keep
+        //     logging it over and over, and
+        // (c) the log isn't very helpful, it just lists an icon like "javax.swing.ImageIcon@e61b978"
+        //     which doesn't tell us which actual icon this corresponds to, and
+        // (d) this code has been here for five years; not a recent regression with an obvious fix.
+        //LOG.error(icon); // # 22481
+
         return EMPTY_ICON;
       }
       final int scale = UIUtil.isRetina() ? 2 : 1;
