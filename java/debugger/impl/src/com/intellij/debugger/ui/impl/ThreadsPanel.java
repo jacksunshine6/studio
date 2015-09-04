@@ -46,7 +46,12 @@ import java.awt.event.KeyEvent;
 public class ThreadsPanel extends DebuggerTreePanel{
   @NonNls private static final String HELP_ID = "debugging.debugThreads";
   private final Alarm myUpdateLabelsAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
-  private static final int LABELS_UPDATE_DELAY_MS = 200;
+
+  // Android Studio: When a debugger connects to an Android app, android.os.Debug.waitForDebugger waits
+  // for 1.3 seconds of no activity from the debugger to assume that the debugger has finished its initialization
+  // steps and then proceeds to continue. If the threads window keeps pinging the VM every 200 ms (original update delay),
+  // then the app can never proceed - it is continually stuck waiting for the debugger assuming it hasn't finished its initialization.
+  private static final int LABELS_UPDATE_DELAY_MS = 1500;
 
   public ThreadsPanel(Project project, final DebuggerStateManager stateManager) {
     super(project, stateManager);
