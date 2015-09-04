@@ -29,8 +29,7 @@ import com.intellij.openapi.util.IconLoader;
 import com.intellij.ui.JBCardLayout;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.LightColors;
-import com.intellij.util.ui.CenteredIcon;
-import com.intellij.util.ui.GraphicsUtil;
+import com.intellij.util.ui.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -66,11 +65,11 @@ public class CardActionsPanel extends JPanel {
 
     List<JComponent> components = buildComponents(group, cardId);
 
-    JPanel componentsPanel = new JPanel(new GridLayout(components.size(), 1, 5, 5));
+    JPanel componentsPanel = new JPanel(new GridLayout(components.size(), 1, JBUI.scale(5), JBUI.scale(5)));
     if (!USE_ICONS) {
       componentsPanel.setOpaque(false);
     }
-    componentsPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
+    componentsPanel.setBorder(new JBEmptyBorder(15, 15, 15, 15));
     for (JComponent component : components) {
       componentsPanel.add(component);
     }
@@ -120,7 +119,7 @@ public class CardActionsPanel extends JPanel {
 
   private class HeaderPanel extends JPanel {
     private HeaderPanel(String text, final String parentId) {
-      super(new BorderLayout(5, 5));
+      super(new BorderLayout(JBUI.scale(5), JBUI.scale(5)));
 
       setBackground(WelcomeScreenColors.CAPTION_BACKGROUND);
 
@@ -149,7 +148,7 @@ public class CardActionsPanel extends JPanel {
 
     @Override
     public Dimension getPreferredSize() {
-      return new Dimension(super.getPreferredSize().width, 28);
+      return new Dimension(super.getPreferredSize().width, JBUI.scale(28));
     }
   }
 
@@ -207,8 +206,8 @@ public class CardActionsPanel extends JPanel {
       super(action,
             wrapIcon(presentation),
             ActionPlaces.WELCOME_SCREEN,
-            new Dimension(32, 32));
-      setBorder(new EmptyBorder(3, 3, 3, 3));
+            new JBDimension(32, 32));
+      setBorder(new JBEmptyBorder(3, 3, 3, 3));
       setForeground(WelcomeScreenColors.WELCOME_HEADER_FOREGROUND);
     }
 
@@ -224,12 +223,12 @@ public class CardActionsPanel extends JPanel {
 
     @Override
     protected int iconTextSpace() {
-      return 8;
+      return JBUI.scale(8);
     }
 
     private static Presentation wrapIcon(Presentation presentation) {
       Icon original = presentation.getIcon();
-      CenteredIcon centered = new CenteredIcon(original != null ? original : DEFAULT_ICON, 40, 40, false);
+      CenteredIcon centered = new CenteredIcon(original != null ? original : DEFAULT_ICON, JBUI.scale(40), JBUI.scale(40), false);
       presentation.setIcon(centered);
       return presentation;
     }

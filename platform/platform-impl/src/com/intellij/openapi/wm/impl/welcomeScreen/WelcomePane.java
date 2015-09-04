@@ -21,6 +21,8 @@ package com.intellij.openapi.wm.impl.welcomeScreen;
 
 import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.wm.WelcomeScreen;
+import com.intellij.util.ui.JBInsets;
+import com.intellij.util.ui.JBUI;
 
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -33,19 +35,19 @@ public class WelcomePane extends JPanel {
     JPanel actionsPanel = new CardActionsPanel(actions) {
       @Override
       public Dimension getPreferredSize() {
-        return new Dimension(500, super.getPreferredSize().height);
+        return new Dimension(JBUI.scale(500), super.getPreferredSize().height);
       }
     };
 
     actionsPanel.setBorder(new LineBorder(WelcomeScreenColors.BORDER_COLOR));
 
-    JPanel recentsPanel = new JPanel(new BorderLayout(30, 30));
+    JPanel recentsPanel = new JPanel(new BorderLayout(JBUI.scale(30), JBUI.scale(30)));
     recentsPanel.add(new RecentProjectPanel(screen));
 
     GridBagConstraints c = new GridBagConstraints();
     c.gridx = 0;
     c.gridy = 0;
-    c.insets = new Insets(15, 15, 15, 15);
+    c.insets = new JBInsets(15, 15, 15, 15);
     c.weightx = 0.33;
     c.weighty = 1;
     c.fill = GridBagConstraints.BOTH;
@@ -55,7 +57,7 @@ public class WelcomePane extends JPanel {
     c.gridy = 0;
     c.weightx = 0.66;
     c.weighty = 1;
-    c.insets = new Insets(15, 0, 15, 15);
+    c.insets = new JBInsets(15, 0, 15, 15);
     c.anchor = GridBagConstraints.NORTH;
     c.fill = GridBagConstraints.BOTH;
     add(actionsPanel, c);
