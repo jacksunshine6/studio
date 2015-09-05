@@ -84,7 +84,9 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
-import java.awt.event.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
@@ -522,29 +524,25 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
     myEditor = createConsoleEditor();
     registerConsoleEditorActions();
     myEditor.getScrollPane().setBorder(null);
-    myEditor.getScrollPane().addMouseWheelListener(new MouseWheelListener() {
+    MouseAdapter mouseListener = new MouseAdapter() {
+      @Override
+      public void mousePressed(MouseEvent e) {
+        updateStickToEndState(true);
+      }
+
+      @Override
+      public void mouseDragged(MouseEvent e) {
+        updateStickToEndState(false);
+      }
+
       @Override
       public void mouseWheelMoved(MouseWheelEvent e) {
-        if (e.getWheelRotation() < 0) {
-          myCancelStickToEnd = true;
-        }
+        updateStickToEndState(false);
       }
-    });
-    myEditor.getScrollPane().getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
-      @Override
-      public void adjustmentValueChanged(AdjustmentEvent e) {
-        Adjustable scrollBar = e.getAdjustable();
-        boolean vscrollAtBottom = scrollBar.getValue() == scrollBar.getMaximum() - scrollBar.getVisibleAmount();
-
-        if (e.getValueIsAdjusting()) {
-          myCancelStickToEnd = !vscrollAtBottom;
-        }
-
-        if (vscrollAtBottom && !isStickingToEnd()) {
-          scrollToEnd();
-        }
-      }
-    });
+    };
+    myEditor.getScrollPane().addMouseWheelListener(mouseListener);
+    myEditor.getScrollPane().getVerticalScrollBar().addMouseListener(mouseListener);
+    myEditor.getScrollPane().getVerticalScrollBar().addMouseMotionListener(mouseListener);
     myHyperlinks = new EditorHyperlinkSupport(myEditor, myProject);
     myEditor.getScrollingModel().addVisibleAreaListener(new VisibleAreaListener() {
       @Override
@@ -561,6 +559,22 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
         }
       }
     });
+  }
+
+  private void updateStickToEndState(boolean useImmediatePosition) {
+    if (myEditor == null) return;
+
+    JScrollBar scrollBar = myEditor.getScrollPane().getVerticalScrollBar();
+    int scrollBarPosition = useImmediatePosition ? scrollBar.getValue() : 
+                            myEditor.getScrollingModel().getVisibleAreaOnScrollingFinished().y;
+    boolean vscrollAtBottom = scrollBarPosition == scrollBar.getMaximum() - scrollBar.getVisibleAmount();
+    boolean stickingToEnd = isStickingToEnd();
+
+    if (!vscrollAtBottom && stickingToEnd) {
+      myCancelStickToEnd = true;
+    } else if (vscrollAtBottom && !stickingToEnd) {
+      scrollToEnd();
+    }
   }
 
   protected JComponent createCenterComponent() {
@@ -823,20 +837,7 @@ public class ConsoleViewImpl extends JPanel implements ConsoleView, ObservableCo
     if (myEditor == null) return myLastStickingToEnd;
     Document document = myEditor.getDocument();
     int caretOffset = myEditor.getCaretModel().getOffset();
-
-    // TODO: This try-catch is a temporary patch because a large number of users are hitting a case
-    // where the document returns a caret offset while at the same time being empty, so
-    // document.getLineNumber throws an exception. Unfortunately, it's hard to repro - so the plan
-    // now is to patch the crash first and figure out how to repro and fix properly next.
-    try {
-      myLastStickingToEnd = document.getLineNumber(caretOffset) >= document.getLineCount() - 1;
-    }
-    catch (IllegalStateException e) {
-      // If here, it means the document is now empty. Empty documents should automatically stick
-      // to the end.
-      myLastStickingToEnd = true;
-    }
-
+    myLastStickingToEnd = document.getLineNumber(caretOffset) >= document.getLineCount() - 1;
     return myLastStickingToEnd;
   }
 
