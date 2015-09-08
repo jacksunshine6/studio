@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.intellij.ide.SystemHealthMonitor;
@@ -50,6 +51,7 @@ import java.net.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 // Note: Methods such as trackException() are called from within the logger when an exception is detected,
 // so don't use a Logger in this class and possibly end up in an infinite recursion.
@@ -107,6 +109,7 @@ public class AnalyticsUploader {
         new BasicNameValuePair(CD_OS_VERSION, SystemInfo.OS_VERSION),
         new BasicNameValuePair(CD_JAVA_RUNTIME_VERSION, SystemInfo.JAVA_RUNTIME_VERSION),
         new BasicNameValuePair(CD_LOCALE, getLanguage()));
+  public static final String CATEGORY_STUDIO_EXCEPTION = "excstudio";
 
   private static String getLanguage() {
     Locale locale = Locale.getDefault();
@@ -136,7 +139,7 @@ public class AnalyticsUploader {
         postData.add(new BasicNameValuePair(EVENT_VALUE, eventValue.toString()));
       }
     }
-    post(postData);
+    postToAnalytics(postData);
   }
 
   public static void trackCrashes(@NotNull Iterable<String> descriptions) {
@@ -154,9 +157,9 @@ public class AnalyticsUploader {
     }
 
     try {
-      post(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
-                            new BasicNameValuePair(EXCEPTION_DESCRIPTION, "StudioCrash: " + description),
-                            new BasicNameValuePair(EXCEPTION_FATAL, "1")));
+      postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
+                                       new BasicNameValuePair(EXCEPTION_DESCRIPTION, "StudioCrash: " + description),
+                                       new BasicNameValuePair(EXCEPTION_FATAL, "1")));
     } catch (Throwable throwable) {
       if (DEBUG) {
         System.err.println("Unexpected error while reporting a crash: " + throwable);
@@ -173,9 +176,9 @@ public class AnalyticsUploader {
       SystemHealthMonitor.incrementAndSaveExceptionCount();
 
       t = getRootCause(t);
-      post(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
-                            new BasicNameValuePair(EXCEPTION_DESCRIPTION, getDescription(t)),
-                            new BasicNameValuePair(EXCEPTION_FATAL, fatal ? "1" : "0")));
+      postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
+                                       new BasicNameValuePair(EXCEPTION_DESCRIPTION, getDescription(t)),
+                                       new BasicNameValuePair(EXCEPTION_FATAL, fatal ? "1" : "0")));
     } catch (Throwable throwable) {
       if (DEBUG) {
         System.err.println("Unexpected error while reporting a crash: " + throwable);
@@ -190,11 +193,13 @@ public class AnalyticsUploader {
 
     // send activity count to GA
     try {
-      post(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EVENT),
-                            new BasicNameValuePair(EVENT_CATEGORY, "ActivityTracker"),
-                            new BasicNameValuePair(EVENT_ACTION, "Hit"),
-                            new BasicNameValuePair(EVENT_VALUE, Long.toString(activityCount)),
-                            new BasicNameValuePair(CM_ACTIVITY_COUNT, Long.toString(activityCount))));
+      // @formatter:off
+      postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EVENT),
+                                       new BasicNameValuePair(EVENT_CATEGORY, "ActivityTracker"),
+                                       new BasicNameValuePair(EVENT_ACTION, "Hit"),
+                                       new BasicNameValuePair(EVENT_VALUE, Long.toString(activityCount)),
+                                       new BasicNameValuePair(CM_ACTIVITY_COUNT, Long.toString(activityCount))));
+      // @formatter:on
     } catch (Throwable throwable) {
       if (DEBUG) {
         System.err.println("Unexpected error while reporting a activity: " + throwable);
@@ -202,51 +207,56 @@ public class AnalyticsUploader {
     }
 
     // send all the counters to tools.google.com
+    // @formatter:off
+    postToGoogleLogs(CATEGORY_STUDIO_EXCEPTION, ImmutableMap.of("activity", Long.toString(activityCount),
+                                                            "exc", Long.toString(exceptionCount),
+                                                            "exf", Long.toString(fatalExceptionCount)));
+    // @formatter:on
+  }
+
+  public static void postToGoogleLogs(@NotNull final String categoryId, @NotNull final Map<String, String> parameters) {
     ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
       @Override
       public void run() {
         try {
-          doPing();
-        } catch (Throwable t) {
+          URL url = getPingUrl(categoryId, ApplicationInfo.getInstance().getStrictVersion(), INSTALLATION_ID, parameters);
+          postToGoogleLogs(url);
+        }
+        catch (Throwable t) {
           if (DEBUG) {
             System.err.println("Unexpected error while uploading exception metrics: " + t);
           }
         }
       }
-
-      private void doPing() throws IOException {
-        String version = ApplicationInfo.getInstance().getStrictVersion();
-        URL url = getExceptionCounterUrl(version, INSTALLATION_ID, activityCount, exceptionCount, fatalExceptionCount);
-        if (url == null) {
-          return;
-        }
-
-        // Discard the actual response, but make sure it reads OK
-        HttpURLConnection conn = (HttpURLConnection)url.openConnection();
-
-        int responseCode;
-        try {
-          responseCode = conn.getResponseCode();
-        }
-        catch (UnknownHostException e) {
-          if (DEBUG) {
-            System.err.println("Unexpected exception while sending exception counts: " + e);
-          }
-          return;
-        }
-        finally {
-          conn.disconnect();
-        }
-
-        // tools.google.com is expected to return a 404
-        if (DEBUG && responseCode != HttpURLConnection.HTTP_NOT_FOUND) {
-          System.err.println("Ping did not return a 404");
-        }
-      }
     });
   }
 
-  private static void post(@NotNull final List<BasicNameValuePair> parameters) {
+  // Posting to Dremel means simply connecting to the URL and ignoring the response
+  private static void postToGoogleLogs(@NotNull URL url) throws IOException {
+    // Discard the actual response, but make sure it reads OK
+    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+
+    int responseCode;
+    try {
+      responseCode = conn.getResponseCode();
+    }
+    catch (UnknownHostException e) {
+      if (DEBUG) {
+        System.err.println("Unexpected exception while sending exception counts: " + e);
+      }
+      return;
+    }
+    finally {
+      conn.disconnect();
+    }
+
+    // tools.google.com is expected to return a 404
+    if (DEBUG && responseCode != HttpURLConnection.HTTP_NOT_FOUND) {
+      System.err.println("Ping did not return a 404");
+    }
+  }
+
+  private static void postToAnalytics(@NotNull final List<BasicNameValuePair> parameters) {
     String channel = UNIT_TEST_MODE ?
                      "unit-test" : ChannelStatus.fromCode(UpdateSettings.getInstance().getUpdateChannelType()).getDisplayName();
     final List<BasicNameValuePair> runtimeData = Collections.singletonList(new BasicNameValuePair(CD_UPDATE_CHANNEL, channel));
@@ -393,24 +403,26 @@ public class AnalyticsUploader {
   }
 
   @VisibleForTesting
-  @Nullable
-  public static URL getExceptionCounterUrl(@NotNull String version,
-                                    @NotNull String installationId,
-                                    long activityCount,
-                                    long exceptionCount,
-                                    long fatalExceptionCount) {
-    try {
-      String s = String.format(Locale.US,
-                               "https://tools.google.com/service/update?as=androidsdk_excstudio&version=%1$s&activity=%2$s&exc=%3$s&exf=%4$s&uid=%5$s",
-                               URLEncoder.encode(version, "UTF-8"), Long.toString(activityCount), Long.toString(exceptionCount),
-                               Long.toString(fatalExceptionCount), installationId);
-      return new URL(s);
+  @NotNull
+  public static URL getPingUrl(@NotNull String categoryId,
+                               @NotNull String version,
+                               @NotNull String installationId,
+                               @NotNull Map<String, String> parameters) throws MalformedURLException, UnsupportedEncodingException {
+    String urlPrefix = String.format(Locale.US,
+                             "https://tools.google.com/service/update?as=androidsdk_%1$s&version=%2$s&uid=%3$s",
+                             categoryId,
+                             URLEncoder.encode(version, Charsets.UTF_8.name()),
+                             URLEncoder.encode(installationId, Charsets.UTF_8.name()));
+
+    StringBuilder sb = new StringBuilder(urlPrefix);
+    for (String key : parameters.keySet()) {
+      String value = parameters.get(key);
+      sb.append('&');
+      sb.append(URLEncoder.encode(key, Charsets.UTF_8.name()));
+      sb.append('=');
+      sb.append(URLEncoder.encode(value, Charsets.UTF_8.name()));
     }
-    catch (MalformedURLException e) {
-      return null;
-    }
-    catch (UnsupportedEncodingException e) {
-      return null;
-    }
+
+    return new URL(sb.toString());
   }
 }

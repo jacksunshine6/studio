@@ -135,7 +135,8 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         if (event.getURL() == null) {
           myProperties.setValue(ignoreKey, "true");
           notification.expire();
-        } else {
+        }
+        else {
           super.hyperlinkActivated(notification, event);
         }
       }
