@@ -44,6 +44,8 @@ import org.jetbrains.annotations.PropertyKey;
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -82,7 +84,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       ourStudioExceptionCount.set(getPersistedExceptionCount());
 
       startActivityMonitoring();
-      reportPreviousCrashes();
+      AnalyticsUploader.trackCrashes(reapCrashDescriptions());
 
       Application application = ApplicationManager.getApplication();
       application.getMessageBus().connect(application).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
@@ -167,7 +169,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     });
   }
 
-  private static void reportPreviousCrashes() {
+  private static List<String> reapCrashDescriptions() {
     final String recordFile = System.getProperty("studio.record.file");
 
     File[] previousRecords = new File(PathManager.getTempPath()).listFiles(new FileFilter() {
@@ -177,23 +179,18 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
                !pathname.getAbsolutePath().equals(recordFile);
       }
     });
+    ArrayList<String> descriptions = new ArrayList<String>();
     if (previousRecords != null) {
-      long fatalExceptionCount = 0;
-
       for (File record : previousRecords) {
-        String description = "<unknown>";
         try {
-          description = FileUtil.loadFile(record);
+          descriptions.add(FileUtil.loadFile(record));
         } catch (IOException ex) {
-          // ignored.
+          descriptions.add("<unknown>");
         }
-        AnalyticsUploader.trackCrash("StudioCrash: " + description);
         FileUtil.delete(record);
-        fatalExceptionCount++;
       }
-
-      AnalyticsUploader.trackExceptionsAndActivity(0, 0, fatalExceptionCount);
     }
+    return descriptions;
   }
 
   private static void startDiskSpaceMonitoring() {
