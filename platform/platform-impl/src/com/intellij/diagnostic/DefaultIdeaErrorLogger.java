@@ -15,7 +15,7 @@
  */
 package com.intellij.diagnostic;
 
-import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
+import com.intellij.internal.statistic.analytics.AnalyticsUploader;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -76,10 +76,10 @@ public class DefaultIdeaErrorLogger implements ErrorLogger {
     if (ourLoggerBroken) return;
 
     // Android Studio: track exception count
-    if (PlatformUsageTracker.getInstance().trackingEnabled()) {
+    if (AnalyticsUploader.trackingEnabled()) {
       Throwable t = event.getThrowable();
       if (t != null) {
-        PlatformUsageTracker.getInstance().trackException(t, false);
+        AnalyticsUploader.trackException(t, false);
       }
     }
 
