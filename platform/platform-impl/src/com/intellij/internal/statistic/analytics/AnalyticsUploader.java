@@ -139,14 +139,23 @@ public class AnalyticsUploader {
     post(postData);
   }
 
-  public static void trackCrash(@NotNull String description) {
+  public static void trackCrashes(@NotNull Iterable<String> descriptions) {
+    long crashCount = 0;
+    for (String description : descriptions) {
+      trackCrash(description);
+      ++crashCount;
+    }
+    trackExceptionsAndActivity(0, 0, crashCount);
+  }
+
+  private static void trackCrash(@NotNull String description) {
     if (!trackingEnabled()) {
       return;
     }
 
     try {
       post(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
-                            new BasicNameValuePair(EXCEPTION_DESCRIPTION, description),
+                            new BasicNameValuePair(EXCEPTION_DESCRIPTION, "StudioCrash: " + description),
                             new BasicNameValuePair(EXCEPTION_FATAL, "1")));
     } catch (Throwable throwable) {
       if (DEBUG) {
