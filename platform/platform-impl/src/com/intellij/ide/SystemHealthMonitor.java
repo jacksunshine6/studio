@@ -21,7 +21,7 @@ import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
-import com.intellij.internal.statistic.analytics.PlatformUsageTracker;
+import com.intellij.internal.statistic.analytics.AnalyticsUploader;
 import com.intellij.notification.*;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
@@ -187,12 +187,12 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         } catch (IOException ex) {
           // ignored.
         }
-        PlatformUsageTracker.getInstance().trackCrash("StudioCrash: " + description);
+        AnalyticsUploader.trackCrash("StudioCrash: " + description);
         FileUtil.delete(record);
         fatalExceptionCount++;
       }
 
-      PlatformUsageTracker.getInstance().trackExceptionsAndActivity(0, 0, fatalExceptionCount);
+      AnalyticsUploader.trackExceptionsAndActivity(0, 0, fatalExceptionCount);
     }
   }
 
@@ -312,7 +312,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         }
 
         if (activityCount > 0 || exceptionCount > 0) {
-          PlatformUsageTracker.getInstance().trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+          AnalyticsUploader.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
         }
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
