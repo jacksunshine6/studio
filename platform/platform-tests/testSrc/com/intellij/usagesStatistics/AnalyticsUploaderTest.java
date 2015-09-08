@@ -24,19 +24,18 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class AnalyticsUploaderTest extends TestCase {
   public void testMessageIgnored() {
     IOException ioe = new IOException("File C://User//Data not found");
-    assertTrue(AnalyticsUploader.getDescription(ioe).startsWith("IOEx @ AnalyticsUploaderTest:38 <"));
+    assertTrue(AnalyticsUploader.getDescription(ioe).startsWith("IOEx @ AnalyticsUploaderTest:37 <"));
   }
 
   public void testRepetitiveFileNames() {
@@ -85,15 +84,23 @@ public class AnalyticsUploaderTest extends TestCase {
     assertEquals("StringIndexOutOfBoundsEx @ . < AdbService:83", AnalyticsUploader.getDescription(t));
   }
 
-  public void testExceptionCounterUrl() {
-    URL url = AnalyticsUploader.getExceptionCounterUrl("1.2.null.null ", "u", 1200, 10, 0);
+  public void testExceptionCounterUrl() throws MalformedURLException, UnsupportedEncodingException {
+    Map<String, String> params = new TreeMap<String, String>();
+    params.put("activity", "1200");
+    params.put("exc", "10");
+    params.put("exf", "0");
+    URL url = AnalyticsUploader.getPingUrl("excstudio", "1.2.null.null ", "u", params);
     assertNotNull(url);
-    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.null.null+&activity=1200&exc=10&exf=0&uid=u",
-                    url.toString());
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.null.null+&uid=u&activity=1200&exc=10&exf=0",
+                 url.toString());
 
-    url = AnalyticsUploader.getExceptionCounterUrl("1.2.3.4", "u", 50, 10, 50);
+    params = new TreeMap<String, String>();
+    params.put("activity", "50");
+    params.put("exc", "10");
+    params.put("exf", "50");
+    url = AnalyticsUploader.getPingUrl("excstudio", "1.2.3.4", "u", params);
     assertNotNull(url);
-    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.3.4&activity=50&exc=10&exf=50&uid=u",
+    assertEquals("https://tools.google.com/service/update?as=androidsdk_excstudio&version=1.2.3.4&uid=u&activity=50&exc=10&exf=50",
                           url.toString());
   }
 
