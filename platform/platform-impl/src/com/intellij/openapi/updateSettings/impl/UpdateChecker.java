@@ -236,6 +236,14 @@ public final class UpdateChecker {
     catch (IOException e) {
       return new CheckForUpdateResult(UpdateStrategy.State.CONNECTION_ERROR, e);
     }
+    catch (Throwable e) {
+      // Some other unexpected error related to JRE setup, e.g.
+      // java.lang.NoClassDefFoundError: Could not initialize class javax.crypto.SunJCE_b
+      //     at javax.crypto.KeyGenerator.a(DashoA13*..)
+      //     ....
+      // See http://b.android.com/149270 for more.
+      return new CheckForUpdateResult(UpdateStrategy.State.CONNECTION_ERROR, new RuntimeException(e));
+    }
     if (info == null) {
       return new CheckForUpdateResult(UpdateStrategy.State.NOTHING_LOADED);
     }
