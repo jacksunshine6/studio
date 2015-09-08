@@ -20,6 +20,7 @@ import com.intellij.ide.ClassUtilCore;
 import com.intellij.ide.IdeBundle;
 import com.intellij.idea.IdeaApplication;
 import com.intellij.idea.Main;
+import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationListener;
 import com.intellij.notification.NotificationType;
@@ -123,6 +124,7 @@ public class PluginManager extends PluginManagerCore {
         pe.getCause().printStackTrace(new PrintWriter(message));
 
         Main.showMessage("Plugin Error", message.toString(), false);
+        StudioCrashDetection.stop();
         System.exit(Main.PLUGIN_ERROR);
       }
       else {
