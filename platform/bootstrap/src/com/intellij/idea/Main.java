@@ -16,11 +16,10 @@
 package com.intellij.idea;
 
 import com.intellij.ide.Bootstrap;
+import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.Comparing;
-import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.SystemInfoRt;
-import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.util.ArrayUtilRt;
 import com.intellij.util.Restarter;
@@ -85,8 +84,8 @@ public class Main {
       }
     }
 
-    if (shouldReportCrashes()) {
-      createRecordFile();
+    if (isStudio() && !isHeadless()) {
+      StudioCrashDetection.start();
     }
 
     try {
@@ -134,10 +133,6 @@ public class Main {
 
   public static boolean isUITraverser(final String[] args) {
     return args.length > 0 && Comparing.strEqual(args[0], "traverseUI");
-  }
-
-  public static boolean shouldReportCrashes() {
-     return !isHeadless && "AndroidStudio".equals(System.getProperty(PLATFORM_PREFIX_PROPERTY));
   }
 
   private static void installPatch() throws IOException {
@@ -218,35 +213,6 @@ public class Main {
       if (!copy.exists()) {
         throw new IOException("Cannot create temporary file: " + copy);
       }
-    }
-  }
-
-  private static void createRecordFile() {
-    try {
-      File f = new File(PathManager.getTempPath(),
-                        String.format("%s.%s", System.getProperty(PLATFORM_PREFIX_PROPERTY), UUID.randomUUID().toString()));
-      if (f.createNewFile()) {
-        // We use a system property to pass the filename across classloaders.
-        System.setProperty("studio.record.file", f.getAbsolutePath());
-
-        FileWriter fw = new FileWriter(f);
-        try {
-          File buildInfo = new File(PathManager.getHomePath(), "build.txt");
-          if (!buildInfo.exists() && SystemInfo.isMac) {
-            // On a Mac, also try to find it under Resources.
-            buildInfo = new File(PathManager.getHomePath(), "Resources/build.txt");
-          }
-
-          if (buildInfo.exists()) {
-            fw.write(FileUtil.loadFile(buildInfo));
-          }
-          fw.write(System.getProperty("java.runtime.version"));
-        } finally {
-          fw.close();
-        }
-      }
-    } catch (IOException ex) {
-      // Keep going anyway.
     }
   }
 

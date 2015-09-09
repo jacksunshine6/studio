@@ -16,12 +16,12 @@
 package com.intellij.ide;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.internal.statistic.analytics.AnalyticsUploader;
+import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.notification.*;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
@@ -33,9 +33,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
-import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.util.PlatformUtils;
 import com.intellij.util.SystemProperties;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -43,9 +41,10 @@ import org.jetbrains.annotations.PropertyKey;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -84,17 +83,14 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       ourStudioExceptionCount.set(getPersistedExceptionCount());
 
       startActivityMonitoring();
-      AnalyticsUploader.trackCrashes(reapCrashDescriptions());
+      AnalyticsUploader.trackCrashes(StudioCrashDetection.reapCrashDescriptions());
 
       Application application = ApplicationManager.getApplication();
       application.getMessageBus().connect(application).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
         @Override
         public void appClosing() {
           myProperties.setValue(STUDIO_ACTIVITY_COUNT, Long.toString(ourStudioActionCount.get()));
-          String recordFile = System.getProperty("studio.record.file");
-          if (!Strings.isNullOrEmpty(recordFile)) {
-            FileUtil.delete(new File(recordFile));
-          }
+          StudioCrashDetection.stop();
         }
       });
     }
@@ -167,30 +163,6 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         }
       }
     });
-  }
-
-  private static List<String> reapCrashDescriptions() {
-    final String recordFile = System.getProperty("studio.record.file");
-
-    File[] previousRecords = new File(PathManager.getTempPath()).listFiles(new FileFilter() {
-      @Override
-      public boolean accept(File pathname) {
-        return pathname.getName().startsWith(PlatformUtils.getPlatformPrefix()) &&
-               !pathname.getAbsolutePath().equals(recordFile);
-      }
-    });
-    ArrayList<String> descriptions = new ArrayList<String>();
-    if (previousRecords != null) {
-      for (File record : previousRecords) {
-        try {
-          descriptions.add(FileUtil.loadFile(record));
-        } catch (IOException ex) {
-          descriptions.add("<unknown>");
-        }
-        FileUtil.delete(record);
-      }
-    }
-    return descriptions;
   }
 
   private static void startDiskSpaceMonitoring() {
