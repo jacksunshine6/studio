@@ -64,6 +64,11 @@ public class Attachment {
     return Base64Converter.encode(myBytes);
   }
 
+  @NotNull
+  public byte[] getBytes() {
+    return myBytes;
+  }
+
   public boolean isIncluded() {
     return myIncluded;
   }
