@@ -72,6 +72,7 @@ public class StudioCrashDetection {
     String recordFileName = System.getProperty(RECORD_FILE_KEY);
     if (recordFileName != null) {
       FileUtil.delete(new File(recordFileName));
+      System.clearProperty(RECORD_FILE_KEY);
     }
   }
 
