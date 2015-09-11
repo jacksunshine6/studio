@@ -291,7 +291,8 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
 
     myVersion = readVersion;
     String isDefaultScheme = node.getAttributeValue(DEFAULT_SCHEME_ATTR);
-    if (isDefaultScheme == null || !Boolean.parseBoolean(isDefaultScheme)) {
+    boolean isDefault = isDefaultScheme != null && Boolean.parseBoolean(isDefaultScheme);
+    if (!isDefault) {
       myParentScheme = DefaultColorSchemesManager.getInstance().getScheme(node.getAttributeValue(PARENT_SCHEME_ATTR, DEFAULT_SCHEME_NAME));
     }
 
@@ -299,13 +300,13 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
       Element childNode = (Element)o;
       String childName = childNode.getName();
       if (OPTION_ELEMENT.equals(childName)) {
-        readSettings(childNode);
+        readSettings(childNode, isDefault);
       }
       else if (EDITOR_FONT.equals(childName)) {
-        readFontSettings(childNode, myFontPreferences);
+        readFontSettings(childNode, myFontPreferences, isDefault);
       }
       else if (CONSOLE_FONT.equals(childName)) {
-        readFontSettings(childNode, myConsoleFontPreferences);
+        readFontSettings(childNode, myConsoleFontPreferences, isDefault);
       }
       else if (COLORS_ELEMENT.equals(childName)) {
         readColors(childNode);
@@ -396,14 +397,14 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
     return valueColor;
   }
 
-  private void readSettings(Element childNode) {
+  private void readSettings(Element childNode, boolean isDefault) {
     String name = childNode.getAttributeValue(NAME_ATTR);
     String value = getValue(childNode);
     if (LINE_SPACING.equals(name)) {
       myLineSpacing = Float.parseFloat(value);
     }
     else if (EDITOR_FONT_SIZE.equals(name)) {
-      setEditorFontSize(JBUI.scale(Integer.parseInt(value)));
+      setEditorFontSize(parseFontSize(value, isDefault));
     }
     else if (EDITOR_FONT_NAME.equals(name)) {
       setEditorFontName(value);
@@ -412,7 +413,7 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
       setConsoleLineSpacing(Float.parseFloat(value));
     }
     else if (CONSOLE_FONT_SIZE.equals(name)) {
-      setConsoleFontSize(JBUI.scale(Integer.parseInt(value)));
+      setConsoleFontSize(parseFontSize(value, isDefault));
     }
     else if (CONSOLE_FONT_NAME.equals(name)) {
       setConsoleFontName(value);
@@ -422,7 +423,15 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
     }
   }
 
-  private static void readFontSettings(@NotNull Element element, @NotNull FontPreferences preferences) {
+  private static int parseFontSize(String value, boolean isDefault) {
+    int size = Integer.parseInt(value);
+    if (isDefault) {
+      size = JBUI.scaleFontSize(size);
+    }
+    return size;
+  }
+
+  private static void readFontSettings(@NotNull Element element, @NotNull FontPreferences preferences, boolean isDefaultScheme) {
     List children = element.getChildren(OPTION_ELEMENT);
     String fontFamily = null;
     int size = -1;
@@ -433,7 +442,10 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
       }
       else if (EDITOR_FONT_SIZE.equals(e.getAttributeValue(NAME_ATTR))) {
         try {
-          size = JBUI.scale(Integer.parseInt(getValue(e)));
+          size = Integer.parseInt(getValue(e));
+          if (isDefaultScheme) {
+            size = JBUI.scale(size);
+          }
         }
         catch (NumberFormatException ex) {
           // ignore
@@ -473,7 +485,7 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
     if (useOldFontFormat) {
       element = new Element(OPTION_ELEMENT);
       element.setAttribute(NAME_ATTR, EDITOR_FONT_SIZE);
-      element.setAttribute(VALUE_ELEMENT, String.valueOf(getEditorFontSize() / JBUI.scale(1)));
+      element.setAttribute(VALUE_ELEMENT, String.valueOf(getEditorFontSize()));
       parentNode.addContent(element);
     }
     else {
@@ -490,7 +502,7 @@ public abstract class AbstractColorsScheme implements EditorColorsScheme {
         if (getConsoleFontSize() != getEditorFontSize()) {
           element = new Element(OPTION_ELEMENT);
           element.setAttribute(NAME_ATTR, CONSOLE_FONT_SIZE);
-          element.setAttribute(VALUE_ELEMENT, Integer.toString(getConsoleFontSize() / JBUI.scale(1)));
+          element.setAttribute(VALUE_ELEMENT, Integer.toString(getConsoleFontSize()));
           parentNode.addContent(element);
         }
       }
