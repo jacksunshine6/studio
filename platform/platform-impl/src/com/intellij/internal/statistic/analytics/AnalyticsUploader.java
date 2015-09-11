@@ -111,7 +111,9 @@ public class AnalyticsUploader {
         new BasicNameValuePair(CD_LOCALE, getLanguage()));
   public static final String CATEGORY_STUDIO_EXCEPTION = "excstudio";
 
-  private static String getLanguage() {
+  private static final LastSeenExceptions ourLastSeenExceptions = new LastSeenExceptions(3);
+
+  public static String getLanguage() {
     Locale locale = Locale.getDefault();
     return locale == null ? "unknown" : locale.toString();
   }
@@ -176,14 +178,22 @@ public class AnalyticsUploader {
       SystemHealthMonitor.incrementAndSaveExceptionCount();
 
       t = getRootCause(t);
+      String description = getDescription(t);
       postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
-                                       new BasicNameValuePair(EXCEPTION_DESCRIPTION, getDescription(t)),
+                                       new BasicNameValuePair(EXCEPTION_DESCRIPTION, description),
                                        new BasicNameValuePair(EXCEPTION_FATAL, fatal ? "1" : "0")));
+
+      ourLastSeenExceptions.add(description);
     } catch (Throwable throwable) {
       if (DEBUG) {
         System.err.println("Unexpected error while reporting a crash: " + throwable);
       }
     }
+  }
+
+  @NotNull
+  public static String getLastExceptionDescription() {
+    return ourLastSeenExceptions.getDescriptions();
   }
 
   public static void trackExceptionsAndActivity(final long activityCount, final long exceptionCount, final long fatalExceptionCount) {

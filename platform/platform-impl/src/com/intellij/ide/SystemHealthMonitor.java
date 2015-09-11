@@ -16,6 +16,7 @@
 package com.intellij.ide;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
@@ -45,6 +46,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -62,6 +64,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
   /** Count of non fatal exceptions in the IDE. */
   private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
+  private static final AtomicLong ourInitialPersistedExceptionCount = new AtomicLong(0);
 
   private static final Object EXCEPTION_COUNT_LOCK = new Object();
   @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
@@ -81,6 +84,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
       ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
       ourStudioExceptionCount.set(getPersistedExceptionCount());
+      ourInitialPersistedExceptionCount.set(ourStudioExceptionCount.get());
 
       startActivityMonitoring();
       AnalyticsUploader.trackCrashes(StudioCrashDetection.reapCrashDescriptions());
@@ -283,6 +287,21 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
         if (activityCount > 0 || exceptionCount > 0) {
           AnalyticsUploader.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+
+          // b/24000263
+          if (exceptionCount > 1000) {
+            // @formatter:off
+            Map<String,String> parameters = ImmutableMap.<String,String>builder()
+              .put("initCount", Long.toString(ourInitialPersistedExceptionCount.get()))
+              .put("locale", AnalyticsUploader.getLanguage())
+              .put("osname", SystemInfo.OS_NAME)
+              .put("osver", SystemInfo.OS_VERSION)
+              .put("jre_version", SystemInfo.JAVA_RUNTIME_VERSION)
+              .put("last3exc", AnalyticsUploader.getLastExceptionDescription())
+              .build();
+            AnalyticsUploader.postToGoogleLogs("excdetails", parameters);
+            // @formatter:on
+          }
         }
       }
     }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
