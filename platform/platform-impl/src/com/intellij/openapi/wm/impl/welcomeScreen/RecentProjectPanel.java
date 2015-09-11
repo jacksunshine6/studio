@@ -38,7 +38,6 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.WelcomeScreen;
 import com.intellij.ui.ClickListener;
 import com.intellij.ui.ListUtil;
-import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.speedSearch.ListWithFilter;
@@ -56,6 +55,7 @@ import java.awt.event.*;
 import java.io.File;
 
 public class RecentProjectPanel extends JPanel {
+  public static final String RECENT_PROJECTS_LABEL = "Recent Projects";
   protected final JBList myList;
   protected final UniqueNameBuilder<ReopenProjectAction> myPathShortener;
   protected AnAction removeRecentProjectAction;
@@ -274,7 +274,7 @@ public class RecentProjectPanel extends JPanel {
     title.setLayout(new BorderLayout(JBUI.scale(5), JBUI.scale(5)));
     title.setBorder(new BottomLineBorder());
 
-    JLabel titleLabel = new JLabel("Recent Projects");
+    JLabel titleLabel = new JLabel(RECENT_PROJECTS_LABEL);
     title.add(titleLabel, BorderLayout.CENTER);
     titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
     titleLabel.setForeground(WelcomeScreenColors.CAPTION_FOREGROUND);
@@ -290,6 +290,7 @@ public class RecentProjectPanel extends JPanel {
       mySize = size;
       setEmptyText("  No Project Open Yet  ");
       setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+      getAccessibleContext().setAccessibleName(RECENT_PROJECTS_LABEL);
     }
 
     @Override
