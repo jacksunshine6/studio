@@ -89,6 +89,7 @@ public class GitUtil {
   public static final String DOT_GIT = ".git";
 
   public static final String ORIGIN_HEAD = "origin/HEAD";
+  public static final String GIT_HEAD = "HEAD";
 
   private final static Logger LOG = Logger.getInstance(GitUtil.class);
 
