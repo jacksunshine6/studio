@@ -15,16 +15,11 @@
  */
 package git4idea.tests;
 
-import com.intellij.openapi.util.io.FileUtil;
 import git4idea.GitUtil;
-import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
-
 import static git4idea.GitUtil.unescapePath;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class GitUtilsTest {
 
@@ -36,31 +31,8 @@ public class GitUtilsTest {
 
   @Test
   public void unescape_cyrillic() throws Exception {
-    assertEquals("Cyrillic folder", "папка/file.txt", unescapePath("\\320\\277\\320\\260\\320\\277\\320\\272\\320\\260/file.txt"));
-    assertEquals("Cyrillic folder and filename", "папка/документ", unescapePath(
-      "\\320\\277\\320\\260\\320\\277\\320\\272\\320\\260/\\320\\264\\320\\276\\320\\272\\321\\203\\320\\274\\320\\265\\320\\275\\321\\202"));
-  }
-
-  @Test
-  public void testValidGitRoot() throws IOException {
-    File tempFolder = FileUtil.createTempDirectory("gittest", null);
-    File dotGit = createTempDirectory(tempFolder, ".git");
-    assertFalse("Folder without .git/HEAD identified as valid git repository", GitUtil.isGitRoot(tempFolder));
-    createTempFile(dotGit, "HEAD");
-    assertTrue(GitUtil.isGitRoot(tempFolder));
-  }
-
-  private static File createTempFile(@NotNull File dotGit, @NotNull String fileName) throws IOException {
-    File f = new File(dotGit, fileName);
-    f.createNewFile();
-    f.deleteOnExit();
-    return f;
-  }
-
-  private static File createTempDirectory(@NotNull File parent, @NotNull String folderName) {
-    File f = new File(parent, folderName);
-    f.mkdir();
-    f.deleteOnExit();
-    return f;
-  }
+     assertEquals("Cyrillic folder", "папка/file.txt", unescapePath("\\320\\277\\320\\260\\320\\277\\320\\272\\320\\260/file.txt"));
+     assertEquals("Cyrillic folder and filename", "папка/документ", unescapePath(
+       "\\320\\277\\320\\260\\320\\277\\320\\272\\320\\260/\\320\\264\\320\\276\\320\\272\\321\\203\\320\\274\\320\\265\\320\\275\\321\\202"));
+   }
 }

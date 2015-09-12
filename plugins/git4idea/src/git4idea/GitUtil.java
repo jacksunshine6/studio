@@ -87,8 +87,8 @@ public class GitUtil {
     }
   };
   public static final String DOT_GIT = ".git";
+
   public static final String ORIGIN_HEAD = "origin/HEAD";
-  public static final String GIT_HEAD = "HEAD";
 
   private final static Logger LOG = Logger.getInstance(GitUtil.class);
 
@@ -330,11 +330,7 @@ public class GitUtil {
   }
 
   public static boolean isGitRoot(final File file) {
-    if (file != null && file.exists()) {
-      File dotGit = new File(file, DOT_GIT);
-      return dotGit.exists() && new File(dotGit, GIT_HEAD).exists();
-    }
-    return false;
+    return file != null && file.exists() && new File(file, DOT_GIT).exists();
   }
 
   /**
