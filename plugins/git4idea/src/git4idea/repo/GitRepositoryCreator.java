@@ -40,9 +40,16 @@ public class GitRepositoryCreator extends VcsRepositoryCreator {
   @Override
   @Nullable
   public Repository createRepositoryIfValid(@NotNull VirtualFile root) {
-    return GitUtil.isGitRoot(new File(root.getPath()))
-           ? GitRepositoryImpl.getFullInstance(root, myProject, myPlatformFacade, myProject)
-           : null;
+    if (GitUtil.isGitRoot(new File(root.getPath()))) {
+      VirtualFile dotGitDir = GitUtil.findGitDir(root);
+      if (dotGitDir != null && dotGitDir.isDirectory()) {
+        VirtualFile head = dotGitDir.findChild(GitUtil.GIT_HEAD);
+        if (head != null && head.isValid()) {
+          return GitRepositoryImpl.getFullInstance(root, myProject, myPlatformFacade, myProject);
+        }
+      }
+    }
+    return null;
   }
 
   @NotNull
