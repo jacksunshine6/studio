@@ -27,6 +27,7 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.updateSettings.impl.ChannelStatus;
 import com.intellij.openapi.updateSettings.impl.UpdateChecker;
 import com.intellij.openapi.updateSettings.impl.UpdateSettings;
@@ -175,9 +176,13 @@ public class AnalyticsUploader {
     }
 
     try {
+      t = getRootCause(t);
+      if (t instanceof Logger.EmptyThrowable) {
+        return;
+      }
+
       SystemHealthMonitor.incrementAndSaveExceptionCount();
 
-      t = getRootCause(t);
       String description = getDescription(t);
       postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
                                        new BasicNameValuePair(EXCEPTION_DESCRIPTION, description),
