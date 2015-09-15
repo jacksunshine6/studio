@@ -12,3 +12,4 @@
 /androidStudio
 /build/TEST*
 *.classpath
+*~
