@@ -111,8 +111,10 @@ public abstract class Logger {
 
   public abstract void warn(@NonNls String message, @Nullable Throwable t);
 
+  public static class EmptyThrowable extends Throwable {}
+
   public void error(@NonNls String message) {
-    error(message, new Throwable(), ArrayUtil.EMPTY_STRING_ARRAY);
+    error(message, new EmptyThrowable(), ArrayUtil.EMPTY_STRING_ARRAY);
   }
   public void error(Object message) {
     error(String.valueOf(message));
@@ -123,7 +125,7 @@ public abstract class Logger {
   }
 
   public void error(@NonNls String message, @NonNls String... details) {
-    error(message, new Throwable(), details);
+    error(message, new EmptyThrowable(), details);
   }
 
   public void error(@NonNls String message, @Nullable Throwable e) {
