@@ -31,11 +31,27 @@ import java.awt.*;
  * @author Konstantin Bulenkov
  */
 public class JBUI {
+  /**
+   * List of supported scale factors for hidpi displays. The array must be sorted.
+   */
+  private static final float[] supportedScaleFactors = {1.0f, 1.25f, 1.33f, 1.4f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f};
+  /**
+   * Default DPI value in case we can't retrieve it from various system settings.
+   */
+  private static final int DEFAULT_DPI = 96;
+  /**
+   * Scale factor to apply to the size of UI elements.
+   */
   private static float SCALE_FACTOR = calculateScaleFactor();
 
   private static float calculateScaleFactor() {
     if (SystemInfo.isMac) {
       return 1.0f;
+    }
+
+    if (SystemProperties.has("hidpi.system.dpi.override")) {
+      int dpi = SystemProperties.getIntProperty("hidpi.system.dpi.override", DEFAULT_DPI);
+      return dpiToSupportedScaleFactor(dpi);
     }
 
     if (SystemProperties.is("hidpi")) {
@@ -51,11 +67,7 @@ public class JBUI {
     // factor of 1.25
     if (SystemInfo.isLinux || SystemInfo.isWindows) {
       final int dpi = getSystemDPI();
-      if (dpi < 120) return 1f;
-      if (dpi < 144) return 1.25f;
-      if (dpi < 168) return 1.5f;
-      if (dpi < 192) return 1.75f;
-      return 2f;
+      return dpiToSupportedScaleFactor(dpi);
     }
 
     int size = -1;
@@ -76,6 +88,18 @@ public class JBUI {
     return 2.0f;
   }
 
+  private static float dpiToSupportedScaleFactor(int dpi) {
+    float previousScaleFactor = supportedScaleFactors[0];
+    for (float scaleFactor : supportedScaleFactors) {
+      int dpiForScaleFactor = Math.round(scaleFactor * DEFAULT_DPI);
+      if (dpi < dpiForScaleFactor) {
+        return previousScaleFactor;
+      }
+      previousScaleFactor = scaleFactor;
+    }
+    return supportedScaleFactors[supportedScaleFactors.length - 1];
+  }
+
   private static int getSystemDPI() {
     // On Linux, application scaling is usually done by looking at the default font size,
     // as this is a setting that is available through system preferences UI.
@@ -85,15 +109,10 @@ public class JBUI {
     if (SystemInfo.isUnix) {
       Object value = Toolkit.getDefaultToolkit().getDesktopProperty("gnome.Xft/DPI");
       if (value instanceof Integer) {
-        int dpi = ((Integer)value).intValue() / 1024;
-        if (dpi == -1) {
-          dpi = 96;
-        }
-        if (dpi < 50) {
-          dpi = 50;
-        }
-
-        return dpi;
+        int dpiValue = ((Integer)value).intValue();
+        if (dpiValue == -1)
+          return DEFAULT_DPI;
+        return Math.round(dpiValue / 1024.0f);
       }
     }
 
@@ -101,16 +120,12 @@ public class JBUI {
     try {
       return Toolkit.getDefaultToolkit().getScreenResolution();
     } catch (HeadlessException e) {
-      return 96;
+      return DEFAULT_DPI;
     }
   }
 
   public static void setScaleFactor(float scale) {
-    if (scale < 1.25f) scale = 1.0f;
-    else if (scale < 1.5f) scale = 1.25f;
-    else if (scale < 1.75f) scale = 1.5f;
-    else if (scale < 2f) scale = 1.75f;
-    else scale = 2.0f;
+    scale = dpiToSupportedScaleFactor(Math.round(scale * DEFAULT_DPI));
 
     if (SystemInfo.isLinux && scale == 1.25f) {
       //Default UI font size for Unity and Gnome is 15. Scaling factor 1.25f works badly on Linux
