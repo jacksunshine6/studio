@@ -18,11 +18,9 @@ package com.intellij.internal.statistic.analytics;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.io.FileUtil;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.io.FileFilter;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +31,8 @@ public class StudioCrashDetection {
 
   private static final String RECORD_FILE_KEY = "studio.record.file";
   private static final String PLATFORM_PREFIX = "AndroidStudio";
+
+  private static final String LINE_SEPARATOR = System.getProperty("line.separator");
 
   /**
    * Creates a record of the application starting, unique to this run.
@@ -56,15 +56,50 @@ public class StudioCrashDetection {
             buildInfo = new File(PathManager.getHomePath(), "Resources/build.txt");
           }
 
+          String buildVersion = "<unknown>";
           if (buildInfo.exists()) {
-            fw.write(FileUtil.loadFile(buildInfo));
+            List<String> lines = FileUtil.loadLines(buildInfo);
+            if (lines.size() > 0) {
+              buildVersion = lines.get(0);
+            }
           }
+          fw.write(buildVersion);
+          fw.write(LINE_SEPARATOR);
           fw.write(System.getProperty("java.runtime.version"));
         } finally {
           fw.close();
         }
       }
-    } catch (IOException ignored) {}
+    } catch (IOException ex) {
+      // continue anyway.
+    }
+  }
+
+  /** Updates the record created by {@link #start} in this run with the accurate version number. */
+  public static void updateRecordedVersionNumber(@NotNull String version) {
+      String recordFileName = System.getProperty(RECORD_FILE_KEY);
+
+      if (recordFileName != null) {
+        File recordFile = new File(recordFileName);
+        try {
+          List<String> lines = FileUtil.loadLines(recordFile);
+          lines.set(0, version);
+
+          FileWriter fw = new FileWriter(recordFile);
+          try {
+            for (String line : lines) {
+              fw.write(line);
+              fw.write(LINE_SEPARATOR);
+            }
+          } catch (IOException ex) {
+            // continue anyway.
+          } finally {
+            fw.close();
+          }
+        } catch (IOException ex) {
+          // continue anyway.
+        }
+      }
   }
 
   /** Deletes the record created by {@link #start} for this run, if it exists. */

@@ -24,10 +24,7 @@ import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.internal.statistic.analytics.AnalyticsUploader;
 import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.notification.*;
-import com.intellij.openapi.application.Application;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ApplicationNamesInfo;
-import com.intellij.openapi.application.PathManager;
+import com.intellij.openapi.application.*;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
@@ -86,6 +83,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       ourStudioExceptionCount.set(getPersistedExceptionCount());
       ourInitialPersistedExceptionCount.set(ourStudioExceptionCount.get());
 
+      StudioCrashDetection.updateRecordedVersionNumber(ApplicationInfo.getInstance().getStrictVersion());
       startActivityMonitoring();
       AnalyticsUploader.trackCrashes(StudioCrashDetection.reapCrashDescriptions());
 
