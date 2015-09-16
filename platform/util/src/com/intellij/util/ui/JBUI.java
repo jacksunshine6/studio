@@ -38,6 +38,10 @@ public class JBUI {
       return 1.0f;
     }
 
+    if (SystemProperties.is("hidpi")) {
+      return 2.0f;
+    }
+
     if (SystemProperties.has("hidpi") && !SystemProperties.is("hidpi")) {
       return 1.0f;
     }
