@@ -393,7 +393,10 @@ public class ActionButton extends JComponent implements ActionButtonComponent, A
         if (name == null) {
           name = ActionButton.this.getToolTipText();
           if (name == null) {
-            name = super.getAccessibleName();
+            name = ActionButton.this.myPresentation.getText();
+            if (name == null) {
+              name = super.getAccessibleName();
+            }
           }
         }
       }
