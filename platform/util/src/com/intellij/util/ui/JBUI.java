@@ -77,6 +77,27 @@ public class JBUI {
   }
 
   private static int getSystemDPI() {
+    // On Linux, application scaling is usually done by looking at the default font size,
+    // as this is a setting that is available through system preferences UI.
+    // See https://codereview.chromium.org/1171693008
+    // See https://github.com/derat/font-config-info
+    // See com.sun.java.swing.plaf.gtk.PangoFonts
+    if (SystemInfo.isUnix) {
+      Object value = Toolkit.getDefaultToolkit().getDesktopProperty("gnome.Xft/DPI");
+      if (value instanceof Integer) {
+        int dpi = ((Integer)value).intValue() / 1024;
+        if (dpi == -1) {
+          dpi = 96;
+        }
+        if (dpi < 50) {
+          dpi = 50;
+        }
+
+        return dpi;
+      }
+    }
+
+    // Fallback to primary display DPI.
     try {
       return Toolkit.getDefaultToolkit().getScreenResolution();
     } catch (HeadlessException e) {
