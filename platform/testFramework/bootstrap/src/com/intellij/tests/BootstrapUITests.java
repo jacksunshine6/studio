@@ -29,9 +29,16 @@ public class BootstrapUITests {
   public static TestSuite suite() throws Exception {
     TestSuite suite = new TestSuite();
     ClassLoader cl = Thread.currentThread().getContextClassLoader();
-    Class<?> testClass = Class.forName(System.getProperty("bootstrap.testcase"), true, cl);
-    // Simplifying assumption: all our tests are properly annotated with @RunWith
-    suite.addTest(new JUnit4TestAdapter(testClass));
+    String testSpec = System.getProperty("bootstrap.testcase");
+    if (testSpec == null) {
+      throw new IllegalStateException("No tests specified via -Dbootstrap.testcase property");
+    }
+
+    for (String testName : testSpec.split(",")) {
+      Class<?> testClass = Class.forName(testName, true, cl);
+      // Simplifying assumption: all our tests are properly annotated with @RunWith
+      suite.addTest(new JUnit4TestAdapter(testClass));
+    }
     return suite;
   }
 }
