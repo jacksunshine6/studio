@@ -40,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static java.awt.RenderingHints.*;
+
 @Deprecated
 public class ImageLoader implements Serializable {
   public static final Component ourComponent = new Component() {
@@ -74,10 +76,14 @@ public class ImageLoader implements Serializable {
         float scale = allowFloatScaling ? JBUI.scale(1f) : JBUI.scale(1f) > 1.5f ? 2f : 1f;
         //we can't check all 3rd party plugins and convince the authors to add @2x icons.
         // isHiDPI() != isRetina() => we should scale images manually
-        if (image != null && JBUI.isHiDPI() && !each.first.contains("@2x")) {
-          image = upscale(image, scale);
-        } else if (image != null && JBUI.scale(1f) >= 1.5f && JBUI.scale(1f) < 2.0f && each.first.contains("@2x")) {
-          image = downscale(image, scale);
+        if (image != null && JBUI.isHiDPI()) {
+          // For any scale factor > 1.0, we use the retina source if we have one as it
+          // always provides the best resulting image, even if downscaling from
+          // 2.0f to 1.25f -- as opposed to upscaling a non retina image from 1.0f to 1.25f.
+          if (each.first.contains("@2x"))
+            image = scaleImage(image, scale / 2.0f);  // divide by 2.0, as Retina images are 2x the resolution.
+          else
+            image = scaleImage(image, scale);
         }
         return image;
       }
@@ -87,24 +93,32 @@ public class ImageLoader implements Serializable {
     return null;
   }
 
-  @NotNull
-  private static Image upscale(Image image, float scale) {
-    int width = (int)(scale * image.getWidth(null));
-    int height = (int)(scale * image.getHeight(null));
-    return resizeImage(ImageUtil.toBufferedImage(image), width, height);
+  private static Image scaleImage(Image image, double scale) {
+    // TODO: Replace this with Scalr.resize when upgrading to Idea 15+.
+    return scaleImage(ImageUtil.toBufferedImage(image), scale);
   }
 
-  @NotNull
-  private static Image downscale(Image image, float scale) {
-    int width = (int)(image.getWidth(null) / 2f * scale);
-    int height = (int)(image.getHeight(null) / 2f * scale);
-    return resizeImage(ImageUtil.toBufferedImage(image), width, height);
-  }
-
-  public static Image resizeImage(BufferedImage image, int width, int height) {
-    // TODO: Switch to Scalr when merging with IDEA 15+
-    return image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-    //return Scalr.resize(image, Scalr.Method.ULTRA_QUALITY, width, height);
+  private static Image scaleImage(BufferedImage source, double scale) {
+    int sourceWidth = source.getWidth();
+    int sourceHeight = source.getHeight();
+    int destWidth = Math.max(1, (int) (scale * sourceWidth));
+    int destHeight = Math.max(1, (int) (scale * sourceHeight));
+    int imageType = source.getType();
+    if (imageType == BufferedImage.TYPE_CUSTOM) {
+      imageType = BufferedImage.TYPE_INT_ARGB;
+    }
+    BufferedImage scaled = new BufferedImage(destWidth, destHeight, imageType);
+    Graphics2D g2 = scaled.createGraphics();
+    g2.setComposite(AlphaComposite.Src);
+    //noinspection UseJBColor
+    g2.setColor(new Color(0, true));
+    g2.fillRect(0, 0, destWidth, destHeight);
+    g2.setRenderingHint(KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC);
+    g2.setRenderingHint(KEY_RENDERING, VALUE_RENDER_QUALITY);
+    g2.setRenderingHint(KEY_ANTIALIASING, VALUE_ANTIALIAS_ON);
+    g2.drawImage(source, 0, 0, destWidth, destHeight, 0, 0, sourceWidth, sourceHeight, null);
+    g2.dispose();
+    return scaled;
   }
 
   @Nullable
@@ -138,7 +152,8 @@ public class ImageLoader implements Serializable {
   }
 
   public static List<Pair<String, Integer>> getFileNames(@NotNull String file) {
-    return getFileNames(file, UIUtil.isUnderDarcula(), UIUtil.isRetina() || JBUI.scale(1.0f) >= 1.5f);
+    // Allow retina images if retina display or if scaling factor > 1.0.
+    return getFileNames(file, UIUtil.isUnderDarcula(), UIUtil.isRetina() || JBUI.isHiDPI());
   }
 
   public static List<Pair<String, Integer>> getFileNames(@NotNull String file, boolean dark, boolean retina) {
