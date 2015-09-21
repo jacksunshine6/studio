@@ -108,7 +108,7 @@ public class LogMessageEx extends LogMessage {
                                              @Nullable final String title,
                                              @Nullable final String notificationText,
                                              final Collection<Attachment> attachments) {
-    final Throwable throwable = new Throwable() {
+    final Throwable throwable = new Logger.EmptyThrowable() {
       @Override
       public void printStackTrace(PrintWriter s) {
         s.print(details);
