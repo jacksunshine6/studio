@@ -231,6 +231,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
     layoutCommunityPlugins(home)
 
+    /* Excluded from Android Studio
     dir("plugins") {
       dir("javaFX") {
         dir("lib") {
@@ -250,6 +251,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
       }
     }
+    */
 
     dir("plugins") {
       dir("IntelliLang") {
