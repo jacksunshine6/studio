@@ -108,6 +108,7 @@
     <orderEntry type="module" module-name="google-cloud-tools-as" />
     <orderEntry type="module" module-name="google-cloud-testing" />
     <orderEntry type="module" module-name="google-services" />
+    <orderEntry type="module" module-name="google-appindexing" />
     <orderEntry type="module" module-name="jira" />
     <orderEntry type="module" module-name="java-decompiler-plugin" />
     <orderEntry type="module" module-name="structuralsearch" />
