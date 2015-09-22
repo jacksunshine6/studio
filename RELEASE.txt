@@ -49,9 +49,16 @@ betas.)
 
 (6) Turn off null checking.
 
-    Edit .idea/compiler.xml and make sure null assertions are disabled:
-    <addNotNullAssertions enabled="false" />
-                                  ~~~~~~~
+    Edit .idea/compiler.xml and make sure null assertions are disabled by
+    adding the following line:
+
+         <option name="DEFAULT_COMPILER" value="Javac" />
+    +    <addNotNullAssertions enabled="false" />
+         <excludeFromCompile>
+
+    (We don't leave it in with enabled="true" because the IDE will automatically
+    remove it and then leave the .idea/compiler.xml file in an edited state
+    for all developers who open the project.)
 
 (7) Turn off CLASS retention in
     platform/annotations/src/org/jetbrains/annotations
