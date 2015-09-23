@@ -22,7 +22,7 @@ def getProperties(String root) {
   def aosp = new File(root, "../adt/idea/android").isDirectory()
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
-  def selector = "AndroidStudioPreview1.4"
+  def selector = "AndroidStudio1.4"
   def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
   def lldbBinTargetRoot = "bin/lldb"
 
