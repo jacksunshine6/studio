@@ -46,7 +46,7 @@ IF EXIST %USER_VM_OPTIONS_FILE% SET VM_OPTIONS_FILE=%USER_VM_OPTIONS_FILE%
 IF NOT "%@@product_uc@@_VM_OPTIONS%" == "" SET VM_OPTIONS_FILE=%@@product_uc@@_VM_OPTIONS%
 
 SET ACC=
-FOR /F "usebackq delims=" %%i IN ("%VM_OPTIONS_FILE%") DO CALL "%IDE_BIN_DIR%\append.bat" "%%i"
+FOR /F "usebackq eol=# delims=" %%i IN ("%VM_OPTIONS_FILE%") DO CALL "%IDE_BIN_DIR%\append.bat" "%%i"
 IF EXIST "%VM_OPTIONS_FILE%" SET ACC=%ACC% -Djb.vmOptionsFile="%VM_OPTIONS_FILE%"
 
 SET COMMON_JVM_ARGS="-XX:ErrorFile=%USERPROFILE%\java_error_in_@@product_uc@@_%%p.log" "-Xbootclasspath/a:%IDE_HOME%/lib/boot.jar" -Didea.paths.selector=@@system_selector@@ %IDE_PROPERTIES_PROPERTY%
@@ -62,7 +62,7 @@ IF NOT "%@@product_uc@@_CLASS_PATH%" == "" SET CLASS_PATH=%CLASS_PATH%;%@@produc
 SET OLD_PATH=%PATH%
 SET PATH=%IDE_BIN_DIR%;%PATH%
 
-"%JAVA_EXE%" %ALL_JVM_ARGS% -cp "%CLASS_PATH%" com.intellij.idea.Main %*
+"%JAVA_EXE%" %ALL_JVM_ARGS% -cp "%CLASS_PATH%" @@main_class_name@@ %*
 
 SET PATH=%OLD_PATH%
 GOTO end

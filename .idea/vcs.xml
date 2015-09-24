@@ -24,8 +24,11 @@
   </component>
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/android" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/android/tools-base" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../adt/idea" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../base" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../studio/google/appindexing" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../studio/google/cloud/tools" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../studio/google/services" vcs="Git" />
   </component>
 </project>
 

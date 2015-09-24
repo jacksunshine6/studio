@@ -31,7 +31,7 @@ if (mem != null) {
 }
 else {
   args += [
-    "-Xmx450m",
+    "-Xmx1024m",
     "-Dsun.io.useCanonCaches=false"
   ]
 }

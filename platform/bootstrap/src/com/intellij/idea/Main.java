@@ -16,6 +16,7 @@
 package com.intellij.idea;
 
 import com.intellij.ide.Bootstrap;
+import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.openapi.application.JetBrainsProtocolHandler;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.util.Comparing;
@@ -82,10 +83,21 @@ public class Main {
         installPatch();
       }
       catch (Throwable t) {
-        showMessage("Update Failed", t);
-        System.exit(UPDATE_FAILED);
+        // If we could not apply the patch, notify the user and indicate a workaround, then continue the
+        // startup process as usual. Note that, at this point, the patch file has been renamed to "_copy", so
+        // the user won't get this error until next time a patch is downloaded.
+        String message = String.format("There was an error applying the update. If the problem persists, " +
+                                       "please download a full installation from the %s download page.\n\n",
+                                       isStudio() ? "Android Studio" : "IntelliJ");
+
+        showMessage("Update Failed", message, t, false);
       }
     }
+
+    if (isStudio() && !isHeadless()) {
+      StudioCrashDetection.start();
+    }
+
 
     try {
       Bootstrap.main(args, Main.class.getName() + "Impl", "start");
@@ -272,9 +284,18 @@ public class Main {
     }
   }
 
-  @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
+  private static boolean isStudio() {
+    return "AndroidStudio".equalsIgnoreCase(System.getProperty(PLATFORM_PREFIX_PROPERTY));
+  }
+
   public static void showMessage(String title, Throwable t) {
+    showMessage(title, "Internal Error. ", t, true);
+  }
+
+  @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
+  public static void showMessage(String title, String text, Throwable t, boolean error) {
     StringWriter message = new StringWriter();
+    message.append(text);
 
     AWTError awtError = findGraphicsError(t);
     if (awtError != null) {
@@ -283,14 +304,13 @@ public class Main {
       t = awtError;
     }
     else {
-      message.append("Internal error. Please report to https://");
-      boolean studio = "AndroidStudio".equalsIgnoreCase(System.getProperty(PLATFORM_PREFIX_PROPERTY));
-      message.append(studio ? "code.google.com/p/android/issues" : "intellij-support.jetbrains.com/hc/en-us/requests/new");
+      message.append("Please report to https://");
+      message.append(isStudio() ? "code.google.com/p/android/issues" : "intellij-support.jetbrains.com/hc/en-us/requests/new");
       message.append("\n\n");
     }
 
     t.printStackTrace(new PrintWriter(message));
-    showMessage(title, message.toString(), true);
+    showMessage(title, message.toString(), error);
   }
 
   private static AWTError findGraphicsError(Throwable t) {

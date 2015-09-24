@@ -116,6 +116,7 @@ public class UISettings extends SimpleModificationTracker implements PersistentS
   public int MAX_LOOKUP_WIDTH2 = 500;
   public int MAX_LOOKUP_LIST_HEIGHT = 11;
   public boolean HIDE_NAVIGATION_ON_FOCUS_LOSS = true;
+  public boolean LANGUAGE_FLAGS = true;
   public boolean DND_WITH_PRESSED_ALT_ONLY = false;
   public boolean FILE_COLORS_IN_PROJECT_VIEW = false;
   public boolean DEFAULT_AUTOSCROLL_TO_SOURCE = false;

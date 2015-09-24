@@ -99,6 +99,12 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
   ].flatten()
 
   List<String> implementationModules = [platformImplementationModules,
+// Temporarily disabled until code is merged
+//    "cidr-common",
+//    "cidr-debugger",
+//    "cidr-lang",
+//    "cidr-lang-dfa",
+//    "cidr-util",
     "compiler-impl",
     "debugger-impl",
     "dom-impl",
@@ -267,15 +273,18 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
       }
     }
 
+    /* Not relevant in Android Studio
     dir("redist") {
       jar("annotations-java8.jar") {
         module("annotations-common")
         module("annotations-java8")
       }
     }
+    */
 
     layoutCommunityPlugins(home, maySkipAndroidPlugin())
 
+    /* Excluded from Android Studio
     dir("plugins") {
       dir("javaFX") {
         dir("lib") {
@@ -295,6 +304,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
         fileset(dir: "${home}/plugins/javaFX/FxBuilderEmbedder/lib", includes: "embedder.jar");
       }
     }
+    */
 
     dir("plugins") {
       dir("IntelliLang") {
@@ -823,7 +833,7 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
         module("perflib")
         module("rpclib")
         module("chartlib")
-        module("builder-model")
+        //module("builder-model")
         module("builder-test-api")
       }
       jar("androidAnnotations.jar") {

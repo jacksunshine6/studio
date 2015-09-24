@@ -2,8 +2,11 @@
 <module relativePaths="true" type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
-    <orderEntry type="jdk" jdkName="1.8" jdkType="JavaSDK" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/system/caches" />
+      <excludeFolder url="file://$MODULE_DIR$/system/log" />
+    </content>
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="annotations" />
     <orderEntry type="module" module-name="ant" />
@@ -83,13 +86,13 @@
     <orderEntry type="module" module-name="tasks-tests" />
     <orderEntry type="module" module-name="github" />
     <orderEntry type="module" module-name="hg4idea" />
+    <orderEntry type="module" module-name="android" />
+    <orderEntry type="module" module-name="adt-branding" />
     <orderEntry type="module" module-name="relaxng" />
     <orderEntry type="module" module-name="gradle" />
     <orderEntry type="module" module-name="remote-servers-impl" />
     <orderEntry type="module" module-name="dom-tests" />
     <orderEntry type="module" module-name="colorSchemes" />
-    <orderEntry type="module" module-name="javaFX-CE" />
-    <orderEntry type="module" module-name="javaFX-jps-plugin" />
     <orderEntry type="module" module-name="IntelliLang-tests" />
     <orderEntry type="module" module-name="manifest" />
     <orderEntry type="module" module-name="xml-tests" scope="TEST" />
@@ -100,6 +103,9 @@
     <orderEntry type="module" module-name="ui-designer-jps-plugin" scope="TEST" />
     <orderEntry type="module" module-name="java-tests" scope="TEST" />
     <orderEntry type="module" module-name="community-tests" scope="TEST" />
+    <orderEntry type="module" module-name="google-cloud-tools-as" />
+    <orderEntry type="module" module-name="google-services" />
+    <orderEntry type="module" module-name="google-appindexing" />
     <orderEntry type="module" module-name="jira" />
     <orderEntry type="module" module-name="java-decompiler-plugin" />
     <orderEntry type="module" module-name="structuralsearch" />
@@ -110,7 +116,10 @@
     <orderEntry type="module" module-name="json-tests" scope="TEST" />
     <orderEntry type="module" module-name="typeMigration" />
     <orderEntry type="module" module-name="platform-tests" />
-    <orderEntry type="module" module-name="android" />
     <orderEntry type="module" module-name="configuration-store-tests" scope="TEST" />
+    <orderEntry type="module" module-name="designer" />
+    <orderEntry type="module" module-name="sdk-updates" />
+    <orderEntry type="module" module-name="designer" />
+    <orderEntry type="module" module-name="analytics" />
   </component>
 </module>

@@ -1034,12 +1034,15 @@ public class ApplicationImpl extends PlatformComponentManagerImpl implements App
     return false;
   }
 
+  private static class NoReadAccessException extends Throwable {}
+
   @Override
   public void assertReadAccessAllowed() {
     if (!isReadAccessAllowed()) {
       LOG.error(
         "Read access is allowed from event dispatch thread or inside read-action only" +
         " (see com.intellij.openapi.application.Application.runReadAction())",
+        new NoReadAccessException(),
         "Current thread: " + describe(Thread.currentThread()), "; dispatch thread: " + EventQueue.isDispatchThread() +"; isDispatchThread(): "+isDispatchThread(),
         "SystemEventQueueThread: " + describe(getEventQueueThread()));
     }

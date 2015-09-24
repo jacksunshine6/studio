@@ -1,0 +1,281 @@
+/*
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+def getProperties(String home, String buildNumber) {
+  // Flag indicating whether we are in the AOSP tree, or IJ CE tree
+  // In the AOSP tree, the android plugins are at ../adt/idea relative to the IDEA home
+  // In the IJ checkout, a symlink android is created that points to the android plugins,
+  // and android/tools-base is a symlink pointing to the tools/base projects
+  def aosp = new File(home, "../adt/idea/android").isDirectory()
+  def androidRoot = aosp ? "../adt/idea" : "android";
+  def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
+  //def selector = "AndroidStudioPreview1.5"
+  def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
+  def lldbBinTargetRoot = "bin/lldb"
+  def gradleVersion = "2.4"
+
+  def enableUITests = System.getProperty("studio.ui.tests") ? !System.getProperty("studio.ui.tests").isEmpty() : false
+
+  return new ProductProperties() {
+    {
+      prefix = "studio"
+      code = "AI"
+      platformPrefix = "AndroidStudio"
+      appInfoModule = "adt-branding"
+      appInfoModulePath =  "$androidRoot/adt-branding"
+      exe_launcher_properties = "$home/$androidRoot/adt-branding/src/idea/android_studio_launcher.properties"
+      exe64_launcher_properties = "$home/$androidRoot/adt-branding/src/idea/android_studio_launcher.properties"
+
+      bundleIdentifier = "com.google.android.studio"
+      relativeAndroidHome = "android"
+      relativeAndroidToolsBaseHome = "android/tools-base"
+
+      icon128 = "$home/$androidRoot/adt-branding/src/artwork/icon_AS_128.png"
+      ico     = "$home/$androidRoot/adt-branding/src/artwork/androidstudio.ico"
+      icns    = "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns"
+
+      extraMacBins = ["${lldbBinTargetRoot}/mac/bin/LLDBFrontend", "gradle/gradle-$gradleVersion/bin/gradle"]
+      extraLinuxBins = ["${lldbBinTargetRoot}/linux/bin/LLDBFrontend", "gradle/gradle-$gradleVersion/bin/gradle"]
+
+      includeYourkitAgentInEAP = false
+      includeBatchLauncher = enableUITests
+      buildUpdater = aosp
+      maySkipAndroidPlugin = false
+      relativeAndroidHome = "$androidRoot"
+      relativeAndroidToolsBaseHome = "$toolsBaseRoot"
+      excludedPlugins = ["ant", "ByteCodeViewer", "devkit", "eclipse", "javaFX", "uiDesigner", "xpath", "xslt-debugger"]
+      ideJvmArgs = "-Didea.platform.prefix=$platformPrefix"
+
+      configNotice  = "#\n" +
+                      "# *DO NOT* modify this file directly. If there is a value that you would like to override,\n" +
+                      "# please add it to your user specific configuration file.\n" +
+                      "#\n" +
+                      "# See http://tools.android.com/tech-docs/configuration\n" +
+                      "#\n"
+      mainClassName = enableUITests ? "com.intellij.ide.BootstrapUITestRunner" : "com.intellij.idea.Main"
+      macShowProductState = false
+    }
+
+    def String appInfoFile() {
+      "${projectBuilder.moduleOutput(findModule("adt-branding"))}/idea/AndroidStudioApplicationInfo.xml"
+    }
+
+    def String fullBuildNumber() { "AI-$buildNumber" }
+
+    def String systemSelector() { isEap() ? "${platformPrefix}Preview${p("component.version.major")}"
+                                          : "$platformPrefix${p("component.version.major")}"
+    }
+
+    def String macAppRoot() {
+      isEap() ? "Android Studio ${p("component.version.major")} Preview.app/Contents"
+              : "Android Studio.app/Contents"
+    }
+
+    def String winAppRoot() { "android-studio" }
+
+    def String linuxAppRoot() { "android-studio" }
+
+    def String archiveName() { "android-studio-$buildNumber" }
+
+    def customLayout(targetDirectory) {
+      if (!aosp) {
+        return
+      }
+
+      layout(targetDirectory) {
+        dir("${lldbBinTargetRoot}/android") {
+          fileset(dir: "${lldbBinSrcRoot}/android")
+        }
+
+        dir("${lldbBinTargetRoot}/shared") {
+          fileset(dir: "${lldbBinSrcRoot}/shared")
+        }
+
+        dir("gradle") {
+          dir("m2repository") {
+            fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
+          }
+        }
+
+        dir("plugins") {
+// Disabled until the CIDR code is merged
+//          dir("android-ndk") {
+//            dir("lib") {
+//              jar("android-ndk.jar") {
+//                module("android-ndk")
+//              }
+//            }
+//          }
+
+          dir("analytics") {
+            dir("lib") {
+              jar("analytics.jar") {
+                module("analytics")
+              }
+            }
+          }
+
+          dir("google-cloud-tools") {
+            dir("lib") {
+              jar("google-cloud-tools.jar") {
+                module("google-cloud-tools-as")
+              }
+              dir("templates") {
+                fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/resources/templates")
+              }
+              dir("clientTemplates") {
+                fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/resources/clientTemplates")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/android-studio-plugin/lib") {
+                include(name: "**/*.jar")
+              }
+            }
+          }
+
+          dir("google-cloud-tools-core") {
+            dir("lib") {
+              jar("google-cloud-tools-core.jar") {
+                module("google-cloud-tools-core-as")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/lib") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/gradle-appengine-builder-model") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/mockito") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/org-eclipse-jgit") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/core-plugin/third_party/org-eclipse-jgit-junit") {
+                include(name: "**/*.jar")
+              }
+            }
+          }
+
+          dir("google-services") {
+            dir("lib") {
+              jar("google-services.jar") {
+                module("google-services")
+              }
+              fileset(dir: "${home}/../studio/google/services/lib") {
+                include(name: "**/*.jar")
+              }
+            }
+          }
+
+          dir("google-login") {
+            dir("lib") {
+              jar("google-login.jar") {
+                module("google-login-as")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/lib") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/jackson-core-asl") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/javax-servlet-api") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/mockito") {
+                include(name: "**/*.jar")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/tools/google-login-plugin/third_party/repackaged") {
+                include(name: "**/*.jar")
+              }
+              // Additional libraries that need to be manually copied, this is exported to cloud tools/testing
+              fileset(
+                      file: "${home}/../../prebuilts/tools/common/google-api-java-client/1.20.0/google-api-java-client-min-repackaged-1.20.0.jar")
+            }
+          }
+
+// Temporarily disabled: code needs IJ 15 porting
+//          dir("google-cloud-testing") {
+//            dir("lib") {
+//              jar("google-cloud-testing.jar") {
+//                module("google-cloud-testing")
+//              }
+//              fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
+//                include(name: "**/*.jar")
+//              }
+//            }
+//          }
+
+          dir("sdk-updates") {
+            dir("lib") {
+              jar("sdk-updates.jar") {
+                module("sdk-updates")
+              }
+            }
+          }
+
+          if (enableUITests) {
+            dir("android") {
+              dir("lib") {
+                fileset(dir: "${home}/${androidRoot}/android/lib") {
+                  include(name: "**/fest-*.jar")
+                }
+              }
+              dir("testData") {
+                dir("guiTests") {
+                  fileset(dir: "${home}/$androidRoot/android/testData/guiTests")
+                }
+              }
+
+              dir("ui-tests-dir") {
+                moduleTests("android")
+              }
+            }
+          }
+        }
+      }
+      ant.unzip(src: "${home}/../external/gradle/gradle-$gradleVersion-all.zip", dest: "${targetDirectory}/gradle")
+    }
+
+    def customWinLayout(targetDirectory) {
+      layout(targetDirectory) {
+        dir("${lldbBinTargetRoot}/win") {
+          fileset(dir: "${lldbBinSrcRoot}/win")
+        }
+      }
+
+      if (!aosp) {
+        return
+      }
+      ant.copy(file: "$home/../adt/idea/native/installer/win/builds/uninstall.exe", tofile: "$targetDirectory/uninstall.exe")
+    }
+
+    def customLinLayout(targetDirectory) {
+      layout(targetDirectory) {
+        dir("${lldbBinTargetRoot}/linux") {
+          fileset(dir: "${lldbBinSrcRoot}/linux")
+        }
+      }
+    }
+
+    def customMacLayout(targetDirectory) {
+      layout(targetDirectory) {
+        dir("${lldbBinTargetRoot}/mac") {
+          fileset(dir: "${lldbBinSrcRoot}/mac")
+        }
+      }
+    }
+  }
+}
+

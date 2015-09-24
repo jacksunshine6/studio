@@ -15,13 +15,16 @@
  */
 package com.intellij.ide;
 
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
 import com.intellij.ide.util.PropertiesComponent;
+import com.intellij.internal.statistic.StatisticsUploadAssistant;
+import com.intellij.internal.statistic.analytics.AnalyticsUploader;
+import com.intellij.internal.statistic.analytics.StudioCrashDetection;
 import com.intellij.notification.*;
-import com.intellij.openapi.application.Application;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ApplicationNamesInfo;
-import com.intellij.openapi.application.PathManager;
+import com.intellij.openapi.application.*;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
@@ -30,6 +33,7 @@ import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.SystemProperties;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.PropertyKey;
 
@@ -39,15 +43,28 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private static final Logger LOG = Logger.getInstance("#com.intellij.ide.SystemHealthMonitor");
 
   private static final NotificationGroup GROUP = new NotificationGroup("System Health", NotificationDisplayType.STICKY_BALLOON, true);
+
+  /** Count of action events fired. This is used as a proxy for user initiated activity in the IDE. */
+  public static final AtomicLong ourStudioActionCount = new AtomicLong(0);
+  private static final String STUDIO_ACTIVITY_COUNT = "studio.activity.count";
+
+  /** Count of non fatal exceptions in the IDE. */
+  private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
+  private static final AtomicLong ourInitialPersistedExceptionCount = new AtomicLong(0);
+
+  private static final Object EXCEPTION_COUNT_LOCK = new Object();
+  @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
 
   @NotNull private final PropertiesComponent myProperties;
 
@@ -60,6 +77,25 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     checkJvm();
     checkIBusPresent();
     startDiskSpaceMonitoring();
+
+    if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
+      ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
+      ourStudioExceptionCount.set(getPersistedExceptionCount());
+      ourInitialPersistedExceptionCount.set(ourStudioExceptionCount.get());
+
+      StudioCrashDetection.updateRecordedVersionNumber(ApplicationInfo.getInstance().getStrictVersion());
+      startActivityMonitoring();
+      AnalyticsUploader.trackCrashes(StudioCrashDetection.reapCrashDescriptions());
+
+      Application application = ApplicationManager.getApplication();
+      application.getMessageBus().connect(application).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
+        @Override
+        public void appClosing() {
+          myProperties.setValue(STUDIO_ACTIVITY_COUNT, Long.toString(ourStudioActionCount.get()));
+          StudioCrashDetection.stop();
+        }
+      });
+    }
   }
 
   private void checkJvm() {
@@ -101,7 +137,8 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
         if (event.getURL() == null) {
           myProperties.setValue(ignoreKey, "true");
           notification.expire();
-        } else {
+        }
+        else {
           super.hyperlinkActivated(notification, event);
         }
       }
@@ -155,7 +192,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
                 // file.getUsableSpace() can fail and return 0 e.g. after MacOSX restart or awakening from sleep
                 // so several times try to recalculate usable space on receiving 0 to be sure
                 long fileUsableSpace = file.getUsableSpace();
-                while(fileUsableSpace == 0) {
+                while (fileUsableSpace == 0) {
                   Thread.sleep(5000); // hopefully we will not hummer disk too much
                   fileUsableSpace = file.getUsableSpace();
                 }
@@ -231,4 +268,72 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     }, 1, TimeUnit.SECONDS);
   }
 
+  private static final int INITIAL_DELAY_MINUTES = 1; // send out pending activity soon after startup
+  private static final int INTERVAL_IN_MINUTES = 30;
+
+  private static void startActivityMonitoring() {
+    JobScheduler.getScheduler().scheduleAtFixedRate(new Runnable() {
+      @Override
+      public void run() {
+        long activityCount = ourStudioActionCount.getAndSet(0);
+        long exceptionCount = ourStudioExceptionCount.getAndSet(0);
+        persistExceptionCount(0);
+        if (ApplicationManager.getApplication().isInternal()) {
+          // should be 0, but accounting for possible crashes in other threads..
+          assert getPersistedExceptionCount() < 5;
+        }
+
+        if (activityCount > 0 || exceptionCount > 0) {
+          AnalyticsUploader.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+
+          // b/24000263
+          if (exceptionCount > 1000) {
+            // @formatter:off
+            Map<String,String> parameters = ImmutableMap.<String,String>builder()
+              .put("initCount", Long.toString(ourInitialPersistedExceptionCount.get()))
+              .put("locale", AnalyticsUploader.getLanguage())
+              .put("osname", SystemInfo.OS_NAME)
+              .put("osver", SystemInfo.OS_VERSION)
+              .put("jre_version", SystemInfo.JAVA_RUNTIME_VERSION)
+              .put("last3exc", AnalyticsUploader.getLastExceptionDescription())
+              .build();
+            AnalyticsUploader.postToGoogleLogs("excdetails", parameters);
+            // @formatter:on
+          }
+        }
+      }
+    }, INITIAL_DELAY_MINUTES, INTERVAL_IN_MINUTES, TimeUnit.MINUTES);
+  }
+
+  public static void incrementAndSaveExceptionCount() {
+    persistExceptionCount(ourStudioExceptionCount.incrementAndGet());
+    if (ApplicationManager.getApplication().isInternal()) {
+      // should be 0, but accounting for possible crashes in other threads..
+      assert Math.abs(getPersistedExceptionCount() - ourStudioExceptionCount.get()) < 5;
+    }
+  }
+
+  private static void persistExceptionCount(long count) {
+    synchronized (EXCEPTION_COUNT_LOCK) {
+      try {
+        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        Files.write(Long.toString(count), f, Charsets.UTF_8);
+      }
+      catch (Throwable ignored) {
+      }
+    }
+  }
+
+  private static long getPersistedExceptionCount() {
+    synchronized (EXCEPTION_COUNT_LOCK) {
+      try {
+        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        String contents = Files.toString(f, Charsets.UTF_8);
+        return Long.parseLong(contents);
+      }
+      catch (Throwable t) {
+        return 0;
+      }
+    }
+  }
 }

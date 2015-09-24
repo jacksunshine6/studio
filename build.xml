@@ -3,7 +3,7 @@
     -Dout=/path/to/out/dir, defaults to ${basedir}/out
     -Dbuild=123, defaults to SNAPSHOT
     -Dtestpatterns=com.foo.*, defaults to empty string
-    -Dproduct=foo, defaults to idea
+    -Dproduct=foo, defaults to studio
  -->
 <project name="IntelliJ IDEA Community Edition" default="all">
   <property name="project.home" value="${basedir}"/>
@@ -21,8 +21,12 @@
     <isset property="testpatterns" />
   </condition>
 
-  <condition property="product.name" value="${product}" else="idea">
+  <condition property="product.name" value="${product}" else="studio">
     <isset property="product" />
+  </condition>
+
+  <condition property="studio.ui.tests" value="${enable.ui.tests}" else="">
+    <isset property="enable.ui.tests" />
   </condition>
 
   <property name="tmp.dir" value="${out.dir}/tmp"/>
@@ -41,12 +45,13 @@
     <attribute name="script" />
     <sequential>
       <java failonerror="true" jar="${project.home}/lib/ant/lib/ant-launcher.jar" fork="true">
-        <jvmarg line="-Xmx612m -XX:MaxPermSize=152m"/>
+        <jvmarg line="-Xmx2048m -XX:MaxPermSize=512m"/>
         <jvmarg value="-Djna.nosys=true" />
         <jvmarg value="-Dout=${out.dir}" />
         <jvmarg value="-DbuildNumber=${build.number}" />
         <jvmarg value="-Didea.test.patterns=${test.patterns}" />
         <jvmarg value="-Dproduct=${product.name}" />
+        <jvmarg value="-Dstudio.ui.tests=${studio.ui.tests}" />
         <sysproperty key="java.awt.headless" value="true"/>
         <arg line="&quot;-Dgant.script=@{script}&quot;"/>
         <arg line="&quot;-Dteamcity.build.tempDir=${tmp.dir}&quot;"/>
@@ -65,6 +70,13 @@
     <call_gant script="${project.home}/build/scripts/tests.gant"/>
   </target>
 
+  <target name="guiTests" depends="init">
+    <delete>
+      <fileset dir="${project.home}/build" includes="TEST-com.android.tools.idea.tests.gui.*"/>
+    </delete>
+    <call_gant script="${project.home}/build/scripts/gui_tests.gant"/>
+  </target>
+
   <!-- The build task creates an updater.jar in ${out.dir}. This task bundles the updater and its dependencies into a single jar -->
   <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask" classpath="${project.home}/build/lib/jarjar-1.0.jar"/>
   <target name="fullupdater" depends="build">
@@ -76,5 +88,5 @@
     </jarjar>
   </target>
 
-  <target name="all" depends="cleanup,build"/>
+  <target name="all" depends="cleanup,build,fullupdater"/>
 </project>

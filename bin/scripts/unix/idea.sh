@@ -189,7 +189,7 @@ LD_LIBRARY_PATH="$IDE_BIN_HOME:$LD_LIBRARY_PATH" "$JAVA_BIN" \
   -Djb.restart.code=88 -Didea.paths.selector=@@system_selector@@ \
   $IDE_PROPERTIES_PROPERTY \
   $IDE_JVM_ARGS \
-  com.intellij.idea.Main \
+  @@main_class_name@@ \
   "$@"
 EC=$?
 test $EC -ne 88 && exit $EC

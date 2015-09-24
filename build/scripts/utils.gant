@@ -69,15 +69,20 @@ binding.setVariable("isEap", {
   return "true" == p("component.version.eap")
 })
 
-binding.setVariable("mem32", "-server -Xms128m -Xmx512m -XX:MaxPermSize=250m -XX:ReservedCodeCacheSize=240m")
-binding.setVariable("mem64", "-Xms128m -Xmx750m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=240m")
+binding.setVariable("mem32", "-server -Xms256m -Xmx750m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=240m")
+binding.setVariable("mem64", "-Xms256m -Xmx1280m -XX:MaxPermSize=350m -XX:ReservedCodeCacheSize=240m")
 binding.setVariable("common_vmoptions", "-XX:+UseConcMarkSweepGC -XX:SoftRefLRUPolicyMSPerMB=50 -ea " +
+                                        "-Djna.nosys=true -Djna.boot.library.path=  -Djna.debug_load=true -Djna.debug_load.jna=true " +
                                         "-Dsun.io.useCanonCaches=false -Djava.net.preferIPv4Stack=true " +
                                         "-XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow")
 
 binding.setVariable("vmOptions", { "$common_vmoptions".trim() })
 binding.setVariable("vmOptions32", { "$mem32 ${vmOptions()}".trim() })
 binding.setVariable("vmOptions64", { "$mem64 ${vmOptions()}".trim() })
+binding.setVariable("configNotice", {
+  def notice = p("configNotice")
+  return notice != null ? notice : ""
+})
 
 binding.setVariable("yjpOptions", { String sessionName, String platformSuffix = "" ->
   "-agentlib:yjpagent$platformSuffix=probe_disable=*,disablealloc,disabletracing,onlylocal,disableexceptiontelemetry,delay=10000,sessionname=$sessionName".trim()
@@ -147,7 +152,7 @@ binding.setVariable("loadProject", {
   setPathVariable("KOTLIN_BUNDLED", bundledKotlinPath)
   projectBuilder.buildIncrementally = Boolean.parseBoolean(p("jps.build.incrementally", "false"))
   def dataDirName = projectBuilder.buildIncrementally ? ".jps-incremental-build" : ".jps-build-data"
-  projectBuilder.dataStorageRoot = new File("$home/$dataDirName")
+  projectBuilder.dataStorageRoot = new File("$out/$dataDirName")
   projectBuilder.setupAdditionalLogging(new File("${p("teamcity.build.tempDir", p("java.io.tmpdir"))}/system/build-log/build.log"),
                                         p("jps.build.debug.logging.categories", ""))
   loadProjectFromPath(home)
@@ -264,7 +269,8 @@ projectBuilder.compressJars = false
 
 binding.setVariable("notifyArtifactBuilt", { String artifactPath ->
   if (!FileUtil.startsWith(artifactPath, home)) {
-    projectBuilder.error("Artifact path $artifactPath should start with $home")
+    projectBuilder.info("Artifact path $artifactPath should start with $home")
+    return
   }
   def relativePath = artifactPath.substring(home.length())
   if (relativePath.startsWith("/")) {
@@ -338,9 +344,10 @@ binding.setVariable("commonJvmArgsForTests", {
     "-Didea.home.path=$home",
     "-Didea.config.path=${p("teamcity.build.tempDir")}/config",
     "-Didea.system.path=${p("teamcity.build.tempDir")}/system",
-    "-Xdebug",
+    // We don't want this on the Jenkins build server
+    // "-Xdebug",
+    // jdwp
     "-XX:-OmitStackTraceInFastThrow",
-    jdwp
   ]
 })
 
@@ -467,12 +474,12 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     }
   }
 
-  new File("$path/bin/idea.properties").text = effectiveProperties.toString()
+  new File("$path/bin/idea.properties").text = configNotice() + effectiveProperties.toString()
   String ideaVmOptions = "$mem64 -XX:+UseCompressedOops"
-  if (isEap() && !args.mac_no_yjp) {
+  if (isEap() && productProperties.includeYourkitAgentInEAP && !args.mac_no_yjp) {
     ideaVmOptions += " ${yjpOptions(args.system_selector)}"
   }
-  new File("$path/bin/${executable}.vmoptions").text = ideaVmOptions.split(" ").join("\n")
+  new File("$path/bin/${executable}.vmoptions").text = configNotice() + ideaVmOptions.split(" ").join("\n")
 
   String classPath = classPathLibs.collect {"\$APP_PACKAGE/Contents/lib/${it}" }.join(":")
 
@@ -513,7 +520,7 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     replacefilter(token: "@@executable@@", value: executable)
     replacefilter(token: "@@icns@@", value: icns)
     replacefilter(token: "@@bundle_name@@", value: fullName)
-    replacefilter(token: "@@product_state@@", value: EAP)
+    replacefilter(token: "@@product_state@@", value: args.macShowProductState ? EAP : "")
     replacefilter(token: "@@bundle_identifier@@", value: args.bundleIdentifier)
     replacefilter(token: "@@year@@", value: "$todayYear")
     replacefilter(token: "@@company_name@@", value: p("component.company.name"))
@@ -521,6 +528,7 @@ binding.setVariable("layoutMacApp", { String path, String ch, Map args ->
     replacefilter(token: "@@max_year@@", value: "$todayYear")
     replacefilter(token: "@@version@@", value: version)
     replacefilter(token: "@@vmoptions@@", value: vmOptions)
+    replacefilter(token: "@@main_class_name@@", value: args.main_class_name)
     replacefilter(token: "@@idea_properties@@", value: coreProperties)
     replacefilter(token: "@@class_path@@", value: classPath)
     replacefilter(token: "@@help_id@@", value: helpId)
@@ -566,6 +574,7 @@ binding.setVariable("winScripts", { String target, String home, String name, Map
       filter(token: "product_full", value: fullName)
       filter(token: "product_uc", value: product_uc)
       filter(token: "vm_options", value: vm_options)
+      filter(token: "main_class_name", value: args.main_class_name)
       filter(token: "isEap", value: isEap())
       filter(token: "system_selector", value: args.system_selector)
       filter(token: "ide_jvm_args", value: ifNull(args.ide_jvm_args, ""))
@@ -602,6 +611,7 @@ binding.setVariable("unixScripts", { String target, String home, String name, Ma
       filter(token: "product_full", value: fullName)
       filter(token: "product_uc", value: product_uc)
       filter(token: "vm_options", value: vm_options)
+      filter(token: "main_class_name", value: args.main_class_name)
       filter(token: "isEap", value: isEap())
       filter(token: "system_selector", value: args.system_selector)
       filter(token: "ide_jvm_args", value: ifNull(args.ide_jvm_args, ""))
@@ -620,15 +630,23 @@ binding.setVariable("unixScripts", { String target, String home, String name, Ma
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.sh", eol: "unix")
 })
 
-binding.setVariable("winVMOptions", { String target, String yjpSessionName, String name, String name64 = null ->
+binding.setVariable("winVMOptions", { String target, Map args, String yjpSessionName, String name, String name64 = null ->
   if (name != null) {
     def options = isEap() && yjpSessionName != null ? vmOptions32yjp(yjpSessionName) : vmOptions32()
-    ant.echo(file: "$target/bin/${name}.vmoptions", message: options.replace(' ', '\n'))
+    options += " -Didea.paths.selector=" + args.system_selector + "\n"
+    if (args.ide_jvm_args != null) {
+      options += args.ide_jvm_args + "\n"
+    }
+    ant.echo(file: "$target/bin/${name}.vmoptions", message: configNotice() + options.replace(' ', '\n'))
   }
 
   if (name64 != null) {
     def options = isEap() && yjpSessionName != null ? vmOptions64yjp(yjpSessionName) : vmOptions64()
-    ant.echo(file: "$target/bin/${name64}.vmoptions", message: options.replace(' ', '\n'))
+    options += " -Didea.paths.selector=" + args.system_selector + "\n"
+    if (args.ide_jvm_args != null) {
+      options += args.ide_jvm_args + "\n"
+    }
+    ant.echo(file: "$target/bin/${name64}.vmoptions", message: configNotice() + options.replace(' ', '\n'))
   }
 
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.vmoptions", eol: "dos")
@@ -636,22 +654,24 @@ binding.setVariable("winVMOptions", { String target, String yjpSessionName, Stri
 
 binding.setVariable("unixVMOptions", { String target, String name, String name64 = (name + "64") ->
   if (name != null) {
-    ant.echo(file: "$target/bin/${name}.vmoptions", message: "${vmOptions32()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name}.vmoptions", message: configNotice() + "${vmOptions32()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
   }
   if (name64 != null) {
-    ant.echo(file: "$target/bin/${name64}.vmoptions", message: "${vmOptions64()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
+    ant.echo(file: "$target/bin/${name64}.vmoptions", message: configNotice() + "${vmOptions64()} -Dawt.useSystemAAFontSettings=lcd".trim().replace(' ', '\n'))
   }
   ant.fixcrlf(srcdir: "$target/bin", includes: "*.vmoptions", eol: "unix")
 })
 
-binding.setVariable("unixReadme", { String target, String home, Map args ->
+binding.setVariable("unixReadme", { String target, String home, String name, Map args ->
   String fullName = args.fullName != null ? args.fullName : p("component.names.fullname")
   String settings_dir = args.system_selector.replaceFirst("\\d+", "")
   copyAndPatchFile("$home/build/Install-Linux-tar.txt", "$target/Install-Linux-tar.txt",
                    ["product_full": fullName,
                     "product": p("component.names.product").toLowerCase(),
                     "system_selector": args.system_selector,
-                    "settings_dir": settings_dir], "@@")
+                    "settings_dir": settings_dir,
+                    "script_name": name], "@@")
+
   ant.fixcrlf(file: "$target/bin/Install-Linux-tar.txt", eol: "unix")
 })
 
@@ -680,6 +700,8 @@ binding.setVariable("forceDelete", { String dirPath ->
 
 binding.setVariable("patchPropertiesFile", { String target, Map args = [:] ->
   String file = "$target/bin/idea.properties"
+
+  ant.echo(file: file, message: configNotice());
 
   if (args.appendices != null) {
     ant.concat(destfile: file, append:  true) {
@@ -902,16 +924,17 @@ binding.setVariable("buildCrossPlatformZip", { String zipPath, String sandbox, L
   ant.fixcrlf(file: "$zipDir/bin/win/idea.properties", eol: "dos")
   ant.copy(todir: "$zipDir/bin/linux") {
     fileset(dir: "$distUnix/bin") {
-      include(name: "idea*.vmoptions")
+      include(name: "${productProperties.prefix}*.vmoptions")
     }
   }
   ant.copy(todir: "$zipDir/bin/mac") {
     fileset(dir: "$distMac/bin") {
-      include(name: "idea.vmoptions")
+
+      include(name: "${productProperties.prefix}.vmoptions")
       include(name: "idea.properties")
     }
   }
-  ant.copy(file: "$distMac/bin/idea.vmoptions", tofile: "$zipDir/bin/mac/idea64.vmoptions")
+  ant.copy(file: "$distMac/bin/${productProperties.prefix}.vmoptions", tofile: "$zipDir/bin/mac/${productProperties.prefix}64.vmoptions")
   ant.copy(todir: "$zipDir/bin") {
     fileset(dir: "$distMac/bin") {
       include(name: "*.jnilib")
@@ -929,17 +952,17 @@ binding.setVariable("buildCrossPlatformZip", { String zipPath, String sandbox, L
 
     fileset(dir: distWin) {
       exclude(name: "bin/fsnotifier*.exe")
-      exclude(name: "bin/idea*.exe.vmoptions")
+      exclude(name: "bin/${productProperties.prefix}*.exe.vmoptions")
       exclude(name: "bin/idea*.exe")
     }
     zipfileset(dir: "$distWin/bin", prefix: "bin/win") {
       include(name: "fsnotifier*.exe")
-      include(name: "idea*.exe.vmoptions")
+      include(name: "${productProperties.prefix}*.exe.vmoptions")
     }
 
     fileset(dir: distUnix) {
       exclude(name: "bin/fsnotifier*")
-      exclude(name: "bin/idea*.vmoptions")
+      exclude(name: "bin/${productProperties.prefix}*.vmoptions")
       exclude(name: "bin/*.sh")
       exclude(name: "help/**")
     }
@@ -957,7 +980,7 @@ binding.setVariable("buildCrossPlatformZip", { String zipPath, String sandbox, L
       exclude(name: "bin/*.py")
       exclude(name: "bin/*.jnilib")
       exclude(name: "bin/idea.properties")
-      exclude(name: "bin/idea*.vmoptions")
+      exclude(name: "bin/${productProperties.prefix}*.vmoptions")
     }
     zipfileset(dir: "$distMac/bin", filemode: "775", prefix: "bin") {
       include(name: "restarter*")
@@ -985,6 +1008,7 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
         exclude(name: "MacOS/*")
         exclude(name: "build.txt")
         exclude(name: "NOTICE.txt")
+        exclude(name: "LICENSE.txt")
         extraBins.each {
           exclude(name: it)
         }
@@ -1009,6 +1033,7 @@ binding.setVariable("buildMacZip", { String zipRoot, String zipPath, List paths,
       zipfileset(dir: it, prefix: "$zipRoot/Resources") {
         include(name: "build.txt")
         include(name: "NOTICE.txt")
+        exclude(name: "LICENSE.txt")
       }
     }
 

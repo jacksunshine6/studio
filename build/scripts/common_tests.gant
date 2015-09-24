@@ -94,6 +94,7 @@ target('run_tests': 'Run java tests') {
         }
       }
 
+      formatter(type: 'xml')
       test(name: 'com.intellij.tests.BootstrapTests')
     }
   }

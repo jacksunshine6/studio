@@ -24,6 +24,7 @@ import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
 
 requireProperty("out", "$home/out")
+requireProperty("buildNumber", "SNAPSHOT")
 
 // "out" has to be canonical, otherwise the ant build fails
 // with mysterious errors
@@ -84,6 +85,10 @@ target(compile: "Compile project") {
   bundledJDKs()
   projectBuilder.buildProduction()
   projectBuilder.makeModuleTests(findModule("jps-builders"))
+
+  if (p("studio.ui.tests")) {
+    projectBuilder.makeModuleTests(findModule("android"))
+  }
 }
 
 private String appInfoFile() {
@@ -104,6 +109,7 @@ target('default': 'The default target') {
              system_selector: productProperties.systemSelector(),
              platform_prefix: productProperties.platformPrefix,
              ide_jvm_args: productProperties.ideJvmArgs,
+             main_class_name: productProperties.mainClassName,
              tools_jar: true],
             home, null, paths, true)
   String archiveName = productProperties.archiveName()
@@ -128,6 +134,7 @@ target('build-dist-jars' : 'Target to build jars from locally compiled classes')
              system_selector: productProperties.systemSelector(),
              platform_prefix: productProperties.platformPrefix,
              ide_jvm_args: productProperties.ideJvmArgs,
+             main_class_name: productProperties.mainClassName,
              tools_jar: true],
              home, null, paths)
   String macZipPrefix = productProperties.prefix + productProperties.fullBuildNumber()
@@ -193,7 +200,7 @@ def layoutAll(Map args, String home, String out, Paths _paths = null, buildJps =
   List pathsDist = new File("${paths.sandbox}/bundled.win.jdk/jre").exists() ? [paths.distAll, paths.distWin, "${paths.sandbox}/bundled.win.jdk"] : [paths.distAll, paths.distWin]
   buildWinZip("$paths.artifacts/${archiveName}.win.zip", pathsDist, winAppRoot)
 
-  buildCrossPlatformZip("$paths.artifacts/idea${args.buildNumber}.zip", "${paths.sandbox}/sandbox-ce", [paths.distAll],
+  buildCrossPlatformZip("$paths.artifacts/${archiveName}.zip", "${paths.sandbox}/sandbox-ce", [paths.distAll],
                         paths.distWin, paths.distUnix, paths.distMac)
 
   String macZip = "$paths.artifacts/${archiveName}.mac.zip"
@@ -223,7 +230,7 @@ private layoutWin(Map args, String home, Paths paths) {
   if (productProperties.includeBatchLauncher) {
     winScripts(target, home, "${name}.bat", args)
   }
-  winVMOptions(target, productProperties.includeYourkitAgentInEAP ? args.system_selector : null, "${name}.exe", "${name}64.exe")
+  winVMOptions(target, args, productProperties.includeYourkitAgentInEAP ? args.system_selector : null, "${name}.exe", "${name}64.exe")
   def appInfoModulePath = productProperties.appInfoModulePath
 
   List resourcePaths = ["$home/${appInfoModulePath}/src", "$home/platform/icons/src"]
@@ -280,6 +287,6 @@ private layoutUnix(Map args, String home, Paths paths) {
 
   unixScripts(target, home, "${name}.sh", args)
   unixVMOptions(target, "${name}")
-  unixReadme(target, home, args)
+  unixReadme(target, home, "${name}.sh", args)
   productProperties.customLinLayout(target)
 }
