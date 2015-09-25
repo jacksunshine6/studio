@@ -730,6 +730,7 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
     layoutPlugin("android") {
       fileset(dir: "${androidHome}/android/lib") {
         include(name: "**/*.jar")
+        include(name: "licenses/*")
         exclude(name: "**/fest-*.jar")
         exclude(name: "src/*.jar")
       }
