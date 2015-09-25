@@ -154,13 +154,16 @@ public class ConfigImportHelper {
     // prefer the highest version number, unless the older version has a more recent modification
     // date.
     if (maxFile == null) {
-      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview"));
-      File beta = new File(PathManager.getDefaultConfigPathFor("AndroidStudioBeta")); // relevant when we switch from beta to stable
-      for (File file : new File[] { preview, beta }) {
+      File v1_1 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio"));
+      File v1_2 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.2"));
+      File v1_3 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.3"));
+      File preview = new File(PathManager.getDefaultConfigPathFor("AndroidStudioPreview1.4"));
+      File v1_4 = new File(PathManager.getDefaultConfigPathFor("AndroidStudio1.4"));
+      for (File file : new File[] { v1_1, v1_2, v1_3, preview, v1_4 }) {
         if (!file.isDirectory()) {
           continue;
         }
-        File options = new File(file, CONFIG_RELATED_PATH + OPTIONS_XML);
+        File options = new File(file, OPTIONS_XML);
         if (options.exists()) {
           final long modified = file.lastModified();
           if (modified >= lastModified) {
@@ -170,7 +173,7 @@ public class ConfigImportHelper {
         }
       }
       if (maxFile != null) {
-        // Already have the config folder so don't prepend  CONFIG_RELATED_PATH below
+        // Already have the config folder so don't prepend CONFIG_RELATED_PATH below
         return maxFile;
       }
     }
