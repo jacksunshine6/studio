@@ -111,14 +111,13 @@ def getProperties(String home, String buildNumber) {
         }
 
         dir("plugins") {
-// Disabled until the CIDR code is merged
-//          dir("android-ndk") {
-//            dir("lib") {
-//              jar("android-ndk.jar") {
-//                module("android-ndk")
-//              }
-//            }
-//          }
+          dir("android-ndk") {
+            dir("lib") {
+              jar("android-ndk.jar") {
+                module("android-ndk")
+              }
+            }
+          }
 
           dir("analytics") {
             dir("lib") {
