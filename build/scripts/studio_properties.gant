@@ -73,7 +73,7 @@ def getProperties(String home, String buildNumber) {
       "${projectBuilder.moduleOutput(findModule("adt-branding"))}/idea/AndroidStudioApplicationInfo.xml"
     }
 
-    def String fullBuildNumber() { "AI-$buildNumber" }
+    def String fullBuildNumber() { "AI-$snapshot".replaceAll("SNAPSHOT", buildNumber) }
 
     def String systemSelector() { isEap() ? "${platformPrefix}Preview${p("component.version.major")}"
                                           : "$platformPrefix${p("component.version.major")}"

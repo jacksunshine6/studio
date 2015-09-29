@@ -705,7 +705,8 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
     return
   }
 
-  setPluginVersionAndSince(moduleName, requireProperty("buildNumber", requireProperty("build.number", snapshot)))
+  //studio: commenting out for now, this has been made optional in the IDEA master, so we should use that mechanism after the next merge
+  //setPluginVersionAndSince(moduleName, requireProperty("buildNumber", requireProperty("build.number", snapshot)))
 
   dir(pluginName) {
     dir("lib") {
