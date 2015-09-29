@@ -200,7 +200,7 @@ public final class UpdateChecker {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override
       public void run() {
-        showUpdateResult(project, result, updateSettings, updatedPlugins, incompatiblePlugins, externalUpdates, enableLink, enableLink);
+        showUpdateResult(project, result, updateSettings, updatedPlugins, incompatiblePlugins, externalUpdates, enableLink, manualCheck);
         if (callback != null) {
           callback.setDone();
         }
