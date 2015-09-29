@@ -23,8 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 public class UserDataHolderBase implements UserDataHolderEx, Cloneable {
-  // TEMPORARY:
-  public static final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
+  private static final Key<KeyFMap> COPYABLE_USER_MAP_KEY = Key.create("COPYABLE_USER_MAP_KEY");
 
   /**
    * Concurrent writes to this field are via CASes only, using the {@link #updater}
