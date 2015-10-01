@@ -9,12 +9,14 @@ betas.)
     ../adt/idea/adt-branding/src/idea/AndroidStudioApplicationInfo.xml
 
     Example:
+
     ```
       <version major="1" minor="4" micro="0" patch="7" full="{0}.{1} RC 1" eap="false" />
                      ~~~       ~~~       ~~~       ~~~      ~~~~~~~~~~~~~~
     ```
 
  2. Also make sure that the eap= flag in the same file is correct.
+
     ```
      <version major="1" minor="4" micro="0" patch="7" full="{0}.{1} RC 1" eap="false" />
                                                                           ~~~~~~~~~~~
@@ -29,6 +31,7 @@ betas.)
         `AndroidStudioX.Y`.
 
     The selector is specified in `build/scripts/studio_properties.gant`:
+
     ```
     def selector = "AndroidStudioPreview1.4"
                                  ~~~~~~~~~~
@@ -47,6 +50,7 @@ betas.)
  5. Make sure assertions are turned off.
 
     This is controlled by `build/scripts/utils.gant`:
+
     ```
     binding.setVariable("common_vmoptions", "-XX:+UseConcMarkSweepGC -XX:SoftRefLRUPolicyMSPerMB=50 -da " + ...
                                                                                                    ~~~~~
@@ -57,6 +61,7 @@ betas.)
  6. Make sure -OmitStackTraceInFastThrow is removed.
 
     This is controlled by `build/scripts/utils.gant`:
+
     ```
     binding.setVariable("common_vmoptions", "... -XX:SoftRefLRUPolicyMSPerMB=50 -ea -XX:-OmitStackTraceInFastThrow " + ...
                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
