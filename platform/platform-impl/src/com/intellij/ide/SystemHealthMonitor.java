@@ -19,6 +19,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.intellij.concurrency.JobScheduler;
+import com.intellij.execution.configurations.GeneralCommandLine;
+import com.intellij.execution.util.ExecUtil;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.internal.statistic.analytics.AnalyticsUploader;
@@ -27,28 +29,29 @@ import com.intellij.notification.*;
 import com.intellij.openapi.application.*;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Computable;
-import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.SystemProperties;
 import org.jetbrains.annotations.NonNls;
+import com.intellij.util.TimeoutUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.PropertyKey;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private static final Logger LOG = Logger.getInstance("#com.intellij.ide.SystemHealthMonitor");
@@ -75,7 +78,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   @Override
   public void initComponent() {
     checkJvm();
-    checkIBusPresent();
+    checkIBus();
     startDiskSpaceMonitoring();
 
     if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
@@ -100,70 +103,63 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
   private void checkJvm() {
     if (StringUtil.containsIgnoreCase(System.getProperty("java.vm.name", ""), "OpenJDK")) {
-      notifyUnsupported("unsupported.jvm.openjdk.message");
+      showNotification("unsupported.jvm.openjdk.message");
     }
     else if (StringUtil.endsWithIgnoreCase(System.getProperty("java.version", ""), "-ea")) {
-      notifyUnsupported("unsupported.jvm.ea.message");
+      showNotification("unsupported.jvm.ea.message");
     }
   }
 
-  private void checkIBusPresent() {
-    if (SystemInfo.isLinux || SystemInfo.isFreeBSD) {
-      try {
-        Process proc = Runtime.getRuntime().exec("/bin/ps -C ibus-daemon");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-        try {
-          for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-            if (line.contains("ibus-daemon")) {
-              notifyUnsupported("unsupported.ibus.message");
-              break;
+  private void checkIBus() {
+    if (SystemInfo.isXWindow) {
+      String xim = System.getenv("XMODIFIERS");
+      if (xim != null && xim.contains("im=ibus")) {
+        String version = ExecUtil.execAndReadLine(new GeneralCommandLine("ibus-daemon", "--version"));
+        if (version != null) {
+          Matcher m = Pattern.compile("ibus-daemon - Version ([0-9.]+)").matcher(version);
+          if (m.find() && StringUtil.compareVersionNumbers(m.group(1), "1.5.11") < 0) {
+            String fix = System.getenv("IBUS_ENABLE_SYNC_MODE");
+            if (fix == null || fix.isEmpty() || fix.equals("0") || fix.equalsIgnoreCase("false")) {
+              showNotification("ibus.blocking.warn.message");
             }
           }
-        } finally {
-          reader.close();
         }
-      } catch (IOException ex) {
-        // Ignored, this is best-effort.
       }
     }
   }
 
-  private void notifyUnsupported(@PropertyKey(resourceBundle = "messages.IdeBundle") final String key) {
+  private void showNotification(@PropertyKey(resourceBundle = "messages.IdeBundle") String key) {
     final String ignoreKey = "ignore." + key;
-    final String message = IdeBundle.message(key) + IdeBundle.message("unsupported.dismiss.link");
-    showNotification(ignoreKey, message, new NotificationListener.UrlOpeningListener(false) {
-      @Override
-      protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent event) {
-        if (event.getURL() == null) {
-          myProperties.setValue(ignoreKey, "true");
-          notification.expire();
-        }
-        else {
-          super.hyperlinkActivated(notification, event);
-        }
-      }
-    });
-  }
-
-  private void showNotification(final String ignoreKey, final String message, final NotificationListener hyperlinkAdapter) {
     if (myProperties.isValueSet(ignoreKey)) {
       return;
     }
 
+    final String message = IdeBundle.message(key) + IdeBundle.message("sys.health.acknowledge.link");
+
     final Application app = ApplicationManager.getApplication();
     app.getMessageBus().connect(app).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
       @Override
-      public void appFrameCreated(String[] commandLineArgs, @NotNull Ref<Boolean> willOpenProject) {
-        if (willOpenProject.get()) {
-          app.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-              Notification notification = GROUP.createNotification("System Health", message, NotificationType.WARNING, hyperlinkAdapter);
-              notification.setImportant(true);
-              Notifications.Bus.notify(notification);
-            }
-          });
-        }
+      public void appStarting(@Nullable Project projectFromCommandLine) {
+        app.invokeLater(new Runnable() {
+          @Override
+          public void run() {
+            NotificationListener notificationListener = new NotificationListener.UrlOpeningListener(false) {
+              @Override
+              protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent event) {
+                if ("ack".equals(event.getDescription())) {
+                  myProperties.setValue(ignoreKey, "true");
+                  notification.expire();
+                }
+                else {
+                  super.hyperlinkActivated(notification, event);
+                }
+              }
+            };
+            Notification notification = GROUP.createNotification("System Health", message, NotificationType.WARNING, notificationListener);
+            notification.setImportant(true);
+            Notifications.Bus.notify(notification);
+          }
+        });
       }
     });
   }
@@ -193,7 +189,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
                 // so several times try to recalculate usable space on receiving 0 to be sure
                 long fileUsableSpace = file.getUsableSpace();
                 while (fileUsableSpace == 0) {
-                  Thread.sleep(5000); // hopefully we will not hummer disk too much
+                  TimeoutUtil.sleep(5000);  // hopefully we will not hummer disk too much
                   fileUsableSpace = file.getUsableSpace();
                 }
 
