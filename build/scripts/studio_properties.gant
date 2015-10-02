@@ -214,6 +214,7 @@ def getProperties(String home, String buildNumber) {
 //              fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
 //                include(name: "**/*.jar")
 //              }
+//              fileset(file: "${home}/../../prebuilts/tools/common/m2/repository/tightvnc/tightvnc.jar")
 //            }
 //          }
 
