@@ -57,13 +57,13 @@ public abstract class BreakpointManagerBase<T : BreakpointBase<*>> : BreakpointM
 
     breakpoints.add(breakpoint)
     if (enabled) {
-      doSetBreakpoint(target, breakpoint).rejected { dispatcher.getMulticaster().errorOccurred(breakpoint, it.getMessage() ?: it.toString()) }
+      doSetBreakpoint(target, breakpoint).rejected { dispatcher.multicaster.errorOccurred(breakpoint, it.getMessage() ?: it.toString()) }
     }
     return breakpoint
   }
 
   override fun remove(breakpoint: Breakpoint): Promise<*> {
-    @suppress("UNCHECKED_CAST")
+    @Suppress("UNCHECKED_CAST")
     val b = breakpoint as T
     val existed = breakpoints.remove(b)
     if (existed) {
@@ -93,11 +93,11 @@ public abstract class BreakpointManagerBase<T : BreakpointBase<*>> : BreakpointM
 
   protected fun notifyBreakpointResolvedListener(breakpoint: T) {
     if (breakpoint.isResolved) {
-      dispatcher.getMulticaster().resolved(breakpoint)
+      dispatcher.multicaster.resolved(breakpoint)
     }
   }
 
-  @suppress("UNCHECKED_CAST")
+  @Suppress("UNCHECKED_CAST")
   override fun flush(breakpoint: Breakpoint) = (breakpoint as T).flush(this)
 
   override fun enableBreakpoints(enabled: Boolean): Promise<*> = RejectedPromise<Any?>("Unsupported")

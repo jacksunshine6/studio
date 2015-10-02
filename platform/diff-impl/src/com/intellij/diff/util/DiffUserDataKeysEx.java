@@ -16,8 +16,10 @@
 package com.intellij.diff.util;
 
 import com.intellij.diff.merge.MergeResult;
+import com.intellij.diff.merge.MergeTool;
 import com.intellij.openapi.diff.DiffNavigationContext;
 import com.intellij.openapi.editor.LogicalPosition;
+import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.Couple;
 import com.intellij.openapi.util.Key;
 import com.intellij.util.Function;
@@ -52,7 +54,6 @@ public interface DiffUserDataKeysEx extends DiffUserDataKeys {
   // DiffContext
   //
 
-  Key<String> PLACE = Key.create("Diff.Place");
   Key<JComponent> BOTTOM_PANEL = Key.create("Diff.BottomPanel"); // Could implement Disposable
 
   Key<Boolean> SHOW_READ_ONLY_LOCK = Key.create("Diff.ShowReadOnlyLock");
@@ -61,6 +62,8 @@ public interface DiffUserDataKeysEx extends DiffUserDataKeys {
   // MergeContext / MergeRequest
   //
 
+  // return false if merge window should be prevented from closing and canceling resolve.
+  Key<Condition<MergeTool.MergeViewer>> MERGE_CANCEL_HANDLER = Key.create("Diff.MergeCancelHandler");
   // (title, message)
   Key<Couple<String>> MERGE_CANCEL_MESSAGE = Key.create("Diff.MergeCancelMessage");
   // null -> default

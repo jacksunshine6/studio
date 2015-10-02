@@ -24,7 +24,7 @@ import com.intellij.util.containers.ContainerUtil
 import org.jdom.Element
 import java.io.File
 
-class DefaultProjectStoreImpl(override val project: ProjectImpl, private val pathMacroManager: PathMacroManager) : ComponentStoreImpl() {
+internal class DefaultProjectStoreImpl(override val project: ProjectImpl, private val pathMacroManager: PathMacroManager) : ComponentStoreImpl() {
   companion object {
     val FILE_SPEC = "${StoragePathMacros.APP_CONFIG}/project.default.xml"
   }
@@ -72,8 +72,6 @@ class DefaultProjectStoreImpl(override val project: ProjectImpl, private val pat
     }
 
     override fun expandMacros(file: String) = throw UnsupportedOperationException("Method expandMacros not implemented in " + javaClass)
-
-    override fun collapseMacros(path: String) = throw UnsupportedOperationException("Method collapseMacros not implemented in " + javaClass)
 
     override fun getOldStorage(component: Any, componentName: String, operation: StateStorageOperation) = storage
   }

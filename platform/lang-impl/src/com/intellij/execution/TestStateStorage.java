@@ -154,6 +154,14 @@ public class TestStateStorage implements Disposable {
 
   private void thingsWentWrongLetsReinitialize(IOException e) {
     try {
+      if (myMap != null) {
+        try {
+          myMap.close();
+        }
+        catch (IOException ignore) {
+        }
+        IOUtil.deleteAllFilesStartingWith(myFile);
+      }
       myMap = initializeMap();
       LOG.error("Repaired after crash", e);
     }
