@@ -59,7 +59,7 @@ class Paths {
 
 def paths = new Paths(out)
 setProperty("paths", paths)
-loadProductProperties(home, snapshot)
+loadProductProperties(home, p("buildNumber"))
 
 def loadProductProperties(String home, String buildNumber) {
   requireProperty("product", "idea")
