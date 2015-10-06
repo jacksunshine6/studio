@@ -23,8 +23,6 @@ def getProperties(String root) {
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
   def selector = "AndroidStudio1.4"
-  def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
-  def lldbBinTargetRoot = "bin/lldb"
 
   def enableUITests = System.getProperty("studio.ui.tests") ? !System.getProperty("studio.ui.tests").isEmpty() : false
 
@@ -70,14 +68,6 @@ def getProperties(String root) {
                    }
 
                    layout(targetDirectory) {
-                     dir("${lldbBinTargetRoot}/android") {
-                       fileset(dir: "${lldbBinSrcRoot}/android")
-                     }
-
-                     dir("${lldbBinTargetRoot}/shared") {
-                       fileset(dir: "${lldbBinSrcRoot}/shared")
-                     }
-
                      dir("gradle") {
                        dir("m2repository") {
                          fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
@@ -85,22 +75,6 @@ def getProperties(String root) {
                      }
 
                      dir("plugins") {
-                       dir("android-ndk") {
-                         dir("lib") {
-                           jar("android-ndk.jar") {
-                             module("android-ndk")
-                           }
-                         }
-                       }
-
-                       dir("analytics") {
-                         dir("lib") {
-                           jar("analytics.jar") {
-                             module("analytics")
-                           }
-                         }
-                       }
-
                        dir("google-cloud-tools") {
                          dir("lib") {
                            jar("google-cloud-tools.jar") {
@@ -220,9 +194,6 @@ def getProperties(String root) {
                  },
                  customWinLayout             : { target, home ->
                    layout(target) {
-                     dir("${lldbBinTargetRoot}/win") {
-                       fileset(dir: "${lldbBinSrcRoot}/win")
-                     }
                    }
 
                    if (!aosp) {
@@ -232,25 +203,17 @@ def getProperties(String root) {
                  },
                  customLinLayout             : { target, home ->
                    layout(target) {
-                     dir("${lldbBinTargetRoot}/linux") {
-                       fileset(dir: "${lldbBinSrcRoot}/linux")
-                     }
                    }
                  },
                  customMacLayout             : { target, home ->
                    layout(target) {
-                     dir("${lldbBinTargetRoot}/mac") {
-                       fileset(dir: "${lldbBinSrcRoot}/mac")
-                     }
                    }
                  },
 
                  icon128                     : "$home/$androidRoot/adt-branding/src/artwork/icon_AS_128.png",
                  ico                         : "$home/$androidRoot/adt-branding/src/artwork/androidstudio.ico",
                  icns                        : "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns",
-
-                 extraMacBins                : ["${lldbBinTargetRoot}/mac/bin/LLDBFrontend"],
-                 extraLinBins                : ["${lldbBinTargetRoot}/linux/bin/LLDBFrontend"],]
+        ]
 
     return props[key];
   }
