@@ -117,11 +117,6 @@
     <orderEntry type="module" module-name="json" />
     <orderEntry type="module" module-name="json-tests" scope="TEST" />
     <orderEntry type="module" module-name="typeMigration" />
-    <orderEntry type="module" module-name="cidr-ide" />
-    <orderEntry type="module" module-name="android-ndk" />
-    <orderEntry type="module" module-name="designer" />
     <orderEntry type="module" module-name="sdk-updates" />
-    <orderEntry type="module" module-name="designer" />
-    <orderEntry type="module" module-name="analytics" />
   </component>
 </module>
