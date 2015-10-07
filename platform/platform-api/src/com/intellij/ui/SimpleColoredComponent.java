@@ -113,8 +113,6 @@ public class SimpleColoredComponent extends JComponent implements Accessible, Co
 
   private boolean myAutoInvalidate = !(this instanceof TreeCellRenderer);
 
-  private final AccessibleContext myContext = new MyAccessibleContext();
-
   private boolean myIconOnTheRight = false;
   private boolean myTransparentIconBackground;
 
@@ -1015,39 +1013,21 @@ public class SimpleColoredComponent extends JComponent implements Accessible, Co
 
   @Override
   public AccessibleContext getAccessibleContext() {
-    return myContext;
+    if (accessibleContext == null) {
+      accessibleContext = new MyAccessibleContext();
+    }
+    return accessibleContext;
   }
 
-  private static class MyAccessibleContext extends AccessibleContext {
+  private class MyAccessibleContext extends AccessibleJComponent {
+    @Override
+    public String getAccessibleName() {
+      return getCharSequence(false).toString();
+    }
+
     @Override
     public AccessibleRole getAccessibleRole() {
-      return AccessibleRole.AWT_COMPONENT;
-    }
-
-    @Override
-    public AccessibleStateSet getAccessibleStateSet() {
-      return new AccessibleStateSet();
-    }
-
-    @Override
-    public int getAccessibleIndexInParent() {
-      return 0;
-    }
-
-    @Override
-    public int getAccessibleChildrenCount() {
-      return 0;
-    }
-
-    @Nullable
-    @Override
-    public Accessible getAccessibleChild(int i) {
-      return null;
-    }
-
-    @Override
-    public Locale getLocale() throws IllegalComponentStateException {
-      return Locale.getDefault();
+      return AccessibleRole.LABEL;
     }
   }
 
