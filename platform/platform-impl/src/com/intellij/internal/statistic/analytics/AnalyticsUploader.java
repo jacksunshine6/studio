@@ -222,11 +222,13 @@ public class AnalyticsUploader {
     }
 
     // send all the counters to tools.google.com
-    // @formatter:off
-    postToGoogleLogs(CATEGORY_STUDIO_EXCEPTION, ImmutableMap.of("activity", Long.toString(activityCount),
-                                                            "exc", Long.toString(exceptionCount),
-                                                            "exf", Long.toString(fatalExceptionCount)));
-    // @formatter:on
+    if (!ApplicationManager.getApplication().isInternal()) {
+      // @formatter:off
+      postToGoogleLogs(CATEGORY_STUDIO_EXCEPTION, ImmutableMap.of("activity", Long.toString(activityCount),
+                                                                  "exc", Long.toString(exceptionCount),
+                                                                  "exf", Long.toString(fatalExceptionCount)));
+      // @formatter:on
+    }
   }
 
   public static void postToGoogleLogs(@NotNull final String categoryId, @NotNull final Map<String, String> parameters) {
