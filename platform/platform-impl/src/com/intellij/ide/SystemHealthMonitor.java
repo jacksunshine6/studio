@@ -79,6 +79,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   public void initComponent() {
     checkJvm();
     checkIBus();
+    checkJayatana();
     startDiskSpaceMonitoring();
 
     if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
@@ -124,6 +125,15 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
             }
           }
         }
+      }
+    }
+  }
+
+  private void checkJayatana() {
+    if (SystemInfo.isXWindow) {
+      String javaOptions = System.getenv("JAVA_TOOL_OPTIONS");
+      if (javaOptions != null && javaOptions.contains("jayatana")) {
+        showNotification("jayatana.warn.message");
       }
     }
   }
