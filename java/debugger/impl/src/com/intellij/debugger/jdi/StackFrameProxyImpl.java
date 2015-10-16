@@ -54,6 +54,10 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
     super(threadProxy.getVirtualMachine());
     myThreadProxy = threadProxy;
     myFrameFromBottomIndex = fromBottomIndex;
+
+    for (StackFrameModifier modifier : StackFrameModifier.EP_NAME.getExtensions()) {
+      frame = modifier.modifyStackFrame(frame);
+    }
     myStackFrame = frame;
   }
 
@@ -128,7 +132,11 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
     if (myStackFrame == null) {
       try {
         final ThreadReference threadRef = myThreadProxy.getThreadReference();
-        myStackFrame = threadRef.frame(getFrameIndex());
+        StackFrame frame = threadRef.frame(getFrameIndex());
+        for (StackFrameModifier modifier : StackFrameModifier.EP_NAME.getExtensions()) {
+          frame = modifier.modifyStackFrame(frame);
+        }
+        myStackFrame = frame;
       }
       catch (IndexOutOfBoundsException e) {
         throw new EvaluateException(e.getMessage(), e);
