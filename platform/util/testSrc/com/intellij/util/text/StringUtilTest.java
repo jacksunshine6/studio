@@ -378,6 +378,19 @@ public class StringUtilTest extends TestCase {
     assertEquals("<![CDATA[abcd]]>", XmlStringUtil.wrapInCDATA("abcd"));
     assertEquals("<![CDATA[abcd]]]><![CDATA[]>]]>", XmlStringUtil.wrapInCDATA("abcd]]>"));
     assertEquals("<![CDATA[abcd]]]><![CDATA[]>efgh]]>", XmlStringUtil.wrapInCDATA("abcd]]>efgh"));
-    assertEquals("<![CDATA[123<![CDATA[wow<&>]]]><![CDATA[]>]]]><![CDATA[]><![CDATA[123]]>", XmlStringUtil.wrapInCDATA("123<![CDATA[wow<&>]]>]]><![CDATA[123"));
+    assertEquals("<![CDATA[123<![CDATA[wow<&>]]]><![CDATA[]>]]]><![CDATA[]><![CDATA[123]]>", XmlStringUtil.wrapInCDATA(
+      "123<![CDATA[wow<&>]]>]]><![CDATA[123"));
+  }
+
+  public void testFormatVersionToMajorMinorPatchString() {
+    assertEquals("15.0.0", StringUtil.formatVersionToMajorMinorPatchString("15"));
+    assertEquals("15.1.0", StringUtil.formatVersionToMajorMinorPatchString("15.1"));
+    assertEquals("15.1.3", StringUtil.formatVersionToMajorMinorPatchString("15.1.3"));
+
+    assertEquals("15.1.3.25", StringUtil.formatVersionToMajorMinorPatchString("15.1.3.25"));
+
+    assertEquals("15.1 EAP", StringUtil.formatVersionToMajorMinorPatchString("15.1 EAP"));
+    assertEquals("15 EAP", StringUtil.formatVersionToMajorMinorPatchString("15 EAP"));
+    assertEquals("Not Parsable 15.1.3.25", StringUtil.formatVersionToMajorMinorPatchString("Not Parsable 15.1.3.25"));
   }
 }
