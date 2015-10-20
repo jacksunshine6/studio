@@ -52,6 +52,7 @@ import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.openapi.wm.IdeFrame;
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.HeaderlessTabbedPane;
 import com.intellij.ui.HyperlinkLabel;
 import com.intellij.ui.IdeBorderFactory;
@@ -405,6 +406,11 @@ public class IdeErrorsDialog extends DialogWrapper implements MessagePoolListene
       return;
     }
 
+    disablePlugin(pluginId);
+  }
+
+  // Android Studio: This method is extracted and exposed to call from PluginErrorNotifications.
+  static void disablePlugin(PluginId pluginId) {
     IdeaPluginDescriptor plugin = PluginManager.getPlugin(pluginId);
     final Ref<Boolean> hasDependants = new Ref<Boolean>(false);
     PluginManager.checkDependants(plugin, new Function<PluginId, IdeaPluginDescriptor>() {
@@ -426,7 +432,7 @@ public class IdeErrorsDialog extends DialogWrapper implements MessagePoolListene
 
     Application app = ApplicationManager.getApplication();
     DisablePluginWarningDialog d =
-      new DisablePluginWarningDialog(getRootPane(), plugin.getName(), hasDependants.get(), app.isRestartCapable());
+      new DisablePluginWarningDialog(WindowManager.getInstance().findVisibleFrame().getRootPane(), plugin.getName(), hasDependants.get(), app.isRestartCapable());
     d.show();
     switch (d.getExitCode()) {
       case CANCEL_EXIT_CODE:
