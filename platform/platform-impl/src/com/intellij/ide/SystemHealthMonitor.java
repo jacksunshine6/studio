@@ -65,9 +65,13 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   /** Count of non fatal exceptions in the IDE. */
   private static final AtomicLong ourStudioExceptionCount = new AtomicLong(0);
   private static final AtomicLong ourInitialPersistedExceptionCount = new AtomicLong(0);
+  private static final AtomicLong ourBundledPluginsExceptionCount = new AtomicLong(0);
+  private static final AtomicLong ourNonBundledPluginsExceptionCount = new AtomicLong(0);
 
   private static final Object EXCEPTION_COUNT_LOCK = new Object();
   @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
+  @NonNls private static final String BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE = "studio.exb";
+  @NonNls private static final String NON_BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE = "studio.exp";
 
   private final PropertiesComponent myProperties;
 
@@ -84,8 +88,10 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
 
     if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
       ourStudioActionCount.set(myProperties.getOrInitLong(STUDIO_ACTIVITY_COUNT, 0L));
-      ourStudioExceptionCount.set(getPersistedExceptionCount());
+      ourStudioExceptionCount.set(getPersistedExceptionCount(STUDIO_EXCEPTION_COUNT_FILE));
       ourInitialPersistedExceptionCount.set(ourStudioExceptionCount.get());
+      ourBundledPluginsExceptionCount.set(getPersistedExceptionCount(BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE));
+      ourNonBundledPluginsExceptionCount.set(getPersistedExceptionCount(NON_BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE));
 
       StudioCrashDetection.updateRecordedVersionNumber(ApplicationInfo.getInstance().getStrictVersion());
       startActivityMonitoring();
@@ -284,14 +290,19 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
       public void run() {
         long activityCount = ourStudioActionCount.getAndSet(0);
         long exceptionCount = ourStudioExceptionCount.getAndSet(0);
-        persistExceptionCount(0);
+        long bundledPluginExceptionCount = ourBundledPluginsExceptionCount.getAndSet(0);
+        long nonBundledPluginExceptionCount = ourNonBundledPluginsExceptionCount.getAndSet(0);
+        persistExceptionCount(0, STUDIO_EXCEPTION_COUNT_FILE);
+        persistExceptionCount(0, BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE);
+        persistExceptionCount(0, NON_BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE);
         if (ApplicationManager.getApplication().isInternal()) {
           // should be 0, but accounting for possible crashes in other threads..
-          assert getPersistedExceptionCount() < 5;
+          assert getPersistedExceptionCount(STUDIO_EXCEPTION_COUNT_FILE) < 5;
         }
 
         if (activityCount > 0 || exceptionCount > 0) {
-          AnalyticsUploader.trackExceptionsAndActivity(activityCount, exceptionCount, 0);
+          AnalyticsUploader.trackExceptionsAndActivity(
+            activityCount, exceptionCount, bundledPluginExceptionCount, nonBundledPluginExceptionCount, 0);
 
           // b/24000263
           if (exceptionCount > 1000) {
@@ -313,17 +324,25 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   }
 
   public static void incrementAndSaveExceptionCount() {
-    persistExceptionCount(ourStudioExceptionCount.incrementAndGet());
+    persistExceptionCount(ourStudioExceptionCount.incrementAndGet(), STUDIO_EXCEPTION_COUNT_FILE);
     if (ApplicationManager.getApplication().isInternal()) {
       // should be 0, but accounting for possible crashes in other threads..
-      assert Math.abs(getPersistedExceptionCount() - ourStudioExceptionCount.get()) < 5;
+      assert Math.abs(getPersistedExceptionCount(STUDIO_EXCEPTION_COUNT_FILE) - ourStudioExceptionCount.get()) < 5;
     }
   }
 
-  private static void persistExceptionCount(long count) {
+  public static void incrementAndSaveBundledPluginsExceptionCount() {
+    persistExceptionCount(ourBundledPluginsExceptionCount.incrementAndGet(), BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE);
+  }
+
+  public static void incrementAndSaveNonBundledPluginsExceptionCount() {
+    persistExceptionCount(ourNonBundledPluginsExceptionCount.incrementAndGet(), NON_BUNDLED_PLUGINS_EXCEPTION_COUNT_FILE);
+  }
+
+  private static void persistExceptionCount(long count, @NotNull String countFileName) {
     synchronized (EXCEPTION_COUNT_LOCK) {
       try {
-        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        File f = new File(PathManager.getTempPath(), countFileName);
         Files.write(Long.toString(count), f, Charsets.UTF_8);
       }
       catch (Throwable ignored) {
@@ -331,10 +350,10 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
     }
   }
 
-  private static long getPersistedExceptionCount() {
+  private static long getPersistedExceptionCount(@NotNull String countFileName) {
     synchronized (EXCEPTION_COUNT_LOCK) {
       try {
-        File f = new File(PathManager.getTempPath(), STUDIO_EXCEPTION_COUNT_FILE);
+        File f = new File(PathManager.getTempPath(), countFileName);
         String contents = Files.toString(f, Charsets.UTF_8);
         return Long.parseLong(contents);
       }
