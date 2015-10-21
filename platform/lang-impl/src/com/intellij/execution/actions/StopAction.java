@@ -300,9 +300,13 @@ class StopAction extends DumbAwareAction implements AnAction.TransparentUpdate {
 
   private static boolean canBeStopped(@Nullable RunContentDescriptor descriptor) {
     @Nullable ProcessHandler processHandler = descriptor != null ? descriptor.getProcessHandler() : null;
-    return processHandler != null && !processHandler.isProcessTerminated()
-           && (!processHandler.isProcessTerminating()
-               || processHandler instanceof KillableProcess && ((KillableProcess)processHandler).canKillProcess());
+
+    // Android Studio: always prefer the result from the KillableProcess
+    if (processHandler instanceof KillableProcess) {
+      return ((KillableProcess)processHandler).canKillProcess();
+    }
+
+    return processHandler != null && !processHandler.isProcessTerminated() && !processHandler.isProcessTerminating();
   }
 
   private abstract static class HandlerItem {
