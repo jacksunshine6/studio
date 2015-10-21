@@ -25,7 +25,7 @@ def getProperties(String root) {
   def selector = "AndroidStudioPreview1.5"
   def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
   def lldbBinTargetRoot = "bin/lldb"
-  def gradleVersion = "2.4"
+  def gradleVersion = "2.8"
 
   def enableUITests = System.getProperty("studio.ui.tests") ? !System.getProperty("studio.ui.tests").isEmpty() : false
 
