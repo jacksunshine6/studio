@@ -15,6 +15,7 @@
  */
 package com.intellij.openapi.fileChooser.impl;
 
+import com.intellij.ide.util.AppPropertiesComponentImpl;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.fileChooser.FileSaverDescriptor;
@@ -37,10 +38,18 @@ public final class FileChooserUtil {
   @Nullable
   public static VirtualFile getLastOpenedFile(@Nullable final Project project) {
     if (project != null) {
-      final String path = PropertiesComponent.getInstance(project).getValue(LAST_OPENED_FILE_PATH);
-      if (path != null) {
-        return LocalFileSystem.getInstance().findFileByPath(path);
+      String path = PropertiesComponent.getInstance(project).getValue(LAST_OPENED_FILE_PATH);
+      VirtualFile lastOpenedFile;
+      if (path == null) {
+        //This is the first time project properties are opened, so we get the last opened project from the application properties
+        path = AppPropertiesComponentImpl.getInstance().getValue(LAST_OPENED_FILE_PATH);
+        lastOpenedFile = LocalFileSystem.getInstance().findFileByPath(path);
+        setLastOpenedFile(project, lastOpenedFile);
       }
+      else {
+        lastOpenedFile = LocalFileSystem.getInstance().findFileByPath(path);
+      }
+      return lastOpenedFile;
     }
     return null;
   }
