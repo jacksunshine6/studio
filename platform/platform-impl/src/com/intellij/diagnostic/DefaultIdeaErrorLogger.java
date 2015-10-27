@@ -95,6 +95,7 @@ public class DefaultIdeaErrorLogger implements ErrorLogger {
         MessagePool messagePool = MessagePool.getInstance();
         LogMessage message = messagePool.addIdeFatalMessage(event);
         if (message != null && ApplicationManager.getApplication() != null) {
+          PluginErrorNotifications.maybeNotifyUi(message);
           ErrorNotifier.notifyUi(message, messagePool);
         }
       }
