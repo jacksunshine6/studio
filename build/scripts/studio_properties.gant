@@ -153,6 +153,17 @@ def getProperties(String root) {
                          }
                        }
 
+                       dir("google-appindexing") {
+                         dir("lib") {
+                           jar("google-appindexing.jar") {
+                             module("google-appindexing")
+                           }
+                           fileset(dir: "${home}/../studio/google/appindexing/lib") {
+                             include(name: "**/*.jar")
+                           }
+                         }
+                       }
+
                        dir("google-login") {
                          dir("lib") {
                            jar("google-login.jar") {
