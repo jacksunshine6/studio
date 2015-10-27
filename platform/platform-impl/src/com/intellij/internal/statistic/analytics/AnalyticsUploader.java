@@ -22,12 +22,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.intellij.diagnostic.IdeErrorsDialog;
 import com.intellij.ide.SystemHealthMonitor;
+import com.intellij.ide.plugins.PluginManager;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.internal.statistic.StatisticsUploadAssistant;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.updateSettings.impl.ChannelStatus;
 import com.intellij.openapi.updateSettings.impl.UpdateChecker;
 import com.intellij.openapi.updateSettings.impl.UpdateSettings;
@@ -151,7 +154,7 @@ public class AnalyticsUploader {
       trackCrash(description);
       ++crashCount;
     }
-    trackExceptionsAndActivity(0, 0, crashCount);
+    trackExceptionsAndActivity(0, 0, 0, 0, crashCount);
   }
 
   private static void trackCrash(@NotNull String description) {
@@ -182,7 +185,15 @@ public class AnalyticsUploader {
       }
 
       SystemHealthMonitor.incrementAndSaveExceptionCount();
-
+      PluginId pluginId = IdeErrorsDialog.findPluginId(t);
+      if (pluginId != null) {
+        if (PluginManager.getPlugin(pluginId).isBundled()) {
+          SystemHealthMonitor.incrementAndSaveBundledPluginsExceptionCount();
+        }
+        else {
+          SystemHealthMonitor.incrementAndSaveNonBundledPluginsExceptionCount();
+        }
+      }
       String description = getDescription(t);
       postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
                                        new BasicNameValuePair(EXCEPTION_DESCRIPTION, description),
@@ -201,7 +212,11 @@ public class AnalyticsUploader {
     return ourLastSeenExceptions.getDescriptions();
   }
 
-  public static void trackExceptionsAndActivity(final long activityCount, final long exceptionCount, final long fatalExceptionCount) {
+  public static void trackExceptionsAndActivity(final long activityCount,
+                                                final long exceptionCount,
+                                                final long bundledPluginExceptionCount,
+                                                final long nonBundledPluginExceptionCount,
+                                                final long fatalExceptionCount) {
     if (!trackingEnabled()) {
       return;
     }
@@ -226,6 +241,8 @@ public class AnalyticsUploader {
       // @formatter:off
       postToGoogleLogs(CATEGORY_STUDIO_EXCEPTION, ImmutableMap.of("activity", Long.toString(activityCount),
                                                                   "exc", Long.toString(exceptionCount),
+                                                                  "exb", Long.toString(bundledPluginExceptionCount),
+                                                                  "exp", Long.toString(nonBundledPluginExceptionCount),
                                                                   "exf", Long.toString(fatalExceptionCount)));
       // @formatter:on
     }
