@@ -114,7 +114,9 @@ public class ProjectRootManagerComponent extends ProjectRootManagerImpl implemen
     };
 
     myConnection.subscribe(VirtualFilePointerListener.TOPIC, new MyVirtualFilePointerListener());
-    myDoLogCachesUpdate = ApplicationManager.getApplication().isInternal() && !ApplicationManager.getApplication().isUnitTestMode();
+    // Android Studio: don't log cache updates: they only spam the logs and aren't useful for us anyway
+    // myDoLogCachesUpdate = ApplicationManager.getApplication().isInternal() && !ApplicationManager.getApplication().isUnitTestMode();
+    myDoLogCachesUpdate = false;
   }
 
   @Override
