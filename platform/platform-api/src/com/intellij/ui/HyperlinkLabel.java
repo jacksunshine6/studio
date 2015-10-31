@@ -134,6 +134,13 @@ public class HyperlinkLabel extends HighlightableComponent {
     this.setMinimumSize(preferredSize);
   }
 
+  @Override
+  protected void processComponentKeyEvent(KeyEvent event) {
+    if (event.getModifiers() == 0 && event.getKeyCode() == KeyEvent.VK_SPACE) {
+      event.consume();
+      fireHyperlinkEvent();
+    }
+  }
 
   protected void processMouseEvent(MouseEvent e) {
     if (e.getID() == MouseEvent.MOUSE_EXITED) {

@@ -69,7 +69,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   private static final Object EXCEPTION_COUNT_LOCK = new Object();
   @NonNls private static final String STUDIO_EXCEPTION_COUNT_FILE = "studio.exc";
 
-  @NotNull private final PropertiesComponent myProperties;
+  private final PropertiesComponent myProperties;
 
   public SystemHealthMonitor(@NotNull PropertiesComponent properties) {
     myProperties = properties;
@@ -79,6 +79,7 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
   public void initComponent() {
     checkJvm();
     checkIBus();
+    checkJAyatana();
     startDiskSpaceMonitoring();
 
     if (ApplicationManager.getApplication().isInternal() || StatisticsUploadAssistant.isSendAllowed()) {
@@ -124,6 +125,16 @@ public class SystemHealthMonitor extends ApplicationComponent.Adapter {
             }
           }
         }
+      }
+    }
+  }
+
+  @SuppressWarnings("SpellCheckingInspection")
+  private void checkJAyatana() {
+    if (SystemInfo.isXWindow) {
+      String originalOpts = System.getenv("_ORIGINAL_JAVA_TOOL_OPTIONS");
+      if (originalOpts != null && originalOpts.contains("jayatanaag.jar")) {
+        showNotification("ayatana.menu.warn.message");
       }
     }
   }

@@ -22,8 +22,8 @@ import com.intellij.xdebugger.XSourcePosition
 import com.intellij.xdebugger.breakpoints.XLineBreakpoint
 import gnu.trove.THashMap
 import gnu.trove.THashSet
-import org.jetbrains.util.concurrency.Promise
-import org.jetbrains.util.concurrency.ResolvedPromise
+import org.jetbrains.concurrency.Promise
+import org.jetbrains.concurrency.resolvedPromise
 import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<*>) {
@@ -34,7 +34,7 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
   private val lock = Object()
 
   private val breakpointManager: BreakpointManager
-    get() = debugProcess.vm!!.getBreakpointManager()
+    get() = debugProcess.vm!!.breakpointManager
 
   open fun isAnyFirstLineBreakpoint(breakpoint: Breakpoint) = false
 
@@ -69,7 +69,7 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
     var vmBreakpoints: Collection<Breakpoint> = emptySet()
     synchronized (lock) {
       if (disable) {
-        val list = ideToVmBreakpoints.get(breakpoint) ?: return ResolvedPromise()
+        val list = ideToVmBreakpoints.get(breakpoint) ?: return resolvedPromise()
         val iterator = list.iterator()
         vmBreakpoints = list
         while (iterator.hasNext()) {
@@ -81,13 +81,13 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
         }
       }
       else {
-        vmBreakpoints = ideToVmBreakpoints.remove(breakpoint) ?: return ResolvedPromise()
+        vmBreakpoints = ideToVmBreakpoints.remove(breakpoint) ?: return resolvedPromise()
         if (!vmBreakpoints.isEmpty()) {
           for (vmBreakpoint in vmBreakpoints) {
             vmToIdeBreakpoint.remove(vmBreakpoint, breakpoint)
             if (vmToIdeBreakpoint.containsKey(vmBreakpoint)) {
               // we must not remove vm breakpoint - it is used for another ide breakpoints
-              return ResolvedPromise()
+              return resolvedPromise()
             }
           }
         }
@@ -95,7 +95,7 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
     }
 
     if (vmBreakpoints.isEmpty()) {
-      return ResolvedPromise()
+      return resolvedPromise()
     }
 
     val breakpointManager = breakpointManager
@@ -133,7 +133,7 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
 
   protected fun doSetBreakpoint(breakpoint: XLineBreakpoint<*>?, location: Location, isTemporary: Boolean): Breakpoint {
     if (breakpointResolvedListenerAdded.compareAndSet(false, true)) {
-      breakpointManager.addBreakpointListener(object : BreakpointManager.BreakpointListener {
+      breakpointManager.addBreakpointListener(object : BreakpointListener {
         override fun resolved(breakpoint: Breakpoint) {
           var breakpoints = synchronized (lock) { vmToIdeBreakpoint.get(breakpoint) }
           for (ideBreakpoint in breakpoints) {
@@ -195,7 +195,7 @@ abstract class LineBreakpointManager(private val debugProcess: DebugProcessImpl<
     }
   }
 
-  fun removeAllBreakpoints(): Promise<*> {
+  fun removeAllBreakpoints(): org.jetbrains.concurrency.Promise<*> {
     synchronized (lock) {
       ideToVmBreakpoints.clear()
       vmToIdeBreakpoint.clear()

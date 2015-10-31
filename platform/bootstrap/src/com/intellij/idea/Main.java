@@ -305,7 +305,7 @@ public class Main {
     }
     else {
       message.append("Please report to https://");
-      message.append(isStudio() ? "code.google.com/p/android/issues" : "intellij-support.jetbrains.com/hc/en-us/requests/new");
+      message.append(isStudio() ? "https://code.google.com/p/android/issues" : "http://jb.gg/ide/critical-startup-errors");
       message.append("\n\n");
     }
 

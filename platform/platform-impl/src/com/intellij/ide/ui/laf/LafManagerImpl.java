@@ -124,6 +124,9 @@ public final class LafManagerImpl extends LafManager implements ApplicationCompo
     ourLafClassesAliases.put("idea.dark.laf.classname", DarculaLookAndFeelInfo.CLASS_NAME);
   }
 
+  public static boolean useIntelliJInsteadOfAqua() {
+    return Registry.is("ide.mac.yosemite.laf") && isIntelliJLafEnabled() && SystemInfo.isJavaVersionAtLeast("1.8") && SystemInfo.isMacOSYosemite;
+  }
   /**
    * Invoked via reflection.
    */
@@ -133,7 +136,7 @@ public final class LafManagerImpl extends LafManager implements ApplicationCompo
     List<UIManager.LookAndFeelInfo> lafList = ContainerUtil.newArrayList();
 
     if (SystemInfo.isMac) {
-      if (Registry.is("ide.mac.yosemite.laf") && isIntelliJLafEnabled()) {
+      if (useIntelliJInsteadOfAqua()) {
         lafList.add(new UIManager.LookAndFeelInfo("Default", IntelliJLaf.class.getName()));
       } else {
         lafList.add(new UIManager.LookAndFeelInfo("Default", UIManager.getSystemLookAndFeelClassName()));
@@ -320,8 +323,9 @@ public final class LafManagerImpl extends LafManager implements ApplicationCompo
     }
     final String systemLafClassName = UIManager.getSystemLookAndFeelClassName();
     if (SystemInfo.isMac) {
-      UIManager.LookAndFeelInfo laf = findLaf(Registry.is("ide.mac.yosemite.laf") ? IntelliJLaf.class.getName() : systemLafClassName);
-      LOG.assertTrue(laf != null);
+      String className = useIntelliJInsteadOfAqua() ? IntelliJLaf.class.getName() : systemLafClassName;
+      UIManager.LookAndFeelInfo laf = findLaf(className);
+      LOG.assertTrue(laf != null, "Could not find look and feel: " + className);
       return laf;
     }
     if (PlatformUtils.isRubyMine() || PlatformUtils.isPyCharm()) {
@@ -445,23 +449,25 @@ public final class LafManagerImpl extends LafManager implements ApplicationCompo
 
   @Nullable
   private static Icon getAquaMenuInvertedIcon() {
-    if (!UIUtil.isUnderAquaLookAndFeel()) return null;
-    final Icon arrow = (Icon)UIManager.get("Menu.arrowIcon");
-    if (arrow == null) return null;
+    if (UIUtil.isUnderAquaLookAndFeel() || (SystemInfo.isMac && UIUtil.isUnderIntelliJLaF())) {
+      final Icon arrow = (Icon)UIManager.get("Menu.arrowIcon");
+      if (arrow == null) return null;
 
-    try {
-      final Method method = ReflectionUtil.getMethod(arrow.getClass(), "getInvertedIcon");
-      if (method != null) {
-        return (Icon)method.invoke(arrow);
+      try {
+        final Method method = ReflectionUtil.getMethod(arrow.getClass(), "getInvertedIcon");
+        if (method != null) {
+          return (Icon)method.invoke(arrow);
+        }
+        return null;
       }
-      return null;
+      catch (InvocationTargetException e1) {
+        return null;
+      }
+      catch (IllegalAccessException e1) {
+        return null;
+      }
     }
-    catch (InvocationTargetException e1) {
-      return null;
-    }
-    catch (IllegalAccessException e1) {
-      return null;
-    }
+    return null;
   }
 
   @Override
@@ -599,7 +605,7 @@ public final class LafManagerImpl extends LafManager implements ApplicationCompo
   }
 
   private static void fixMenuIssues(UIDefaults uiDefaults) {
-    if (UIUtil.isUnderAquaLookAndFeel()) {
+    if (UIUtil.isUnderAquaLookAndFeel() || (SystemInfo.isMac && UIUtil.isUnderIntelliJLaF())) {
       // update ui for popup menu to get round corners
       uiDefaults.put("PopupMenuUI", MacPopupMenuUI.class.getCanonicalName());
       uiDefaults.put("Menu.invertedArrowIcon", getAquaMenuInvertedIcon());

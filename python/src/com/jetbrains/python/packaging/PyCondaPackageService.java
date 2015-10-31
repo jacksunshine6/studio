@@ -15,6 +15,7 @@
  */
 package com.jetbrains.python.packaging;
 
+import com.intellij.execution.configurations.PathEnvironmentVariableUtil;
 import com.intellij.execution.process.ProcessOutput;
 import com.intellij.openapi.components.*;
 import com.intellij.openapi.util.SystemInfo;
@@ -79,9 +80,38 @@ public class PyCondaPackageService implements PersistentStateComponent<PyCondaPa
     return CONDA_CHANNELS;
   }
 
+  public void addChannel(@NotNull final String url) {
+    CONDA_CHANNELS.add(url);
+  }
+
+  public void removeChannel(@NotNull final String url) {
+    if (CONDA_CHANNELS.contains(url)) {
+      CONDA_CHANNELS.remove(url);
+    }
+  }
+
   @Nullable
   public static String getCondaPython() {
-    final String condaName = SystemInfo.isWindows ? "python.exe" : "python";
+    final String conda = getCondaExecutable();
+    final String pythonName = SystemInfo.isWindows ? "python.exe" : "python";
+    if (conda != null) {
+      final VirtualFile condaFile = LocalFileSystem.getInstance().findFileByPath(conda);
+      if (condaFile != null) {
+        final VirtualFile condaDir = condaFile.getParent().getParent();
+        final VirtualFile python = condaDir.findChild(pythonName);
+        if (python != null) {
+          return python.getPath();
+        }
+      }
+    }
+    return getCondaExecutable(pythonName);
+  }
+
+  @Nullable
+  public static String getCondaExecutable() {
+    final String condaName = SystemInfo.isWindows ? "conda.exe" : "conda";
+    final File condaInPath = PathEnvironmentVariableUtil.findInPath(condaName);
+    if (condaInPath != null) return condaInPath.getPath();
     return getCondaExecutable(condaName);
   }
 
@@ -111,13 +141,17 @@ public class PyCondaPackageService implements PersistentStateComponent<PyCondaPa
   }
 
   @Nullable
-  private static String findExecutable(String condaName, VirtualFile condaFolder) {
+  private static String findExecutable(String condaName, @Nullable final VirtualFile condaFolder) {
     if (condaFolder != null) {
-      final VirtualFile bin = condaFolder.findChild("bin");
+      final VirtualFile bin = condaFolder.findChild(SystemInfo.isWindows ? "Scripts" : "bin");
       if (bin != null) {
-        final VirtualFile[] children = bin.getChildren();
-        if (children.length == 0) return null;
-        final String executableFile = PythonSdkType.getExecutablePath(children[0].getPath(), condaName);
+        String directoryPath = bin.getPath();
+        if (!SystemInfo.isWindows) {
+          final VirtualFile[] children = bin.getChildren();
+          if (children.length == 0) return null;
+          directoryPath = children[0].getPath();
+        }
+        final String executableFile = PythonSdkType.getExecutablePath(directoryPath, condaName);
         if (executableFile != null) {
           return executableFile;
         }

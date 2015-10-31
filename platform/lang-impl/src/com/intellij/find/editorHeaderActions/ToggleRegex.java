@@ -15,9 +15,9 @@
  */
 package com.intellij.find.editorHeaderActions;
 
-import com.intellij.find.EditorSearchSession;
 import com.intellij.find.FindModel;
 import com.intellij.find.FindSettings;
+import com.intellij.find.SearchSession;
 import org.jetbrains.annotations.NotNull;
 
 public class ToggleRegex extends EditorHeaderToggleAction {
@@ -26,16 +26,16 @@ public class ToggleRegex extends EditorHeaderToggleAction {
   }
 
   @Override
-  protected boolean isSelected(@NotNull EditorSearchSession session) {
+  protected boolean isSelected(@NotNull SearchSession session) {
     return session.getFindModel().isRegularExpressions();
   }
 
   @Override
-  protected void setSelected(@NotNull EditorSearchSession session, boolean selected) {
+  protected void setSelected(@NotNull SearchSession session, boolean selected) {
     FindModel findModel = session.getFindModel();
     findModel.setRegularExpressions(selected);
     if (selected) {
-      findModel.setWholeWordsOnly(true);
+      findModel.setWholeWordsOnly(false);
     }
     FindSettings.getInstance().setLocalRegularExpressions(selected);
   }

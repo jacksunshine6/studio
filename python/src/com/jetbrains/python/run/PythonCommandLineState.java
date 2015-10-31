@@ -49,7 +49,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.JarFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.encoding.EncodingProjectManager;
-import com.intellij.remote.RemoteProcessHandlerBase;
+import com.intellij.remote.RemoteProcessControl;
 import com.intellij.util.PlatformUtils;
 import com.intellij.util.containers.HashMap;
 import com.jetbrains.python.console.PyDebugConsoleBuilder;
@@ -137,7 +137,7 @@ public abstract class PythonCommandLineState extends CommandLineState {
   protected ConsoleView createAndAttachConsole(Project project, ProcessHandler processHandler, Executor executor)
     throws ExecutionException {
     final ConsoleView consoleView = createConsoleBuilder(project).getConsole();
-    consoleView.addMessageFilter(new UrlFilter());
+    consoleView.addMessageFilter(createUrlFilter(processHandler));
 
     addTracebackFilter(project, consoleView, processHandler);
 
@@ -147,14 +147,14 @@ public abstract class PythonCommandLineState extends CommandLineState {
 
   protected void addTracebackFilter(Project project, ConsoleView consoleView, ProcessHandler processHandler) {
     if (PySdkUtil.isRemote(myConfig.getSdk())) {
-      assert processHandler instanceof RemoteProcessHandlerBase;
+      assert processHandler instanceof RemoteProcessControl;
       consoleView
-        .addMessageFilter(new PyRemoteTracebackFilter(project, myConfig.getWorkingDirectory(), (RemoteProcessHandlerBase)processHandler));
+        .addMessageFilter(new PyRemoteTracebackFilter(project, myConfig.getWorkingDirectory(), (RemoteProcessControl)processHandler));
     }
     else {
       consoleView.addMessageFilter(new PythonTracebackFilter(project, myConfig.getWorkingDirectorySafe()));
     }
-    consoleView.addMessageFilter(new UrlFilter()); // Url filter is always nice to have
+    consoleView.addMessageFilter(createUrlFilter(processHandler)); // Url filter is always nice to have
   }
 
   private TextConsoleBuilder createConsoleBuilder(Project project) {
@@ -513,5 +513,10 @@ public abstract class PythonCommandLineState extends CommandLineState {
 
   public void setMultiprocessDebug(boolean multiprocessDebug) {
     myMultiprocessDebug = multiprocessDebug;
+  }
+
+  @NotNull
+  protected UrlFilter createUrlFilter(ProcessHandler handler) {
+    return new UrlFilter();
   }
 }

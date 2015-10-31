@@ -47,6 +47,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 /**
  * @author pti
@@ -229,7 +230,7 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
 
       ChannelStatus current = ChannelStatus.fromCode(mySettings.getUpdateChannelType());
       //noinspection unchecked
-      myUpdateChannels.setModel(new CollectionComboBoxModel<ChannelStatus>(ChannelStatus.all(), current));
+      myUpdateChannels.setModel(new CollectionComboBoxModel<ChannelStatus>(Arrays.asList(ChannelStatus.values()), current));
     }
 
     private void updateLastCheckedLabel() {

@@ -152,7 +152,7 @@ public class UISettings extends SimpleModificationTracker implements PersistentS
   }
 
   /**
-   * @deprecated use {@link UISettings#addUISettingsListener(com.intellij.ide.ui.UISettingsListener, Disposable disposable)} instead.
+   * @deprecated use {@link UISettings#addUISettingsListener(UISettingsListener, Disposable disposable)} instead.
    */
   public void addUISettingsListener(UISettingsListener listener) {
     myDispatcher.addListener(listener);
@@ -282,15 +282,17 @@ public class UISettings extends SimpleModificationTracker implements PersistentS
    */
   public static void setupAntialiasing(final Graphics g) {
 
+    Graphics2D g2d = (Graphics2D)g;
+    g2d.setRenderingHint(RenderingHints.KEY_TEXT_LCD_CONTRAST,  UIUtil.getLcdContrastValue());
+
     Application application = ApplicationManager.getApplication();
     if (application == null) {
-      // We cannot use services while Aplication has not been loaded yet
+      // We cannot use services while Application has not been loaded yet
       // So let's apply the default hints.
       UIUtil.applyRenderingHints(g);
       return;
     }
 
-    Graphics2D g2d = (Graphics2D)g;
     UISettings uiSettings = getInstance();
 
     if (uiSettings != null) {
@@ -299,7 +301,7 @@ public class UISettings extends SimpleModificationTracker implements PersistentS
       g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
     }
 
-    setupFractionalMetrics(g2d);
+      setupFractionalMetrics(g2d);
   }
 
   /**

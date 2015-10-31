@@ -40,12 +40,20 @@ private fun StateStorage.ExternalizationSession.save() {
 
 private fun StateStorageBase<*>.setStateAndSave(componentName: String, state: String?) {
   var externalizationSession = startExternalization()!!
-  externalizationSession.setState(null, componentName, if (state == null) Element("state") else JDOMUtil.load(state.reader))
+  externalizationSession.setState(null, componentName, if (state == null) Element("state") else JDOMUtil.load(state.reader()))
   externalizationSession.save()
 }
 
-@Bombed(year = 2015, month = Calendar.SEPTEMBER, day = 30)
-class DirectoryBasedStorageTest {
+internal class TestStateSplitter : MainConfigurationStateSplitter() {
+  override fun getComponentStateFileName() = "main"
+
+  override fun getSubStateTagName() = "sub"
+
+  override fun getSubStateFileName(element: Element) = element.getAttributeValue("name")
+}
+
+@Bombed(year = 2015, month = Calendar.DECEMBER, day = 10)
+internal class DirectoryBasedStorageTest {
   companion object {
     @ClassRule val projectRule = ProjectRule()
   }
@@ -57,13 +65,7 @@ class DirectoryBasedStorageTest {
 
   @Test fun save() {
     val dir = tempDirManager.newPath()
-    val storage = DirectoryBasedStorage(dir.toFile(), object : MainConfigurationStateSplitter() {
-      override fun getComponentStateFileName() = "main"
-
-      override fun getSubStateTagName() = "sub"
-
-      override fun getSubStateFileName(element: Element) = element.getAttributeValue("name")
-    })
+    val storage = DirectoryBasedStorage(dir.toFile(), TestStateSplitter())
 
     val componentName = "test"
 

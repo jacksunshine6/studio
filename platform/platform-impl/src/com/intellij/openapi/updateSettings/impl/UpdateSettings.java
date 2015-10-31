@@ -52,7 +52,7 @@ public class UpdateSettings implements PersistentStateComponent<UpdateSettings.S
     public long LAST_TIME_CHECKED = 0;
 
     public String LAST_BUILD_CHECKED;
-    public String UPDATE_CHANNEL_TYPE = ChannelStatus.RELEASE_CODE;
+    public String UPDATE_CHANNEL_TYPE = ChannelStatus.RELEASE.getCode();
     public boolean SECURE_CONNECTION = true;
   }
 
@@ -119,7 +119,7 @@ public class UpdateSettings implements PersistentStateComponent<UpdateSettings.S
 
   private void updateDefaultChannel() {
     if (UpdateStrategyCustomization.getInstance().forceEapUpdateChannelForEapBuilds() && ApplicationInfoImpl.getShadowInstance().isEAP()) {
-      myState.UPDATE_CHANNEL_TYPE = ChannelStatus.EAP_CODE;
+      myState.UPDATE_CHANNEL_TYPE = ChannelStatus.EAP.getCode();
     }
   }
 

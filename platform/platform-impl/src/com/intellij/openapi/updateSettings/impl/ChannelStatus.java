@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2009 JetBrains s.r.o.
+ * Copyright 2000-2015 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,63 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * @author max
- */
 package com.intellij.openapi.updateSettings.impl;
 
-import com.intellij.util.containers.ContainerUtil;
-import org.jetbrains.annotations.NonNls;
+/**
+ * @author max
+ */
+public enum ChannelStatus {
+  EAP("eap", "Canary Channel"),
+  MILESTONE("milestone", "Dev Channel"),
+  BETA("beta", "Beta Channel"),
+  RELEASE("release", "Stable Channel");
 
-import java.util.List;
-
-public class ChannelStatus implements Comparable<ChannelStatus> {
-  @NonNls public static final String EAP_CODE = "eap";
-  @NonNls public static final String RELEASE_CODE = "release";
-
-  /**
-   * EAP is our Canary Channel.
-   * <p/>
-   * From the updates.xml description: <br/>
-   * Canary builds are the bleeding edge, released about weekly. While these builds do get tested,
-   * they are still subject to bugs, as we want people to see what's new as soon as possible.
-   * This is not recommended for production.
-   */
-  public static final ChannelStatus EAP = new ChannelStatus(0, EAP_CODE, "Canary Channel");
-  /**
-   * Milestone is our Dev Channel.
-   * <p/>
-   * From the updates.xml description: <br/>
-   * Dev channel builds are hand-picked older canary builds that survived the test of time.
-   * It's updated roughly every month.
-   */
-  public static final ChannelStatus MILESTONE = new ChannelStatus(1, "milestone", "Dev Channel");
-  public static final ChannelStatus BETA = new ChannelStatus(2, "beta", "Beta Channel");
-  public static final ChannelStatus RELEASE = new ChannelStatus(3, RELEASE_CODE, "Stable Channel");
-
-  private static final List<ChannelStatus> ALL_TYPES = ContainerUtil.immutableList(RELEASE, BETA, MILESTONE, EAP);
-
-  private final int myOrder;
   private final String myCode;
   private final String myDisplayName;
 
-  private ChannelStatus(int order, String code, String displayName) {
-    myOrder = order;
+  ChannelStatus(String code, String displayName) {
     myCode = code;
     myDisplayName = displayName;
   }
 
   public static ChannelStatus fromCode(String code) {
-    if (EAP_CODE.equalsIgnoreCase(code)) return EAP;
-    if ("milestone".equalsIgnoreCase(code)) return MILESTONE;
-    if ("beta".equalsIgnoreCase(code)) return BETA;
-
+    for (ChannelStatus type : values()) {
+      if (type.getCode().equalsIgnoreCase(code)) {
+        return type;
+      }
+    }
     return RELEASE;
-  }
-
-  public int compareTo(ChannelStatus o) {
-    return myOrder - o.myOrder;
   }
 
   public String getCode() {
@@ -78,10 +47,6 @@ public class ChannelStatus implements Comparable<ChannelStatus> {
 
   public String getDisplayName() {
     return myDisplayName;
-  }
-
-  public static List<ChannelStatus> all() {
-    return ALL_TYPES;
   }
 
   @Override

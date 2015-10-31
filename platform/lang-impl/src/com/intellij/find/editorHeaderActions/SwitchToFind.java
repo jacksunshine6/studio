@@ -3,10 +3,7 @@ package com.intellij.find.editorHeaderActions;
 import com.intellij.find.EditorSearchSession;
 import com.intellij.find.FindModel;
 import com.intellij.find.FindUtil;
-import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.IdeActions;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.keymap.KeymapUtil;
 import com.intellij.openapi.project.DumbAware;
 import org.jetbrains.annotations.NotNull;
@@ -52,7 +49,7 @@ public class SwitchToFind extends AnAction implements DumbAware {
 
     EditorSearchSession search = e.getRequiredData(EditorSearchSession.SESSION_KEY);
     final FindModel findModel = search.getFindModel();
-    FindUtil.configureFindModel(false, null, findModel, false);
+    FindUtil.configureFindModel(false, e.getData(CommonDataKeys.EDITOR_EVEN_IF_INACTIVE), findModel, false);
     search.getComponent().getSearchTextComponent().selectAll();
   }
 }

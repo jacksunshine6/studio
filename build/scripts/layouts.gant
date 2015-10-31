@@ -34,6 +34,9 @@ boolean maySkipAndroidPlugin() {
   return isDefined("productProperties") && productProperties.maySkipAndroidPlugin
 }
 
+boolean setPluginAndIDEVersionInPluginXml() {
+  return !isDefined("productProperties") || productProperties.setPluginAndIDEVersionInPluginXml
+}
 
 String appInfoModule() {
   return isDefined("productProperties") ? productProperties.appInfoModule : "community-resources"
@@ -183,7 +186,7 @@ def layoutFull(String home, String targetDirectory, String patchedDescriptorDir 
 
       jar("extensions.jar") { module("extensions")}
 
-      jar("idea.jar") {
+      jar([name: "idea.jar", duplicate: "preserve"]) {
         implementationModules.each { module it}
       }
 
@@ -670,7 +673,9 @@ def setPluginVersionAndSince(String moduleName, String version) {
   if (file.isFile()) {
     def text = file.text
     if (!text.contains("<version>")) {
-      file.text = text.replace("</id>", "</id>\n  <version>${version}</version>\n  <idea-version since-build=\"${version}\" until-build=\"${version}\"/>\n")
+      def dotIndex = version.indexOf('.')
+      def untilBuild = dotIndex > 0 ? (Integer.parseInt(version.substring(0, dotIndex)) + 1).toString() + ".0" : version
+      file.text = text.replace("</id>", "</id>\n  <version>${version}</version>\n  <idea-version since-build=\"${version}\" until-build=\"${untilBuild}\"/>\n")
     }
   }
 }
@@ -705,8 +710,9 @@ def layoutPlugin(String pluginName, String moduleName, String jarName, Closure c
     return
   }
 
-  //studio: commenting out for now, this has been made optional in the IDEA master, so we should use that mechanism after the next merge
-  //setPluginVersionAndSince(moduleName, requireProperty("buildNumber", requireProperty("build.number", snapshot)))
+  if (setPluginAndIDEVersionInPluginXml()) {
+    setPluginVersionAndSince(moduleName, requireProperty("buildNumber", requireProperty("build.number", snapshot)))
+  }
 
   dir(pluginName) {
     dir("lib") {

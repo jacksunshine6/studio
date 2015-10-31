@@ -20,17 +20,17 @@ import io.netty.channel.Channel
 import io.netty.channel.ChannelFuture
 import io.netty.channel.ChannelFutureListener
 import io.netty.channel.oio.OioEventLoopGroup
+import org.jetbrains.concurrency.AsyncPromise
+import org.jetbrains.concurrency.Promise
+import org.jetbrains.concurrency.catchError
+import org.jetbrains.concurrency.resolvedPromise
 import org.jetbrains.jsonProtocol.Request
 import org.jetbrains.rpc.MessageProcessor
 import org.jetbrains.rpc.MessageWriter
-import org.jetbrains.util.concurrency.AsyncPromise
-import org.jetbrains.util.concurrency.Promise
-import org.jetbrains.util.concurrency.ResolvedPromise
-import org.jetbrains.util.concurrency.catchError
 import java.util.concurrent.TimeUnit
 import org.jetbrains.concurrency.Promise as OJCPromise
 
-public open class StandaloneVmHelper(private val vm: Vm, private val messageProcessor: MessageProcessor) : MessageWriter(), AttachStateManager {
+open class StandaloneVmHelper(private val vm: Vm, private val messageProcessor: MessageProcessor) : MessageWriter(), AttachStateManager {
   private @Volatile var channel: Channel? = null
 
   override fun write(content: ByteBuf) = write((content as Any))
@@ -40,16 +40,16 @@ public open class StandaloneVmHelper(private val vm: Vm, private val messageProc
     return if (currentChannel == null || !currentChannel.isActive) null else currentChannel
   }
 
-  public fun write(content: Any): Boolean {
+  fun write(content: Any): Boolean {
     val channel = getChannelIfActive()
     return channel != null && !channel.writeAndFlush(content).isCancelled
   }
 
-  public interface VmEx : Vm {
-    public fun createDisconnectRequest(): Request<out Any?>?
+  interface VmEx : Vm {
+    fun createDisconnectRequest(): Request<out Any>?
   }
 
-  public fun setChannel(channel: Channel) {
+  fun setChannel(channel: Channel) {
     this.channel = channel
     channel.closeFuture().addListener(MyChannelFutureListener())
   }
@@ -67,7 +67,7 @@ public open class StandaloneVmHelper(private val vm: Vm, private val messageProc
   override fun isAttached() = channel != null
 
   override fun detach(): Promise<*> {
-    val currentChannel = channel ?: return ResolvedPromise()
+    val currentChannel = channel ?: return resolvedPromise()
 
     messageProcessor.cancelWaitingRequests()
     val disconnectRequest = (vm as? VmEx)?.createDisconnectRequest()
@@ -82,8 +82,7 @@ public open class StandaloneVmHelper(private val vm: Vm, private val messageProc
 
     messageProcessor.closed()
     channel = null
-    @Suppress("USELESS_CAST")
-    val p = messageProcessor.send(disconnectRequest) as OJCPromise<*>
+    val p = messageProcessor.send(disconnectRequest)
     p.processed {
       promise.catchError {
         messageProcessor.cancelWaitingRequests()

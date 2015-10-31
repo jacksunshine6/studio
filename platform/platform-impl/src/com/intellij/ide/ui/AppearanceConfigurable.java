@@ -18,7 +18,8 @@ package com.intellij.ide.ui;
 import com.intellij.ide.IdeBundle;
 import com.intellij.ide.ui.laf.darcula.DarculaInstaller;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.components.ComponentsPackage;
+import com.intellij.openapi.components.ServiceKt;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.colors.ex.DefaultColorSchemesManager;
 import com.intellij.openapi.editor.colors.impl.EditorColorsManagerImpl;
 import com.intellij.openapi.editor.ex.util.EditorUtil;
@@ -28,11 +29,11 @@ import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
+import com.intellij.ui.ListCellRendererWrapper;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import com.intellij.openapi.diagnostic.Logger;
 import sun.swing.SwingUtilities2;
 
 import javax.swing.*;
@@ -48,15 +49,9 @@ import java.util.Hashtable;
  * @author Eugene Belyaev
  */
 public class AppearanceConfigurable extends BaseConfigurable implements SearchableConfigurable {
-
   private static final Logger LOG = Logger.getInstance("#com.intellij.ide.ui.AppearanceConfigurable");
 
   private MyComponent myComponent;
-
-  @Override
-  public String getDisplayName() {
-    return IdeBundle.message("title.appearance");
-  }
 
   public AppearanceConfigurable() {
     myComponent = new MyComponent();
@@ -66,32 +61,29 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     if (myComponent == null)  {
       myComponent = new MyComponent();
     }
-
   }
 
-  private static final ListCellRenderer  ourListCellRenderer = new ListCellRenderer() {
-
-    private final DefaultListCellRenderer ourDefaultListCellRenderer = new DefaultListCellRenderer();
-
-    @Override
-    public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-      if (AntialiasingType.SUBPIXEL.equals(value)) {
-        ourDefaultListCellRenderer.putClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, new SwingUtilities2.AATextInfo(RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB, 140));
-      } else if (AntialiasingType.GREYSCALE.equals(value)) {
-        ourDefaultListCellRenderer.putClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY,new SwingUtilities2.AATextInfo(RenderingHints.VALUE_TEXT_ANTIALIAS_ON, 140));
-      } else if (AntialiasingType.OFF.equals(value)) {
-        ourDefaultListCellRenderer.putClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, null);
-      }
-
-      ourDefaultListCellRenderer.setText(value.toString());
-
-      return ourDefaultListCellRenderer;
-    }
-  };
+  @Override
+  public String getDisplayName() {
+    return IdeBundle.message("title.appearance");
+  }
 
   @Override
-  public JComponent createComponent() {
+  @NotNull
+  public String getId() {
+    //noinspection ConstantConditions
+    return getHelpTopic();
+  }
 
+  @Override
+  @Nullable
+  public Runnable enableSearch(String option) {
+    return null;
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public JComponent createComponent() {
     UISettings settings = UISettings.getInstance();
 
     initComponent();
@@ -109,13 +101,11 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     myComponent.myAntialiasingInEditor.setModel(new DefaultComboBoxModel(AntialiasingType.values()));
 
     myComponent.myAntialiasingInIDE.setSelectedItem(settings.IDE_AA_TYPE);
-
     myComponent.myAntialiasingInEditor.setSelectedItem(settings.EDITOR_AA_TYPE);
+    myComponent.myAntialiasingInIDE.setRenderer(new AAListCellRenderer());
+    myComponent.myAntialiasingInEditor.setRenderer(new AAListCellRenderer());
 
-    myComponent.myAntialiasingInIDE.setRenderer(ourListCellRenderer);
-    myComponent.myAntialiasingInEditor.setRenderer(ourListCellRenderer);
-
-    Dictionary<Integer, JComponent> delayDictionary = new Hashtable<Integer, JComponent>();
+    @SuppressWarnings("UseOfObsoleteCollectionType") Dictionary<Integer, JComponent> delayDictionary = new Hashtable<Integer, JComponent>();
     delayDictionary.put(new Integer(0), new JLabel("0"));
     delayDictionary.put(new Integer(1200), new JLabel("1200"));
     //delayDictionary.put(new Integer(2400), new JLabel("2400"));
@@ -185,6 +175,11 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
 
     if (!myComponent.myAntialiasingInIDE.getSelectedItem().equals(settings.IDE_AA_TYPE)) {
       settings.IDE_AA_TYPE = (AntialiasingType)myComponent.myAntialiasingInIDE.getSelectedItem();
+      for (Window w : Window.getWindows()) {
+        for (JComponent c : UIUtil.uiTraverser(w).filter(JComponent.class)) {
+          c.putClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, AntialiasingType.getAAHintForSwingComponent());
+        }
+      }
       shouldUpdateUI = true;
     }
 
@@ -238,7 +233,7 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     if (settings.COLOR_BLINDNESS != blindness) {
       settings.COLOR_BLINDNESS = blindness;
       update = true;
-      ComponentsPackage.getStateStore(ApplicationManager.getApplication()).reloadState(DefaultColorSchemesManager.class);
+      ServiceKt.getStateStore(ApplicationManager.getApplication()).reloadState(DefaultColorSchemesManager.class);
       updateEditorScheme = true;
     }
 
@@ -536,16 +531,25 @@ public class AppearanceConfigurable extends BaseConfigurable implements Searchab
     }
   }
 
-  @Override
-  @NotNull
-  public String getId() {
-    //noinspection ConstantConditions
-    return getHelpTopic();
-  }
+  private static class AAListCellRenderer extends ListCellRendererWrapper<AntialiasingType> {
+    private static final SwingUtilities2.AATextInfo SUBPIXEL_HINT = new SwingUtilities2.AATextInfo(
+      RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB, UIUtil.getLcdContrastValue());
+    private static final SwingUtilities2.AATextInfo GREYSCALE_HINT = new SwingUtilities2.AATextInfo(
+      RenderingHints.VALUE_TEXT_ANTIALIAS_ON, UIUtil.getLcdContrastValue());
 
-  @Override
-  @Nullable
-  public Runnable enableSearch(String option) {
-    return null;
+    @Override
+    public void customize(JList list, AntialiasingType value, int index, boolean selected, boolean hasFocus) {
+      if (value == AntialiasingType.SUBPIXEL) {
+        setClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, SUBPIXEL_HINT);
+      }
+      else if (value == AntialiasingType.GREYSCALE) {
+        setClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, GREYSCALE_HINT);
+      }
+      else if (value == AntialiasingType.OFF) {
+        setClientProperty(SwingUtilities2.AA_TEXT_PROPERTY_KEY, null);
+      }
+
+      setText(value.toString());
+    }
   }
 }

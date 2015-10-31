@@ -15,6 +15,7 @@
  */
 package org.jetbrains.debugger.connection
 
+import com.intellij.ide.browsers.WebBrowser
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import com.intellij.util.EventDispatcher
@@ -22,18 +23,21 @@ import com.intellij.util.io.socketConnection.ConnectionState
 import com.intellij.util.io.socketConnection.ConnectionStatus
 import com.intellij.util.io.socketConnection.SocketConnectionListener
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.concurrency.AsyncPromise
+import org.jetbrains.concurrency.Promise
+import org.jetbrains.concurrency.isPending
+import org.jetbrains.concurrency.resolvedPromise
 import org.jetbrains.debugger.DebugEventListener
 import org.jetbrains.debugger.Vm
-import org.jetbrains.util.concurrency.AsyncPromise
-import org.jetbrains.util.concurrency.Promise
-import org.jetbrains.util.concurrency.ResolvedPromise
-import org.jetbrains.util.concurrency.isPending
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.event.HyperlinkListener
 
-abstract class VmConnection<T : Vm> : Disposable, BrowserConnection {
-  private val state = AtomicReference(ConnectionState(ConnectionStatus.NOT_CONNECTED))
+abstract class VmConnection<T : Vm> : Disposable {
+  open val browser: WebBrowser? = null
+
+  private val stateRef = AtomicReference(ConnectionState(ConnectionStatus.NOT_CONNECTED))
+
   private val dispatcher = EventDispatcher.create(DebugEventListener::class.java)
   private val connectionDispatcher = EventDispatcher.create(SocketConnectionListener::class.java)
 
@@ -43,7 +47,8 @@ abstract class VmConnection<T : Vm> : Disposable, BrowserConnection {
   private val opened = AsyncPromise<Any?>()
   private val closed = AtomicBoolean()
 
-  override fun getState() = state.get()
+  val state: ConnectionState
+    get() = stateRef.get()
 
   fun addDebugListener(listener: DebugEventListener) {
     dispatcher.addListener(listener)
@@ -52,13 +57,13 @@ abstract class VmConnection<T : Vm> : Disposable, BrowserConnection {
   @TestOnly
   fun opened(): Promise<*> = opened
 
-  override fun executeOnStart(runnable: Runnable) {
+  fun executeOnStart(runnable: Runnable) {
     opened.done { runnable.run() }
   }
 
   protected fun setState(status: ConnectionStatus, message: String? = null, messageLinkListener: HyperlinkListener? = null) {
     val newState = ConnectionState(status, message, messageLinkListener)
-    val oldState = state.getAndSet(newState)
+    val oldState = stateRef.getAndSet(newState)
     if (oldState == null || oldState.status != status) {
       if (status == ConnectionStatus.CONNECTION_FAILED) {
         opened.setError(newState.message)
@@ -67,7 +72,7 @@ abstract class VmConnection<T : Vm> : Disposable, BrowserConnection {
     }
   }
 
-  override fun addListener(listener: SocketConnectionListener) {
+  fun addListener(listener: SocketConnectionListener) {
     connectionDispatcher.addListener(listener)
   }
 
@@ -102,7 +107,7 @@ abstract class VmConnection<T : Vm> : Disposable, BrowserConnection {
     val currentVm = vm
     val callback: Promise<*>
     if (currentVm == null) {
-      callback = ResolvedPromise()
+      callback = resolvedPromise()
     }
     else {
       vm = null

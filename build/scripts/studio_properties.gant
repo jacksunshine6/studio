@@ -67,6 +67,7 @@ def getProperties(String home, String buildNumber) {
                       "#\n"
       mainClassName = enableUITests ? "com.intellij.ide.BootstrapUITestRunner" : "com.intellij.idea.Main"
       macShowProductState = false
+      setPluginAndIDEVersionInPluginXml = false
     }
 
     def String appInfoFile() {
