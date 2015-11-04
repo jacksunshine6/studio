@@ -1972,7 +1972,7 @@ public abstract class DialogWrapper {
 
     private ErrorText() {
       setLayout(new BorderLayout());
-      myLabel.setIcon(AllIcons.Actions.Lightning);
+      myLabel.setIcon(AllIcons.General.Error);
       myLabel.setBorder(JBUI.Borders.empty(4, 10, 0, 2));
       JBScrollPane pane =
         new JBScrollPane(myLabel, ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
