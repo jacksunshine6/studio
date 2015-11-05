@@ -75,10 +75,10 @@ public class ExceptionWorker {
     final String fileAndLine = line.substring(lparenthIndex + 1, rparenthIndex).trim();
 
     final int colonIndex = fileAndLine.lastIndexOf(':');
-    if (colonIndex < 0) return;
-
-    final int lineNumber = getLineNumber(fileAndLine.substring(colonIndex + 1));
-    if (lineNumber < 0) return;
+    int lineNumber = 1;
+    if (colonIndex >= 0) {
+      lineNumber = getLineNumber(fileAndLine.substring(colonIndex + 1));
+    }
 
     Pair<PsiClass[], PsiFile[]> pair = myCache.resolveClass(myInfo.first.substring(line).trim());
     myClasses = pair.first;
