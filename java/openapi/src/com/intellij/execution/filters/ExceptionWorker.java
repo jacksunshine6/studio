@@ -84,9 +84,11 @@ public class ExceptionWorker {
     myClasses = pair.first;
     myFiles = pair.second;
     if (myFiles.length == 0) {
+      // If there is no colon, we use everything as filename
+      String fileName = colonIndex >= 0 ? fileAndLine.substring(0, colonIndex) : fileAndLine;
       // try find the file with the required name
       //todo[nik] it would be better to use FilenameIndex here to honor the scope by it isn't accessible in Open API
-      myFiles = PsiShortNamesCache.getInstance(myProject).getFilesByName(fileAndLine.substring(0, colonIndex).trim());
+      myFiles = PsiShortNamesCache.getInstance(myProject).getFilesByName(fileName.trim());
     }
     if (myFiles.length == 0) return;
 
