@@ -201,6 +201,8 @@
 
     <extensionPoint name="debuggerClassFilterProvider" interface="com.intellij.ui.classFilter.DebuggerClassFilterProvider"/>
 
+    <extensionPoint name="debuggerStackFrameModifier" interface="com.intellij.debugger.jdi.StackFrameModifier"/>
+
     <extensionPoint name="debuggerEditorTextProvider" beanClass="com.intellij.lang.LanguageExtensionPoint" >
       <with attribute="implementationClass" implements="com.intellij.debugger.impl.EditorTextProvider"/>
     </extensionPoint>
