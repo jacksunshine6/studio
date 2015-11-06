@@ -57,6 +57,7 @@ class StopAction extends DumbAwareAction implements AnAction.TransparentUpdate {
            || ActionPlaces.MAIN_TOOLBAR.equals(e.getPlace())
            || ActionPlaces.NAVIGATION_BAR_TOOLBAR.equals(e.getPlace());
   }
+
   @Override
   public void update(final AnActionEvent e) {
     boolean enable = false;
@@ -66,7 +67,7 @@ class StopAction extends DumbAwareAction implements AnAction.TransparentUpdate {
     if (isPlaceGlobal(e)) {
       List<RunContentDescriptor> stoppableDescriptors = getActiveStoppableDescriptors(e.getDataContext());
       List<Pair<TaskInfo, ProgressIndicator>> cancellableProcesses = getCancellableProcesses(e.getProject());
-      int todoSize = stoppableDescriptors.size() + cancellableProcesses.size();
+      int todoSize = stoppableDescriptors.size(); // + cancellableProcesses.size(); (In Android Studio, we don't want cancellable background processes to be included in the same stop action
       if (todoSize > 1) {
         presentation.setText(getTemplatePresentation().getText()+"...");
       }
