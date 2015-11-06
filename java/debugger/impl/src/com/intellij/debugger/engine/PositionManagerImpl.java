@@ -440,20 +440,33 @@ public class PositionManagerImpl implements PositionManager, MultiRequestPositio
       return Collections.emptyList();
     }
 
+    final List<ReferenceType> classes = myDebugProcess.getVirtualMachineProxy().classesByName(className);
+    final List<ReferenceType> result = new ArrayList<ReferenceType>(classes.size());
+
+    // Android Studio: In some scenarios we need to set a breakpoint in a different class to the one found here.
+    // when that happens we need to allow a custom position manager to change the class at the last minute.
+    // here we call "mapClass" to obtain the final class.
     if (!isLocalOrAnonymous.get()) {
-      return myDebugProcess.getVirtualMachineProxy().classesByName(className);
-    }
-    
-    // the name is a parent class for a local or anonymous class
-    final List<ReferenceType> outers = myDebugProcess.getVirtualMachineProxy().classesByName(className);
-    final List<ReferenceType> result = new ArrayList<ReferenceType>(outers.size());
-    for (ReferenceType outer : outers) {
-      final ReferenceType nested = findNested(outer, 0, classAtPositionRef.get(), requiredDepth.get(), position);
-      if (nested != null) {
-        result.add(nested);
+      for (ReferenceType type : classes) {
+        result.add(mapClass(type));
+      }
+    } else {
+      // the name is a parent class for a local or anonymous class
+      for (ReferenceType outer : classes) {
+        final ReferenceType nested = findNested(outer, 0, classAtPositionRef.get(), requiredDepth.get(), position);
+        if (nested != null) {
+          result.add(nested);
+        }
       }
     }
     return result;
+  }
+
+  /**
+   * Indirection which allows custom position managers to provide a different class type to represent the vm's class.
+   */
+  protected ReferenceType mapClass(ReferenceType type) {
+    return type;
   }
 
   private static int getNestingDepth(PsiClass aClass) {
@@ -511,10 +524,12 @@ public class PositionManagerImpl implements PositionManager, MultiRequestPositio
           }
           return null;
         }
-
+        // Android Studio: After recursing to get the right inner class, but before line calculations
+        // happen, we again give the chance to swap the actual class to use.
+        final ReferenceType mapped = mapClass(fromClass);
         int rangeBegin = Integer.MAX_VALUE;
         int rangeEnd = Integer.MIN_VALUE;
-        for (Location location : fromClass.allLineLocations()) {
+        for (Location location : mapped.allLineLocations()) {
           final int lnumber = location.lineNumber();
           if (lnumber <= 1) {
             // should be a native method, skipping
@@ -558,12 +573,12 @@ public class PositionManagerImpl implements PositionManager, MultiRequestPositio
                 // if there's more than one class on the line - try to match by name
                 for (PsiClass aClass : lineClasses) {
                   if (classToFind.equals(aClass)) {
-                    return fromClass;
+                    return mapped;
                   }
                 }
               }
               else if (!lineClasses.isEmpty()){
-                return classToFind.equals(lineClasses.iterator().next())? fromClass : null;
+                return classToFind.equals(lineClasses.iterator().next())? mapped : null;
               }
               return null;
             }
