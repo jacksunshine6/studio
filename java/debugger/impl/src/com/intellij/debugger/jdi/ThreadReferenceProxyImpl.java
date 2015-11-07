@@ -250,7 +250,15 @@ public final class ThreadReferenceProxyImpl extends ObjectReferenceProxyImpl imp
 
       int index = myFramesFromBottom.size() + 1;
       for (ListIterator<StackFrame> iterator = frames.listIterator(frameCount - myFramesFromBottom.size()); iterator.hasPrevious();) {
-        myFramesFromBottom.add(new StackFrameProxyImpl(this, iterator.previous(), index));
+
+        StackFrameProxyImpl proxy;
+        StackFrameProxyProvider modifier = StackFrameProxyProvider.EP_NAME.findExtension(StackFrameProxyProvider.class);
+        if (modifier != null) {
+          proxy = modifier.createProxy(this, iterator.previous(), index);
+        } else {
+          proxy = new StackFrameProxyImpl(this, iterator.previous(), index);
+        }
+        myFramesFromBottom.add(proxy);
         index++;
       }
     }

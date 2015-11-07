@@ -19,9 +19,9 @@ import com.intellij.openapi.extensions.ExtensionPointName;
 import com.sun.jdi.StackFrame;
 import org.jetbrains.annotations.NotNull;
 
-public interface StackFrameModifier {
+public interface StackFrameProxyProvider {
 
-  ExtensionPointName<StackFrameModifier> EP_NAME = new ExtensionPointName<StackFrameModifier>("com.intellij.debuggerStackFrameModifier");
+  ExtensionPointName<StackFrameProxyProvider> EP_NAME = new ExtensionPointName<StackFrameProxyProvider>("com.intellij.debuggerStackFrameProxyProvider");
 
-  StackFrame modifyStackFrame(@NotNull StackFrame frame);
+  StackFrameProxyImpl createProxy(@NotNull ThreadReferenceProxyImpl threadProxy, @NotNull StackFrame frame, int fromBottomIndex /* 1-based */);
 }
