@@ -22,7 +22,6 @@ def getProperties(String home, String buildNumber) {
   def aosp = new File(home, "../adt/idea/android").isDirectory()
   def androidRoot = aosp ? "../adt/idea" : "android";
   def toolsBaseRoot = aosp ? "../base" : "android/tools-base"
-  //def selector = "AndroidStudioPreview1.5"
   def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
   def lldbBinTargetRoot = "bin/lldb"
   def gradleVersion = "2.8"
@@ -76,12 +75,12 @@ def getProperties(String home, String buildNumber) {
 
     def String fullBuildNumber() { "AI-$snapshot".replaceAll("SNAPSHOT", buildNumber) }
 
-    def String systemSelector() { isEap() ? "${platformPrefix}Preview${p("component.version.major")}"
-                                          : "$platformPrefix${p("component.version.major")}"
+    def String systemSelector() { isEap() ? "${platformPrefix}Preview${p("component.version.major")}.${p("component.version.minor")}"
+                                          : "$platformPrefix${p("component.version.major").${p("component.version.minor")}}"
     }
 
     def String macAppRoot() {
-      isEap() ? "Android Studio ${p("component.version.major")} Preview.app/Contents"
+      isEap() ? "Android Studio ${p("component.version.major")}.${p("component.version.minor")} Preview.app/Contents"
               : "Android Studio.app/Contents"
     }
 
