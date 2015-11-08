@@ -22,20 +22,20 @@ betas.)
                                                                           ~~~~~~~~~~~
     ```
 
- 3. Update the "selector"; the directory name used in the user's home
-    directory (Windows/Linux) or in ~/Library/Preferences (OSX).
+ 3. *If necessary*, update the "selector name"; this is the name used
+    in settings directories (such as ~/.AndroidStudioPreview1.6 on
+    Linux, or ~/Library/Preferences/AndroidStudioPreview1.6 on OSX,
+    etc.
 
-    For preview builds we set it to
+    This directory name used to be hardcoded, but is now derived from
+    the version numbers specified in the branding files. If you want
+    to tweak it, edit build/scripts/studio_properties.gant and tweak
+    the string returned by the systemSelector() method.
+
+    The convention we have been using is the following for previews:
         `AndroidStudioPreviewX.Y`
-    and for release builds to
+    and for release builds:
         `AndroidStudioX.Y`.
-
-    The selector is specified in `build/scripts/studio_properties.gant`:
-
-    ```
-    def selector = "AndroidStudioPreview1.4"
-                                 ~~~~~~~~~~
-    ```
 
  4. Update the settings importer.
 
