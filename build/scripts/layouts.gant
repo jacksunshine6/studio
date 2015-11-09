@@ -809,7 +809,9 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
       jar("android-common.jar") {
         module("android-common")
       }
-
+      jar("repository.jar") {
+        module("repository")
+      }
       jar("android-rt.jar") {
         module("android-rt")
       }
