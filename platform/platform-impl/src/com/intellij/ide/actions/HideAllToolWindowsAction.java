@@ -23,6 +23,7 @@ import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowType;
 import com.intellij.openapi.wm.ex.ToolWindowManagerEx;
 import com.intellij.openapi.wm.impl.DesktopLayout;
 
@@ -51,7 +52,7 @@ public class HideAllToolWindowsAction extends AnAction implements DumbAware {
     boolean hasVisible = false;
     for (String id : ids) {
       ToolWindow toolWindow = toolWindowManager.getToolWindow(id);
-      if (toolWindow.isVisible()) {
+      if (toolWindow.isVisible() && toolWindow.getType() != ToolWindowType.FLOATING) {
         toolWindow.hide(null);
         hasVisible = true;
       }
