@@ -42,6 +42,8 @@ function set_java8_home() {
             jdk8=`find /usr/lib/jvm/ -maxdepth 1 -name jdk1.8* | sort -V -r | head -n1`
             if [[ -s "$jdk8" ]]; then
               export JAVA8_HOME="$jdk8"
+            elif [[ -s "$JAVA_8_HOME" ]]; then
+              export JAVA8_HOME=$JAVA_8_HOME
             else
               die "java 1.8 not found. set JAVA8_HOME."
             fi
@@ -94,6 +96,8 @@ set_java8_home
 
 export JDK_16_x64=$JAVA_HOME
 export JDK_18_x64=$JAVA8_HOME
+
+export PATH=$JDK_18_x64/bin:$PATH
 
 $ANT "-Dout=$OUT" "-Dbuild=$BNUM" "-Denable.ui.tests=$UI_TESTS"
 
