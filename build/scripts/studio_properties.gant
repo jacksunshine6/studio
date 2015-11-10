@@ -46,8 +46,8 @@ def getProperties(String home, String buildNumber) {
       ico     = "$home/$androidRoot/adt-branding/src/artwork/androidstudio.ico"
       icns    = "$home/$androidRoot/adt-branding/src/artwork/AndroidStudio.icns"
 
-      extraMacBins = ["${lldbBinTargetRoot}/mac/bin/LLDBFrontend", "gradle/gradle-$gradleVersion/bin/gradle"]
-      extraLinuxBins = ["${lldbBinTargetRoot}/linux/bin/LLDBFrontend", "gradle/gradle-$gradleVersion/bin/gradle"]
+      extraMacBins = ["gradle/gradle-$gradleVersion/bin/gradle"]
+      extraLinuxBins = ["gradle/gradle-$gradleVersion/bin/gradle"]
 
       includeYourkitAgentInEAP = false
       includeBatchLauncher = enableUITests
@@ -96,10 +96,6 @@ def getProperties(String home, String buildNumber) {
       }
 
       layout(targetDirectory) {
-        dir("${lldbBinTargetRoot}/android") {
-          fileset(dir: "${lldbBinSrcRoot}/android")
-        }
-
         dir("${lldbBinTargetRoot}/shared") {
           fileset(dir: "${lldbBinSrcRoot}/shared")
         }
@@ -260,12 +256,6 @@ def getProperties(String home, String buildNumber) {
     }
 
     def customWinLayout(targetDirectory) {
-      layout(targetDirectory) {
-        dir("${lldbBinTargetRoot}/win") {
-          fileset(dir: "${lldbBinSrcRoot}/win")
-        }
-      }
-
       if (!aosp) {
         return
       }
@@ -273,19 +263,9 @@ def getProperties(String home, String buildNumber) {
     }
 
     def customLinLayout(targetDirectory) {
-      layout(targetDirectory) {
-        dir("${lldbBinTargetRoot}/linux") {
-          fileset(dir: "${lldbBinSrcRoot}/linux")
-        }
-      }
     }
 
     def customMacLayout(targetDirectory) {
-      layout(targetDirectory) {
-        dir("${lldbBinTargetRoot}/mac") {
-          fileset(dir: "${lldbBinSrcRoot}/mac")
-        }
-      }
     }
   }
 }
