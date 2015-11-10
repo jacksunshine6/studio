@@ -211,18 +211,17 @@ def getProperties(String home, String buildNumber) {
             }
           }
 
-// Temporarily disabled: code needs IJ 15 porting
-//          dir("google-cloud-testing") {
-//            dir("lib") {
-//              jar("google-cloud-testing.jar") {
-//                module("google-cloud-testing")
-//              }
-//              fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
-//                include(name: "**/*.jar")
-//              }
-//              fileset(file: "${home}/../../prebuilts/tools/common/m2/repository/tightvnc/tightvnc.jar")
-//            }
-//          }
+          dir("google-cloud-testing") {
+            dir("lib") {
+              jar("google-cloud-testing.jar") {
+                module("google-cloud-testing")
+              }
+              fileset(dir: "${home}/../studio/google/cloud/testing/lib") {
+                include(name: "**/*.jar")
+              }
+              fileset(file: "${home}/../../prebuilts/tools/common/m2/repository/tightvnc/tightvnc.jar")
+            }
+          }
 
           dir("sdk-updates") {
             dir("lib") {
