@@ -40,7 +40,7 @@ import java.awt.event.WindowEvent;
  * @author Anton Katilin
  * @author Vladimir Kondratyev
  */
-public final class FloatingDecorator extends JFrame {
+public final class FloatingDecorator extends JDialog {
   private static final Logger LOG=Logger.getInstance("#com.intellij.openapi.wm.impl.FloatingDecorator");
 
   static final int DIVIDER_WIDTH = 3;
@@ -66,8 +66,8 @@ public final class FloatingDecorator extends JFrame {
   private float myEndRatio; // start and end alpha ratio for transparency animation
 
 
-  FloatingDecorator(final IdeFrameImpl unused,final WindowInfoImpl info,final InternalDecorator internalDecorator){
-    super(internalDecorator.getToolWindow().getId());
+  FloatingDecorator(final IdeFrameImpl owner,final WindowInfoImpl info,final InternalDecorator internalDecorator){
+    super(SystemInfo.isMac ? null : owner, internalDecorator.getToolWindow().getId());
     MnemonicHelper.init(getContentPane());
     myInternalDecorator=internalDecorator;
 
