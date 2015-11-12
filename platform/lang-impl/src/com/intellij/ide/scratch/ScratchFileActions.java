@@ -17,6 +17,7 @@ package com.intellij.ide.scratch;
 
 import com.intellij.featureStatistics.FeatureUsageTracker;
 import com.intellij.lang.Language;
+import com.intellij.lang.LanguageUtil;
 import com.intellij.lang.PerFileMappings;
 import com.intellij.lang.StdLanguages;
 import com.intellij.lang.injection.InjectedLanguageManager;
@@ -25,14 +26,12 @@ import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileTypes.LanguageFileType;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.LanguageSubstitutors;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.util.Consumer;
@@ -185,7 +184,7 @@ public class ScratchFileActions {
       return new Condition<VirtualFile>() {
         @Override
         public boolean value(@NotNull VirtualFile file) {
-          return ScratchRootType.getInstance().isScratchFile(file);
+          return ScratchRootType.getInstance().containsFile(file);
         }
       };
     }
@@ -198,10 +197,7 @@ public class ScratchFileActions {
         @Override
         public Language fun(VirtualFile file) {
           Language lang = fileService.getScratchesMapping().getMapping(file);
-          if (lang == null) {
-            lang = LanguageSubstitutors.INSTANCE.substituteLanguage(((LanguageFileType)file.getFileType()).getLanguage(), file, project);
-          }
-          return lang;
+          return lang != null ? lang : LanguageUtil.getLanguageForPsi(project, file);
         }
       };
     }

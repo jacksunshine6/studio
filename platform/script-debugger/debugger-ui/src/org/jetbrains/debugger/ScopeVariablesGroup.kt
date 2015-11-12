@@ -19,6 +19,8 @@ import com.intellij.xdebugger.XDebuggerBundle
 import com.intellij.xdebugger.frame.XCompositeNode
 import com.intellij.xdebugger.frame.XValueChildrenList
 import com.intellij.xdebugger.frame.XValueGroup
+import org.jetbrains.concurrency.done
+import org.jetbrains.concurrency.rejected
 
 class ScopeVariablesGroup(val scope: Scope, parentContext: VariableContext, callFrame: CallFrame?) : XValueGroup(scope.createScopeNodeName()) {
   private val context = createVariableContext(scope, parentContext, callFrame)
@@ -48,7 +50,7 @@ class ScopeVariablesGroup(val scope: Scope, parentContext: VariableContext, call
 }
 
 fun createAndAddScopeList(node: XCompositeNode, scopes: List<Scope>, context: VariableContext, callFrame: CallFrame?) {
-  val list = XValueChildrenList(scopes.size())
+  val list = XValueChildrenList(scopes.size)
   for (scope in scopes) {
     list.addTopGroup(ScopeVariablesGroup(scope, context, callFrame))
   }
@@ -84,6 +86,6 @@ private fun Scope.createScopeNodeName(): String {
     Scope.Type.BLOCK -> return XDebuggerBundle.message("scope.block")
     Scope.Type.SCRIPT -> return XDebuggerBundle.message("scope.script")
     Scope.Type.UNKNOWN -> return XDebuggerBundle.message("scope.unknown")
-    else -> throw IllegalArgumentException(type.name())
+    else -> throw IllegalArgumentException(type.name)
   }
 }

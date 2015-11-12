@@ -15,6 +15,7 @@
  */
 package org.jetbrains.debugger
 
+import com.intellij.openapi.util.Ref
 import org.jetbrains.concurrency.Promise
 import java.util.*
 
@@ -30,7 +31,7 @@ interface BreakpointManager {
   val regExpBreakpointSupported: Boolean
     get() = false
 
-  fun setBreakpoint(target: BreakpointTarget, line: Int, column: Int, condition: String?, ignoreCount: Int, enabled: Boolean): Breakpoint
+  fun setBreakpoint(target: BreakpointTarget, line: Int, column: Int = Breakpoint.EMPTY_VALUE, condition: String? = null, ignoreCount: Int = Breakpoint.EMPTY_VALUE, enabled: Boolean = true, promiseRef: Ref<Promise<out Breakpoint>>? = null): Breakpoint
 
   fun remove(breakpoint: Breakpoint): Promise<*>
 
@@ -65,4 +66,7 @@ interface BreakpointListener : EventListener {
   fun resolved(breakpoint: Breakpoint)
 
   fun errorOccurred(breakpoint: Breakpoint, errorMessage: String?)
+
+  fun nonProvisionalBreakpointRemoved(breakpoint: Breakpoint) {
+  }
 }

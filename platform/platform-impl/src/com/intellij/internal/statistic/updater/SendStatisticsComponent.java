@@ -30,9 +30,13 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
 import com.intellij.openapi.wm.impl.IdeFrameImpl;
+import com.intellij.ui.BalloonLayout;
+import com.intellij.ui.BalloonLayoutImpl;
 import com.intellij.util.Alarm;
+import com.intellij.util.Time;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.Window;
 import java.util.Arrays;
 
 public class SendStatisticsComponent implements ApplicationComponent {
@@ -63,6 +67,17 @@ public class SendStatisticsComponent implements ApplicationComponent {
     myFrameStateManager = frameStateManager;
   }
 
+  private static boolean isEmpty(Window window) {
+    if (window instanceof IdeFrameImpl) {
+      BalloonLayout layout = ((IdeFrameImpl)window).getBalloonLayout();
+      if (layout instanceof BalloonLayoutImpl) {
+        // do not show notification if others exist
+        return ((BalloonLayoutImpl)layout).isEmpty();
+      }
+    }
+    return false;
+  }
+
   private void runStatisticsService() {
     final StatisticsService statisticsService = StatisticsUploadAssistant.getStatisticsService();
 
@@ -70,7 +85,7 @@ public class SendStatisticsComponent implements ApplicationComponent {
       myFrameStateManager.addListener(new FrameStateListener.Adapter() {
         @Override
         public void onFrameActivated() {
-          if (((WindowManagerEx)WindowManager.getInstance()).getMostRecentFocusedWindow() instanceof IdeFrameImpl) {
+          if (isEmpty(((WindowManagerEx)WindowManager.getInstance()).getMostRecentFocusedWindow())) {
             ApplicationManager.getApplication().invokeLater(new Runnable() {
               @Override
               public void run() {
@@ -93,7 +108,7 @@ public class SendStatisticsComponent implements ApplicationComponent {
       public void run() {
         statisticsService.send();
       }
-    }, DELAY_IN_MIN * 60 * 1000);
+    }, Time.MINUTE * DELAY_IN_MIN);
   }
 
   @Override

@@ -25,8 +25,7 @@ import com.intellij.psi.impl.source.tree.JavaElementType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.util.PsiUtil;
+import com.intellij.psi.util.*;
 import com.intellij.util.Function;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.SmartList;
@@ -38,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class PsiTypeElementImpl extends CompositePsiElement implements PsiTypeElement {
-  private volatile PsiType myCachedType = null;
+  private static final Class[] INTERMEDIATES = {PsiComment.class, PsiWhiteSpace.class, PsiAnnotation.class, PsiTypeParameterList.class};
 
   @SuppressWarnings({"UnusedDeclaration"})
   public PsiTypeElementImpl() {
@@ -47,12 +46,6 @@ public class PsiTypeElementImpl extends CompositePsiElement implements PsiTypeEl
 
   protected PsiTypeElementImpl(IElementType type) {
     super(type);
-  }
-
-  @Override
-  public void clearCaches() {
-    super.clearCaches();
-    myCachedType = null;
   }
 
   @Override
@@ -68,15 +61,17 @@ public class PsiTypeElementImpl extends CompositePsiElement implements PsiTypeEl
   @Override
   @NotNull
   public PsiType getType() {
-    PsiType cachedType = myCachedType;
-    if (cachedType != null) return cachedType;
-    cachedType = calculateType();
-    myCachedType = cachedType;
-    return cachedType;
+    return CachedValuesManager.getCachedValue(this, new CachedValueProvider<PsiType>() {
+      @Nullable
+      @Override
+      public Result<PsiType> compute() {
+        return Result.create(calculateType(), PsiModificationTracker.MODIFICATION_COUNT);
+      }
+    });
   }
 
   private PsiType calculateType() {
-    final PsiType inferredType = PsiAugmentProvider.getInferredType(this);
+    PsiType inferredType = PsiAugmentProvider.getInferredType(this);
     if (inferredType != null) {
       return inferredType;
     }
@@ -160,16 +155,13 @@ public class PsiTypeElementImpl extends CompositePsiElement implements PsiTypeEl
     return type == null ? PsiType.NULL : type;
   }
 
-  private void addTypeUseAnnotations(List<PsiAnnotation> list) {
+  private void addTypeUseAnnotations(List<PsiAnnotation> annotations) {
     PsiElement parent = this;
     while (parent instanceof PsiTypeElement) {
-      PsiElement left = PsiTreeUtil.skipSiblingsBackward(parent, PsiComment.class, PsiWhiteSpace.class, PsiAnnotation.class);
+      PsiElement left = PsiTreeUtil.skipSiblingsBackward(parent, INTERMEDIATES);
 
       if (left instanceof PsiModifierList) {
-        List<PsiAnnotation> annotations = PsiImplUtil.getTypeUseAnnotations((PsiModifierList)left);
-        if (annotations != null && !annotations.isEmpty()) {
-          list.addAll(annotations);
-        }
+        PsiImplUtil.collectTypeUseAnnotations((PsiModifierList)left, annotations);
         break;
       }
 

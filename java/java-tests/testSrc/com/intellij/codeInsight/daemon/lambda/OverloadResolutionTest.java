@@ -89,6 +89,10 @@ public class OverloadResolutionTest extends LightDaemonAnalyzerTestCase {
     doTest();
   }
 
+  public void testDefaultAbstractConflictResolution() throws Exception {
+    doTest();
+  }
+
   public void testLambdaValueCompatibleWithNestedTryWithResources() throws Exception {
     doTest(false);
   }
@@ -156,6 +160,14 @@ public class OverloadResolutionTest extends LightDaemonAnalyzerTestCase {
   }
 
   public void testIgnoreCandidatesWithLowerApplicabilityLevel() throws Exception {
+    doTest();
+  }
+
+  public void testSiteSubstituteTypeParameterBoundsWhenCheckForMostSpecific() throws Exception {
+    doTest();
+  }
+
+  public void testChooseAbstractMethodArbitrarily() throws Exception {
     doTest();
   }
 

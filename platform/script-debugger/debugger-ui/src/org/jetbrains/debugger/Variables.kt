@@ -20,8 +20,9 @@ import com.intellij.util.SmartList
 import com.intellij.xdebugger.frame.XCompositeNode
 import com.intellij.xdebugger.frame.XValueChildrenList
 import org.jetbrains.concurrency.Obsolescent
-import org.jetbrains.concurrency.ObsolescentFunction
 import org.jetbrains.concurrency.Promise
+import org.jetbrains.concurrency.then
+import org.jetbrains.concurrency.thenAsync
 import org.jetbrains.debugger.values.ValueType
 import java.util.*
 import java.util.regex.Pattern
@@ -37,25 +38,16 @@ fun processVariables(context: VariableContext,
                      variables: Promise<List<Variable>>,
                      obsolescent: Obsolescent,
                      consumer: (memberFilter: MemberFilter, variables: List<Variable>) -> Unit) = context.memberFilter
-  .then(object : ValueNodeAsyncFunction<MemberFilter, Any?>(obsolescent) {
-    override fun `fun`(memberFilter: MemberFilter): Promise<Any?> {
-      return variables.then(object : ObsolescentFunction<List<Variable>, Any?> {
-        override fun isObsolete() = obsolescent.isObsolete
-
-        override fun `fun`(variables: List<Variable>): Void? {
-          consumer(memberFilter, variables)
-          return null
-        }
-      })
-    }
-  })
+  .thenAsync(obsolescent) { memberFilter ->
+    variables.then(obsolescent) { consumer(memberFilter, it) }
+  }
 
 fun processScopeVariables(scope: Scope,
                           node: XCompositeNode,
                           context: VariableContext,
                           isLast: Boolean) = processVariables(context, scope.variablesHost.get(), node, { memberFilter, variables ->
   val additionalVariables = memberFilter.additionalVariables
-  val properties = ArrayList<Variable>(variables.size() + additionalVariables.size())
+  val properties = ArrayList<Variable>(variables.size + additionalVariables.size)
   val functions = SmartList<Variable>()
   for (variable in variables) {
     if (memberFilter.isMemberVisible(variable)) {
@@ -101,14 +93,14 @@ fun processNamedObjectProperties(variables: List<Variable>,
     return null
   }
 
-  val to = Math.min(maxChildrenToAdd, list.size())
-  val isLast = to == list.size()
+  val to = Math.min(maxChildrenToAdd, list.size)
+  val isLast = to == list.size
   node.addChildren(createVariablesList(list, 0, to, context, memberFilter), defaultIsLast && isLast)
   if (isLast) {
     return null
   }
   else {
-    node.tooManyChildren(list.size() - to)
+    node.tooManyChildren(list.size - to)
     return list
   }
 }
@@ -119,7 +111,7 @@ fun filterAndSort(variables: List<Variable>, memberFilter: MemberFilter): List<V
   }
 
   val additionalVariables = memberFilter.additionalVariables
-  val result = ArrayList<Variable>(variables.size() + additionalVariables.size())
+  val result = ArrayList<Variable>(variables.size + additionalVariables.size)
   for (variable in variables) {
     if (memberFilter.isMemberVisible(variable)) {
       result.add(variable)
@@ -158,13 +150,13 @@ private fun naturalCompare(string1: String?, string2: String?): Int {
     return 1
   }
 
-  val string1Length = string1.length()
-  val string2Length = string2.length()
+  val string1Length = string1.length
+  val string2Length = string2.length
   var i = 0
   var j = 0
   while (i < string1Length && j < string2Length) {
-    var ch1 = string1.charAt(i)
-    var ch2 = string2.charAt(j)
+    var ch1 = string1[i]
+    var ch2 = string2[j]
     if ((StringUtil.isDecimalDigit(ch1) || ch1 == ' ') && (StringUtil.isDecimalDigit(ch2) || ch2 == ' ')) {
       var startNum1 = i
       while (ch1 == ' ' || ch1 == '0') {
@@ -173,7 +165,7 @@ private fun naturalCompare(string1: String?, string2: String?): Int {
         if (startNum1 >= string1Length) {
           break
         }
-        ch1 = string1.charAt(startNum1)
+        ch1 = string1[startNum1]
       }
       var startNum2 = j
       while (ch2 == ' ' || ch2 == '0') {
@@ -182,15 +174,15 @@ private fun naturalCompare(string1: String?, string2: String?): Int {
         if (startNum2 >= string2Length) {
           break
         }
-        ch2 = string2.charAt(startNum2)
+        ch2 = string2[startNum2]
       }
       i = startNum1
       j = startNum2
       // find end index of number
-      while (i < string1Length && StringUtil.isDecimalDigit(string1.charAt(i))) {
+      while (i < string1Length && StringUtil.isDecimalDigit(string1[i])) {
         i++
       }
-      while (j < string2Length && StringUtil.isDecimalDigit(string2.charAt(j))) {
+      while (j < string2Length && StringUtil.isDecimalDigit(string2[j])) {
         j++
       }
       val lengthDiff = (i - startNum1) - (j - startNum2)
@@ -200,7 +192,7 @@ private fun naturalCompare(string1: String?, string2: String?): Int {
       }
       while (startNum1 < i) {
         // compare numbers with equal digit count
-        val diff = string1.charAt(startNum1) - string2.charAt(startNum2)
+        val diff = string1[startNum1] - string2[startNum2]
         if (diff != 0) {
           return diff
         }
@@ -237,14 +229,14 @@ private fun naturalCompare(string1: String?, string2: String?): Int {
 }
 
 @JvmOverloads fun createVariablesList(variables: List<Variable>, variableContext: VariableContext, memberFilter: MemberFilter? = null): XValueChildrenList {
-  return createVariablesList(variables, 0, variables.size(), variableContext, memberFilter)
+  return createVariablesList(variables, 0, variables.size, variableContext, memberFilter)
 }
 
 fun createVariablesList(variables: List<Variable>, from: Int, to: Int, variableContext: VariableContext, memberFilter: MemberFilter?): XValueChildrenList {
   val list = XValueChildrenList(to - from)
   var getterOrSetterContext: VariableContext? = null
   for (i in from..to - 1) {
-    val variable = variables.get(i)
+    val variable = variables[i]
     val normalizedName = if (memberFilter == null) variable.name else memberFilter.rawNameToSource(variable)
     list.add(VariableView(normalizedName, variable, variableContext))
     if (variable is ObjectProperty) {
