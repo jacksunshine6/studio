@@ -215,7 +215,34 @@ public class LookupCellRenderer implements ListCellRenderer {
       }
     }
 
+    myPanel.getAccessibleContext().setAccessibleName(
+      combineAccessibleStrings(
+        myNameComponent.getAccessibleContext().getAccessibleName(),
+        "",
+        myTailComponent.getAccessibleContext().getAccessibleName(),
+        "\t",
+        myTypeLabel.getAccessibleContext().getAccessibleName()));
+    myPanel.getAccessibleContext().setAccessibleDescription(
+      combineAccessibleStrings(
+        myNameComponent.getAccessibleContext().getAccessibleDescription(),
+        "",
+        myTailComponent.getAccessibleContext().getAccessibleDescription(),
+        "\t",
+        myTypeLabel.getAccessibleContext().getAccessibleDescription()));
+
     return myPanel;
+  }
+
+  private static String combineAccessibleStrings(String s1, String separator, String s2) {
+    if (s1 == null || s1.length() == 0)
+      return s2;
+    if (s2 == null || s2.length() == 0)
+      return s1;
+    return String.format("%s%s%s", s1, separator, s2);
+  }
+
+  private static String combineAccessibleStrings(String s1, String separator1, String s2, String separator2, String s3) {
+    return combineAccessibleStrings(combineAccessibleStrings(s1, separator1, s2), separator2, s3);
   }
 
   private static Color getForegroundColor(boolean isSelected) {
