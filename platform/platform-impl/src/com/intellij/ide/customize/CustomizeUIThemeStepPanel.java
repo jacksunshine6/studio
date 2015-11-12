@@ -88,8 +88,6 @@ public class CustomizeUIThemeStepPanel extends AbstractCustomizeWizardStep {
     myColumnMode = myThemes.size() > 2;
     JPanel buttonsPanel = new JPanel(new GridLayout(myColumnMode ? myThemes.size() : 1, myColumnMode ? 1 : myThemes.size(), 5, 5));
     ButtonGroup group = new ButtonGroup();
-    // 8f9c00842667971d1df7550c8b0c8e39a5171c54 vs ed1a4a94a8e9d9bfa37f860db69d7a1673f2d3ef
-    // ThemeInfo myDefaultTheme = findInitialTheme();
     final ThemeInfo myDefaultTheme = myThemes.iterator().next();
 
     for (final ThemeInfo theme: myThemes) {

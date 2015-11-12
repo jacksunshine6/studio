@@ -1,7 +1,6 @@
 package org.jetbrains.builtInWebServer
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.text.StringUtilRt
 import com.intellij.util.PathUtilRt
 import io.netty.buffer.ByteBufUtf8Writer
@@ -18,23 +17,18 @@ import java.io.File
 private class StaticFileHandler : WebServerFileHandler() {
   private var ssiProcessor: SsiProcessor? = null
 
-  override fun process(pathInfo: PathInfo, canonicalRequestPath: CharSequence, project: Project, request: FullHttpRequest, channel: Channel, isCustomHost: Boolean): Boolean {
+  override fun process(pathInfo: PathInfo, canonicalPath: CharSequence, project: Project, request: FullHttpRequest, channel: Channel, projectNameIfNotCustomHost: String?): Boolean {
     if (pathInfo.ioFile != null || pathInfo.file!!.isInLocalFileSystem) {
       val ioFile = pathInfo.ioFile ?: File(pathInfo.file!!.path)
 
       val nameSequence = pathInfo.name
       //noinspection SpellCheckingInspection
       if (StringUtilRt.endsWithIgnoreCase(nameSequence, ".shtml") || StringUtilRt.endsWithIgnoreCase(nameSequence, ".stm") || StringUtilRt.endsWithIgnoreCase(nameSequence, ".shtm")) {
-        processSsi(ioFile, canonicalRequestPath, project, request, channel, isCustomHost)
+        processSsi(ioFile, PathUtilRt.getParentPath(canonicalPath.toString()), project, request, channel)
         return true
       }
 
-      if (hasAccess(ioFile)) {
-        FileResponses.sendFile(request, channel, ioFile)
-      }
-      else {
-        Responses.sendStatus(HttpResponseStatus.FORBIDDEN, channel, request)
-      }
+      sendIoFile(channel, ioFile, request)
     }
     else {
       val file = pathInfo.file!!
@@ -56,16 +50,11 @@ private class StaticFileHandler : WebServerFileHandler() {
         future.addListener(ChannelFutureListener.CLOSE)
       }
     }
+
     return true
   }
 
-  private fun processSsi(file: File, canonicalRequestPath: CharSequence, project: Project, request: FullHttpRequest, channel: Channel, isCustomHost: Boolean) {
-    var path = PathUtilRt.getParentPath(canonicalRequestPath.toString())
-    if (!isCustomHost) {
-      // remove project name - SSI resolves files only inside current project
-      path = path.substring(path.indexOf('/', 1) + 1)
-    }
-
+  private fun processSsi(file: File, path: String, project: Project, request: FullHttpRequest, channel: Channel) {
     if (ssiProcessor == null) {
       ssiProcessor = SsiProcessor(false)
     }
@@ -74,7 +63,7 @@ private class StaticFileHandler : WebServerFileHandler() {
     val keepAlive: Boolean
     var releaseBuffer = true
     try {
-      val lastModified = ssiProcessor!!.process(SsiExternalResolver(project, request, path, file.parentFile), FileUtil.loadFile(file), file.lastModified(), ByteBufUtf8Writer(buffer))
+      val lastModified = ssiProcessor!!.process(SsiExternalResolver(project, request, path, file.parentFile), file, ByteBufUtf8Writer(buffer))
       val response = FileResponses.prepareSend(request, channel, lastModified, file.path) ?: return
       keepAlive = Responses.addKeepAliveIfNeed(response, request)
       if (request.method() != HttpMethod.HEAD) {
@@ -99,7 +88,16 @@ private class StaticFileHandler : WebServerFileHandler() {
       future.addListener(ChannelFutureListener.CLOSE)
     }
   }
-
-  // deny access to .htaccess files
-  private fun hasAccess(result: File) = !result.isDirectory && result.canRead() && !(result.isHidden || result.name.startsWith(".ht"))
 }
+
+fun sendIoFile(channel: Channel, ioFile: File, request: HttpRequest) {
+  if (hasAccess(ioFile)) {
+    FileResponses.sendFile(request, channel, ioFile)
+  }
+  else {
+    Responses.sendStatus(HttpResponseStatus.FORBIDDEN, channel, request)
+  }
+}
+
+// deny access to .htaccess files
+private fun hasAccess(result: File) = !result.isDirectory && result.canRead() && !(result.isHidden || result.name.startsWith(".ht"))

@@ -32,6 +32,7 @@ import com.intellij.openapi.editor.ex.DocumentEx;
 import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.editor.impl.softwrap.SoftWrapAppliancePlaces;
+import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.psi.PsiDocumentManager;
@@ -319,7 +320,7 @@ public class SettingsImpl implements EditorSettings {
   }
 
   private void reinitDocumentIndentOptions() {
-    if (myEditor == null) return;
+    if (myEditor == null || myEditor.isViewer()) return;
     final Project project = myEditor.getProject();
     final DocumentEx document = myEditor.getDocument();
 
@@ -352,7 +353,12 @@ public class SettingsImpl implements EditorSettings {
     int tabSize = 0;
     if (project != null && !project.isDisposed()) {
       PsiFile file = getPsiFile(project);
-      tabSize = CodeStyleSettingsManager.getSettings(project).getIndentOptionsByFile(file).TAB_SIZE;
+      if (myEditor != null && myEditor.isViewer()) {
+        FileType fileType = file != null ? file.getFileType() : null;
+        tabSize = CodeStyleSettingsManager.getSettings(project).getIndentOptions(fileType).TAB_SIZE; 
+      } else {
+        tabSize = CodeStyleSettingsManager.getSettings(project).getIndentOptionsByFile(file).TAB_SIZE;
+      }
     }
     myCachedTabSize = Integer.valueOf(tabSize);
     return tabSize;

@@ -9,7 +9,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.util.CharsetUtil
 import org.jetbrains.io.Decoder
 
-class FastCgiDecoder(private val errorOutputConsumer: Consumer<String>, private val responseHandler: FastCgiService) : Decoder(), Decoder.FullMessageConsumer<Void> {
+internal class FastCgiDecoder(private val errorOutputConsumer: Consumer<String>, private val responseHandler: FastCgiService) : Decoder(), Decoder.FullMessageConsumer<Void> {
   private enum class State {
     HEADER,
     CONTENT
@@ -110,12 +110,12 @@ class FastCgiDecoder(private val errorOutputConsumer: Consumer<String>, private 
       RecordType.END_REQUEST -> {
         val appStatus = buffer.readInt()
         val protocolStatus = buffer.readUnsignedByte().toInt()
-        if (appStatus != 0 || protocolStatus != ProtocolStatus.REQUEST_COMPLETE.ordinal()) {
+        if (appStatus != 0 || protocolStatus != ProtocolStatus.REQUEST_COMPLETE.ordinal) {
           LOG.warn("Protocol status $protocolStatus")
           dataBuffers.remove(id)
           responseHandler.responseReceived(id, null)
         }
-        else if (protocolStatus == ProtocolStatus.REQUEST_COMPLETE.ordinal()) {
+        else if (protocolStatus == ProtocolStatus.REQUEST_COMPLETE.ordinal) {
           responseHandler.responseReceived(id, dataBuffers.remove(id))
         }
       }

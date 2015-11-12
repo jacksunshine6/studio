@@ -10,6 +10,7 @@ import com.intellij.openapi.externalSystem.model.project.LibraryPathType;
 import com.intellij.openapi.externalSystem.model.project.ProjectData;
 import com.intellij.openapi.externalSystem.service.project.ExternalLibraryPathTypeMapper;
 import com.intellij.openapi.externalSystem.service.project.IdeModifiableModelsProvider;
+import com.intellij.openapi.externalSystem.service.project.IdeUIModifiableModelsProvider;
 import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil;
 import com.intellij.openapi.externalSystem.util.ExternalSystemConstants;
 import com.intellij.openapi.externalSystem.util.ExternalSystemUtil;
@@ -22,7 +23,6 @@ import com.intellij.openapi.roots.OrderRootType;
 import com.intellij.openapi.roots.RootPolicy;
 import com.intellij.openapi.roots.libraries.Library;
 import com.intellij.openapi.roots.libraries.LibraryTable;
-import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vfs.JarFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -110,8 +110,7 @@ public class LibraryDataService extends AbstractProjectDataService<LibraryData, 
   @SuppressWarnings("MethodMayBeStatic")
   public void registerPaths(@NotNull Map<OrderRootType, Collection<File>> libraryFiles,
                             @NotNull Library.ModifiableModel model,
-                            @NotNull String libraryName)
-  {
+                            @NotNull String libraryName) {
     for (Map.Entry<OrderRootType, Collection<File>> entry : libraryFiles.entrySet()) {
       for (File file : entry.getValue()) {
         VirtualFile virtualFile = ExternalSystemUtil.refreshAndFindFileByIoFile(file);
@@ -155,41 +154,33 @@ public class LibraryDataService extends AbstractProjectDataService<LibraryData, 
     }
   }
 
-  @NotNull
+  /**
+   * Remove orphan project libraries during postprocess phase (after execution of LibraryDependencyDataService#import)
+   * in order to use LibraryDataService.isOrphanProjectLibrary method properly
+   */
   @Override
-  public Computable<Collection<Library>> computeOrphanData(@NotNull Collection<DataNode<LibraryData>> toImport,
-                                                           @NotNull final ProjectData projectData,
-                                                           @NotNull Project project,
-                                                           @NotNull final IdeModifiableModelsProvider modelsProvider) {
-    return new Computable<Collection<Library>>() {
-      @Override
-      public Collection<Library> compute() {
-        final List<Library> orphanIdeLibraries = ContainerUtil.newSmartList();
-        final LibraryTable.ModifiableModel librariesModel = modelsProvider.getModifiableProjectLibrariesModel();
-        for (Library library : librariesModel.getLibraries()) {
-          if (!ExternalSystemApiUtil.isExternalSystemLibrary(library, projectData.getOwner())) continue;
-          if (isOrphanProjectLibrary(library, modelsProvider)) {
-            orphanIdeLibraries.add(library);
-          }
-        }
-        return orphanIdeLibraries;
-      }
-    };
-  }
+  public void postProcess(@NotNull Collection<DataNode<LibraryData>> toImport,
+                          @Nullable ProjectData projectData,
+                          @NotNull Project project,
+                          @NotNull IdeModifiableModelsProvider modelsProvider) {
 
-  @Override
-  public void removeData(@NotNull final Computable<Collection<Library>> toRemoveComputable,
-                         @NotNull Collection<DataNode<LibraryData>> toIgnore,
-                         @NotNull ProjectData projectData,
-                         @NotNull final Project project,
-                         @NotNull final IdeModifiableModelsProvider modelsProvider) {
-    final Collection<Library> toRemove = toRemoveComputable.compute();
-    if (toRemove.isEmpty()) {
-      return;
+    if (projectData == null) return;
+
+    // do not cleanup orphan project libraries if import runs from Project Structure Dialog
+    // since libraries order entries cannot be imported for modules in that case
+    // and hence #isOrphanProjectLibrary() method will work incorrectly
+    if (modelsProvider instanceof IdeUIModifiableModelsProvider) return;
+
+    final List<Library> orphanIdeLibraries = ContainerUtil.newSmartList();
+    final LibraryTable.ModifiableModel librariesModel = modelsProvider.getModifiableProjectLibrariesModel();
+    for (Library library : librariesModel.getLibraries()) {
+      if (!ExternalSystemApiUtil.isExternalSystemLibrary(library, projectData.getOwner())) continue;
+      if (isOrphanProjectLibrary(library, modelsProvider)) {
+        orphanIdeLibraries.add(library);
+      }
     }
 
-    final LibraryTable.ModifiableModel librariesModel = modelsProvider.getModifiableProjectLibrariesModel();
-    for (Library library : toRemove) {
+    for (Library library : orphanIdeLibraries) {
       String libraryName = library.getName();
       if (libraryName != null) {
         Library libraryToRemove = librariesModel.getLibraryByName(libraryName);

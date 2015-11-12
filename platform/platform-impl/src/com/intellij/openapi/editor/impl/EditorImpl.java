@@ -322,7 +322,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
     ourCaretBlinkingCommand.start();
   }
 
-  private int myExpectedCaretOffset = -1;
+  private volatile int myExpectedCaretOffset = -1;
 
   EditorImpl(@NotNull Document document, boolean viewer, @Nullable Project project) {
     assertIsDispatchThread();
@@ -674,7 +674,8 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
 
   @Override
   public int getExpectedCaretOffset() {
-    return myExpectedCaretOffset == -1 ? getCaretModel().getOffset() : myExpectedCaretOffset;
+    int expectedCaretOffset = myExpectedCaretOffset;
+    return expectedCaretOffset == -1 ? getCaretModel().getOffset() : expectedCaretOffset;
   }
 
   @Override
@@ -1162,6 +1163,7 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
 
   @Override
   public void setHighlighter(@NotNull final EditorHighlighter highlighter) {
+    if (isReleased) return; // do not set highlighter to the released editor
     assertIsDispatchThread();
     final Document document = getDocument();
     Disposer.dispose(myHighlighterDisposable);
@@ -2426,12 +2428,17 @@ public final class EditorImpl extends UserDataHolderBase implements EditorEx, Hi
   @Override
   public int getMaxWidthInRange(int startOffset, int endOffset) {
     if (myUseNewRendering) return myView.getMaxWidthInRange(startOffset, endOffset);
-    int width = 0;
     int start = offsetToVisualLine(startOffset);
     int end = offsetToVisualLine(endOffset);
 
-    for (int i = start; i <= end; i++) {
-      int lastColumn = EditorUtil.getLastVisualLineColumnNumber(this, i) + 1;
+    return getMaxWidthInVisualLineRange(start, end, true);
+  }
+
+  int getMaxWidthInVisualLineRange(int startVisualLine, int endVisualLine, boolean addOneColumn) {
+    int width = 0;
+
+    for (int i = startVisualLine; i <= endVisualLine; i++) {
+      int lastColumn = EditorUtil.getLastVisualLineColumnNumber(this, i) + (addOneColumn ? 1 : 0);
       int lineWidth = visualPositionToXY(new VisualPosition(i, lastColumn)).x;
 
       if (lineWidth > width) {
