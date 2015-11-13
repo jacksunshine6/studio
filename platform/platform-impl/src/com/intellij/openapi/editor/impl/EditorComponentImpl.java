@@ -46,6 +46,7 @@ import com.intellij.openapi.ui.Queryable;
 import com.intellij.openapi.ui.TypingTarget;
 import com.intellij.openapi.util.ActionCallback;
 import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.impl.IdeBackgroundUtil;
@@ -882,6 +883,8 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
     // and doesn't do multi-line iteration. (This is hardcoded into the sun/lwawt/macosx implementation.)
     // As you can see from JavaAccessibilityUtilities.m, we should use the exact key "textarea" to get
     // proper text area handling.
+    // Note: This is true for MacOS only. For other platform, we need to return the "regular"
+    // TEXT role to ensure screen readers behave as expected.
     @SuppressWarnings("SpellCheckingInspection")
     private static final AccessibleRole TEXT_AREA = new TextAccessibleRole("textarea");
 
@@ -916,11 +919,13 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
         firePropertyChange(ACCESSIBLE_CARET_PROPERTY,
                            new Integer(myCaretPos), new Integer(dot));
 
-        // For MacOSX we also need to fire a caret event to anyone listening
-        // to our Document, since *that* rather than the accessible property
-        // change is the only way to trigger a speech update
-        //fireJTextComponentCaretChange(dot, mark);
-        fireJTextComponentCaretChange(e);
+        if (SystemInfo.isMac) {
+          // For MacOSX we also need to fire a caret event to anyone listening
+          // to our Document, since *that* rather than the accessible property
+          // change is the only way to trigger a speech update
+          //fireJTextComponentCaretChange(dot, mark);
+          fireJTextComponentCaretChange(e);
+        }
 
         myCaretPos = dot;
       }
@@ -951,10 +956,12 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
       final Integer pos = event.getOffset();
       if (ApplicationManager.getApplication().isDispatchThread()) {
         firePropertyChange(ACCESSIBLE_TEXT_PROPERTY, null, pos);
-        // For MacOSX we also need to fire a JTextComponent event to anyone listening
-        // to our Document, since *that* rather than the accessible property
-        // change is the only way to trigger a speech update
-        fireJTextComponentDocumentChange(event);
+        if (SystemInfo.isMac) {
+          // For MacOSX we also need to fire a JTextComponent event to anyone listening
+          // to our Document, since *that* rather than the accessible property
+          // change is the only way to trigger a speech update
+          fireJTextComponentDocumentChange(event);
+        }
       } else {
         ApplicationManager.getApplication().invokeLater(new Runnable() {
           @Override
@@ -984,7 +991,12 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public AccessibleRole getAccessibleRole() {
-      return TextAccessibleRole.TEXT_AREA;
+      // See comment on TextAccessibleRole class.
+      if (SystemInfo.isMac) {
+        return TextAccessibleRole.TEXT_AREA;
+      } else {
+        return AccessibleRole.TEXT;
+      }
     }
 
     @Override
@@ -1017,6 +1029,11 @@ public class EditorComponentImpl extends JTextComponent implements Scrollable, D
 
     @Override
     public Rectangle getCharacterBounds(int offset) {
+      // Since we report the very end of the document as being 1 character past the document
+      // length, we need to validate the offset passed back by the screen reader.
+      if (offset < 0 || offset > myEditor.getDocument().getTextLength() - 1) {
+        return null;
+      }
       LogicalPosition pos = myEditor.offsetToLogicalPosition(offset);
       Point point = myEditor.logicalPositionToXY(pos);
       FontMetrics fontMetrics = myEditor.getFontMetrics(Font.PLAIN);
