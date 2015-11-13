@@ -54,10 +54,6 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
     super(threadProxy.getVirtualMachine());
     myThreadProxy = threadProxy;
     myFrameFromBottomIndex = fromBottomIndex;
-
-    for (StackFrameModifier modifier : StackFrameModifier.EP_NAME.getExtensions()) {
-      frame = modifier.modifyStackFrame(frame);
-    }
     myStackFrame = frame;
   }
 
@@ -132,11 +128,7 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
     if (myStackFrame == null) {
       try {
         final ThreadReference threadRef = myThreadProxy.getThreadReference();
-        StackFrame frame = threadRef.frame(getFrameIndex());
-        for (StackFrameModifier modifier : StackFrameModifier.EP_NAME.getExtensions()) {
-          frame = modifier.modifyStackFrame(frame);
-        }
-        myStackFrame = frame;
+        myStackFrame = threadRef.frame(getFrameIndex());
       }
       catch (IndexOutOfBoundsException e) {
         throw new EvaluateException(e.getMessage(), e);
@@ -248,6 +240,14 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
     return myThisReference;
   }
 
+  /**
+   * Returns true if a variable with this name should not be shown in the debugger.
+   * This is useful for tool generated variables that are of no use to the user.
+   */
+  protected boolean isHiddenVariable(@NotNull String name) {
+    return false;
+  }
+
   @NotNull
   public List<LocalVariableProxyImpl> visibleVariables() throws EvaluateException {
     DebuggerManagerThreadImpl.assertIsManagerThread();
@@ -258,7 +258,9 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
         final List<LocalVariableProxyImpl> locals = new ArrayList<LocalVariableProxyImpl>(list.size());
         for (LocalVariable localVariable : list) {
           LOG.assertTrue(localVariable != null);
-          locals.add(new LocalVariableProxyImpl(this, localVariable));
+          if (!isHiddenVariable(localVariable.name())) {
+            locals.add(new LocalVariableProxyImpl(this, localVariable));
+          }
         }
         return locals;
       }
@@ -287,6 +289,10 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
   }
 
   protected LocalVariable visibleVariableByNameInt(String name) throws EvaluateException  {
+    if (isHiddenVariable(name)) {
+      return null;
+    }
+
     DebuggerManagerThreadImpl.assertIsManagerThread();
     InvalidStackFrameException error = null;
     for (int attempt = 0; attempt < 2; attempt++) {
@@ -433,6 +439,9 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
 
   public boolean isLocalVariableVisible(LocalVariableProxyImpl var) throws EvaluateException {
     try {
+      if (isHiddenVariable(var.name())) {
+        return false;
+      }
       return var.getVariable().isVisible(getStackFrame());
     }
     catch (IllegalArgumentException ignored) {
