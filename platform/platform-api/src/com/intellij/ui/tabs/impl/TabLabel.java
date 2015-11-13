@@ -35,6 +35,8 @@ import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -42,7 +44,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
-public class TabLabel extends JPanel {
+public class TabLabel extends JPanel implements Accessible {
   protected final SimpleColoredComponent myLabel;
 
   private final LayeredIcon myIcon;
@@ -606,5 +608,38 @@ public class TabLabel extends JPanel {
 
   public JComponent getLabelComponent() {
     return myLabel;
+  }
+
+
+  @Override
+  public AccessibleContext getAccessibleContext() {
+    if (accessibleContext == null) {
+      accessibleContext = new AccessibleTabLabel();
+    }
+    return accessibleContext;
+  }
+
+  protected class AccessibleTabLabel extends AccessibleJPanel {
+    @Override
+    public String getAccessibleName() {
+      String name = super.getAccessibleName();
+      if (name == null) {
+        if (myLabel.getAccessibleContext() != null){
+          name = myLabel.getAccessibleContext().getAccessibleName();
+        }
+      }
+      return name;
+    }
+
+    @Override
+    public String getAccessibleDescription() {
+      String name = super.getAccessibleDescription();
+      if (name == null) {
+        if (myLabel.getAccessibleContext() != null){
+          name = myLabel.getAccessibleContext().getAccessibleDescription();
+        }
+      }
+      return name;
+    }
   }
 }
