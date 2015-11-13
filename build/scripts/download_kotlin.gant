@@ -1,5 +1,7 @@
 import com.intellij.util.text.VersionComparatorUtil
 
+import java.nio.file.Files
+
 import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 /*
  * Copyright 2000-2015 JetBrains s.r.o.
@@ -22,11 +24,22 @@ String kotlinBuildConfigurationOnPublicTeamCity = "Kotlin_M15_2_Idea142branch150
 
 target('default': 'Ensures that build/kotlinc directory contains JARs from Kotlin plugin compatible with current IDEA sources. These JARs are used by build scripts.') {
   def communityHome = guessHome(this)
+
+  // Android Studio: always extract Kotlin zip from our prebuilts
+  // If at any point in time, the prebuilt is considered stale, then:
+  //     1. comment out the following line to extract from prebuilt
+  //     2. comment out the line further below that prevents downloading the plugin from the web (teamcity)
+  // Then run the script, and copy over the file build/kotlin-plugin-...zip to prebuilts.
+  extract(communityHome, copyKotlinPrebuilt(communityHome))
+
   def reasonToUpdate = getReasonToUpdate(communityHome, new File(communityHome, "build/kotlinc"))
   if (reasonToUpdate == null) {
     projectBuilder.info("Compatible Kotlin plugin already installed, no update is required")
     return
   }
+
+  // Android Studio: we never want to download from the web
+  projectBuilder.error("Android Studio: Kotlin plugin needs to be updated, comment out this line, run it locally and update the prebuilt with the new downloaded version")
 
   projectBuilder.info("Kotlin plugin will be updated: $reasonToUpdate")
 
@@ -44,6 +57,29 @@ target('default': 'Ensures that build/kotlinc directory contains JARs from Kotli
   if (!downloadAndExtract(new TeamCityBuildLocator("https://teamcity.jetbrains.com", kotlinBuildConfigurationOnPublicTeamCity, "status:SUCCESS"), communityHome)) {
     projectBuilder.error("Failed to install Kotlin plugin")
   }
+}
+
+// Android Studio: copy the kotlin plugin zip checked into prebuilts to the build folder
+private File copyKotlinPrebuilt(String communityHome) {
+  File kotlinFolder = new File(communityHome, "../../prebuilts/tools/common/kotlin-plugin")
+  if (!kotlinFolder.exists()) {
+    projectBuilder.error("Kotlin prebuilt folder does not exist at " + kotlinFolder.getAbsolutePath())
+  }
+
+  File[] files = kotlinFolder.listFiles(new FilenameFilter() {
+    @Override
+    boolean accept(File dir, String name) {
+      return name.endsWith(".zip");
+    }
+  })
+  if (files.length != 1) {
+    projectBuilder.error("More than 1 .zip file present in " + kotlinFolder.getAbsolutePath())
+  }
+
+  projectBuilder.info("Using Kotlin from: " + files[0].getAbsolutePath())
+  ant.copy(todir: "$communityHome/build/", file: files[0])
+
+  return new File(communityHome, "build/" + files[0].getName())
 }
 
 private boolean updatePluginFromWorkIdeaInstallation(String communityHome, String workIdeaHome) {
@@ -120,7 +156,6 @@ private boolean downloadAndExtract(TeamCityBuildLocator buildLocator, String com
     return false
   }
 
-
   def pluginZip = new File(communityHome, "build/kotlin-plugin-${buildNumber}.zip")
   def pluginZipPath = pluginZip.absolutePath
   if (!pluginZip.exists()) {
@@ -128,8 +163,15 @@ private boolean downloadAndExtract(TeamCityBuildLocator buildLocator, String com
     projectBuilder.info("Downloading Kotlin build $buildNumber")
     ant.get(src: buildLocator.getDownloadUrl(buildNumber), dest: pluginZipPath)
   }
-  else {
-    projectBuilder.info("Extracting Kotlin build $buildNumber")
+
+  return extract(communityHome, pluginZip);
+}
+
+private boolean extract(String communityHome, File pluginZip) {
+  def pluginZipPath = pluginZip.absolutePath
+
+  if (!pluginZip.exists()) {
+    projectBuilder.error("Kotlin plugin doesn't exist at $pluginZip")
   }
 
   def kotlincDir = "$communityHome/build/kotlinc"
