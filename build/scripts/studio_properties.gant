@@ -75,7 +75,7 @@ def getProperties(String home, String buildNumber) {
 
     def String fullBuildNumber() { "AI-$snapshot".replaceAll("SNAPSHOT", buildNumber) }
 
-    def String systemSelector() { "AndroidStudio10xPreview" }
+    def String systemSelector() { "AndroidStudio2-10xPreview" }
 
     def String macAppRoot() {
       isEap() ? "Android Studio ${p("component.version.major")}.${p("component.version.minor")} Preview.app/Contents"
