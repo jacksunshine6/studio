@@ -79,10 +79,7 @@ def getProperties(String home, String buildNumber) {
                                           : "$platformPrefix${p("component.version.major").${p("component.version.minor")}}"
     }
 
-    def String macAppRoot() {
-      isEap() ? "Android Studio ${p("component.version.major")}.${p("component.version.minor")} Preview.app/Contents"
-              : "Android Studio.app/Contents"
-    }
+    def String macAppRoot() { "Android Studio.app/Contents" }
 
     def String winAppRoot() { "android-studio" }
 
