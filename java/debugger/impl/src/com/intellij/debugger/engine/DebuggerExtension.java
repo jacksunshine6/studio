@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.intellij.debugger.jdi;
+package com.intellij.debugger.engine;
 
+import com.intellij.debugger.jdi.StackFrameProxyImpl;
+import com.intellij.debugger.jdi.ThreadReferenceProxyImpl;
 import com.intellij.openapi.extensions.ExtensionPointName;
+import com.sun.jdi.Field;
+import com.sun.jdi.ReferenceType;
 import com.sun.jdi.StackFrame;
 import org.jetbrains.annotations.NotNull;
 
-public interface StackFrameProxyProvider {
+public interface DebuggerExtension {
 
-  ExtensionPointName<StackFrameProxyProvider> EP_NAME = new ExtensionPointName<StackFrameProxyProvider>("com.intellij.debuggerStackFrameProxyProvider");
+  ExtensionPointName<DebuggerExtension> EP_NAME = new ExtensionPointName<DebuggerExtension>("com.intellij.debuggerExtension");
 
   StackFrameProxyImpl createProxy(@NotNull ThreadReferenceProxyImpl threadProxy, @NotNull StackFrame frame, int fromBottomIndex /* 1-based */);
+
+  boolean filterStaticVariable(@NotNull ReferenceType refType, @NotNull Field field, boolean isSynthetic);
 }

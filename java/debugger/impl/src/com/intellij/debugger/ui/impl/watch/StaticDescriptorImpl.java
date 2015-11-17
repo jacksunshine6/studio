@@ -20,6 +20,7 @@
  */
 package com.intellij.debugger.ui.impl.watch;
 
+import com.intellij.debugger.engine.DebuggerExtension;
 import com.intellij.debugger.engine.DebuggerManagerThreadImpl;
 import com.intellij.debugger.engine.evaluation.EvaluateException;
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl;
@@ -39,8 +40,10 @@ public class StaticDescriptorImpl extends NodeDescriptorImpl implements StaticDe
     myType = refType;
 
     boolean hasStaticFields = false;
+    DebuggerExtension extension = DebuggerExtension.EP_NAME.findExtension(DebuggerExtension.class);
+
     for (Field field : myType.allFields()) {
-      if (field.isStatic()) {
+      if (field.isStatic() && (extension == null || !extension.filterStaticVariable(refType, field, field.isSynthetic()))) {
         hasStaticFields = true;
         break;
       }

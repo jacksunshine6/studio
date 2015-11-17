@@ -465,5 +465,14 @@ public class StackFrameProxyImpl extends JdiProxy implements StackFrameProxy {
   public int getIndexFromBottom() {
     return myFrameFromBottomIndex;
   }
+
+  @Nullable
+  public ReferenceType getDeclaringType() throws EvaluateException {
+    Location location = location();
+    if (location != null) {
+      return location.declaringType();
+    }
+    return null;
+  }
 }
 
