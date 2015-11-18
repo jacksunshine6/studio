@@ -25,6 +25,9 @@ def getProperties(String home, String buildNumber) {
   def lldbBinSrcRoot = "$home/../vendor/google/android-ndk/bin/lldb"
   def lldbBinTargetRoot = "bin/lldb"
   def gradleVersion = "2.8"
+  def studioCustomRepo = System.getenv().STUDIO_CUSTOM_REPO
+  def studioRepo = studioCustomRepo ?: "${home}/../../prebuilts/tools/common/offline-m2"
+
 
   def enableUITests = System.getProperty("studio.ui.tests") ? !System.getProperty("studio.ui.tests").isEmpty() : false
 
@@ -99,7 +102,7 @@ def getProperties(String home, String buildNumber) {
 
         dir("gradle") {
           dir("m2repository") {
-            fileset(dir: "${home}/../../prebuilts/tools/common/offline-m2")
+            fileset(dir: "$studioRepo")
           }
         }
 
