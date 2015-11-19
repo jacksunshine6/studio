@@ -123,6 +123,5 @@
     <orderEntry type="module" module-name="designer" />
     <orderEntry type="module" module-name="analytics" />
     <orderEntry type="module" module-name="android-ndk" />
-    <orderEntry type="module" module-name="dogfood" />
   </component>
 </module>
