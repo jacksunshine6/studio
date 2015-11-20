@@ -37,8 +37,8 @@ import com.intellij.ui.speedSearch.SpeedSearchUtil;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.FList;
 import com.intellij.util.ui.EmptyIcon;
-import com.intellij.util.ui.GraphicsUtil;
 import com.intellij.util.ui.JBUI;
+import com.intellij.util.ui.accessibility.AccessibleContextUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -215,34 +215,9 @@ public class LookupCellRenderer implements ListCellRenderer {
       }
     }
 
-    myPanel.getAccessibleContext().setAccessibleName(
-      combineAccessibleStrings(
-        myNameComponent.getAccessibleContext().getAccessibleName(),
-        "",
-        myTailComponent.getAccessibleContext().getAccessibleName(),
-        "\t",
-        myTypeLabel.getAccessibleContext().getAccessibleName()));
-    myPanel.getAccessibleContext().setAccessibleDescription(
-      combineAccessibleStrings(
-        myNameComponent.getAccessibleContext().getAccessibleDescription(),
-        "",
-        myTailComponent.getAccessibleContext().getAccessibleDescription(),
-        "\t",
-        myTypeLabel.getAccessibleContext().getAccessibleDescription()));
-
+    AccessibleContextUtil.setCombinedName(myPanel, myNameComponent, "", myTailComponent, " - ", myTypeLabel);
+    AccessibleContextUtil.setCombinedDescription(myPanel, myNameComponent, "", myTailComponent, " - ", myTypeLabel);
     return myPanel;
-  }
-
-  private static String combineAccessibleStrings(String s1, String separator, String s2) {
-    if (s1 == null || s1.length() == 0)
-      return s2;
-    if (s2 == null || s2.length() == 0)
-      return s1;
-    return String.format("%s%s%s", s1, separator, s2);
-  }
-
-  private static String combineAccessibleStrings(String s1, String separator1, String s2, String separator2, String s3) {
-    return combineAccessibleStrings(combineAccessibleStrings(s1, separator1, s2), separator2, s3);
   }
 
   private static Color getForegroundColor(boolean isSelected) {
