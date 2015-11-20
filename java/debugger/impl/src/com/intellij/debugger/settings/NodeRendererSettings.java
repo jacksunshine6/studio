@@ -289,7 +289,17 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
     allRenderers.addAll(myPluginRenderers);
     Collections.addAll(allRenderers, NodeRenderer.EP_NAME.getExtensions());
 
-    if (myUseAndroidRenderer) {
+    // now all predefined stuff
+    allRenderers.add(myHexRenderer);
+    allRenderers.add(myPrimitiveRenderer);
+    Collections.addAll(allRenderers, myAlternateCollectionRenderers);
+    allRenderers.add(myToStringRenderer);
+    allRenderers.add(myArrayRenderer);
+    allRenderers.add(myClassRenderer);
+
+    // Android Studio: tweak the ordering of the android renderer: unless it is explicitly enabled,
+    // we don't want it to have higher priority over the primitive renderer
+    if (!myUseAndroidRenderer) {
       int androidIndex = -1;
       for (int i = 0; i < allRenderers.size(); i++) {
         if ("android.resource.renderer".equals(allRenderers.get(i).getUniqueId())) {
@@ -300,17 +310,9 @@ public class NodeRendererSettings implements PersistentStateComponent<Element> {
 
       if (androidIndex != -1) {
         NodeRenderer androidRenderer = allRenderers.remove(androidIndex);
-        allRenderers.add(0, androidRenderer);
+        allRenderers.add(androidRenderer);
       }
     }
-
-    // now all predefined stuff
-    allRenderers.add(myHexRenderer);
-    allRenderers.add(myPrimitiveRenderer);
-    Collections.addAll(allRenderers, myAlternateCollectionRenderers);
-    allRenderers.add(myToStringRenderer);
-    allRenderers.add(myArrayRenderer);
-    allRenderers.add(myClassRenderer);
 
     return allRenderers;
   }
