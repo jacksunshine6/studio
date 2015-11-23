@@ -18,10 +18,7 @@ package com.intellij.internal.statistic.analytics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.*;
 import com.intellij.diagnostic.IdeErrorsDialog;
 import com.intellij.ide.SystemHealthMonitor;
 import com.intellij.ide.plugins.PluginManager;
@@ -52,10 +49,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.*;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 // Note: Methods such as trackException() are called from within the logger when an exception is detected,
 // so don't use a Logger in this class and possibly end up in an infinite recursion.
@@ -74,6 +68,11 @@ public class AnalyticsUploader {
     UNIT_TEST_MODE ? "unit-test" : UpdateChecker.getInstallationUID(PropertiesComponent.getInstance());
 
   private static final int MAX_DESCRIPTION_SIZE = 150; // max allowed by GA
+
+  /** {@link Throwable} classes with messages expected to be useful for debugging and not to contain PII. */
+  private static final ImmutableSet<Class<? extends Throwable>> THROWABLE_CLASSES_TO_TRACK_MESSAGES =
+    ImmutableSet.<Class<? extends Throwable>>of(
+      ArrayIndexOutOfBoundsException.class, ClassCastException.class, ClassNotFoundException.class);
 
   private static final String PROTOCOL_VERSION = "v";
   private static final String TRACKING_ID = "tid";
@@ -198,6 +197,9 @@ public class AnalyticsUploader {
       postToAnalytics(ImmutableList.of(new BasicNameValuePair(HIT_TYPE, HIT_TYPE_EXCEPTION),
                                        new BasicNameValuePair(EXCEPTION_DESCRIPTION, description),
                                        new BasicNameValuePair(EXCEPTION_FATAL, fatal ? "1" : "0")));
+      if (THROWABLE_CLASSES_TO_TRACK_MESSAGES.contains(t.getClass())) {
+        trackEvent("Throwable.detailMessage", t.getClass().getSimpleName(), t.getMessage(), null);
+      }
 
       ourLastSeenExceptions.add(description);
     } catch (Throwable throwable) {
