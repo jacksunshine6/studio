@@ -175,9 +175,12 @@ public class JBPopupMenu extends JPopupMenu {
       Component[] components = target.getComponents();
       int y = -myShift + insets.top;
       for (Component component : components) {
-        int height = component.getPreferredSize().height;
-        component.setBounds(insets.left, y, width, height);
-        y += height;
+        // Android Studio: Workaround for issue IDEA-148511
+        if (component.isVisible()) {
+          int height = component.getPreferredSize().height;
+          component.setBounds(insets.left, y, width, height);
+          y += height;
+        }
       }
     }
 
