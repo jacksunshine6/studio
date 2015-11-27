@@ -34,7 +34,12 @@ public class WebEditorOptions implements PersistentStateComponent<WebEditorOptio
   private boolean myAutoCloseTag = true;
   private boolean mySyncTagEditing = true;
   private boolean myAutomaticallyStartAttribute = true;
-  private boolean myInsertQuotesForAttributeValue = true;
+
+  // Android Studio: Deliberately changing behavior to work around IDEA-113332.
+  //private boolean myInsertQuotesForAttributeValue = true;
+  private boolean myInsertQuotesForAttributeValue = false;
+
+  private boolean myInsertQuotesForAttributeValueCompletion = true;
 
   private boolean myTagTreeHighlightingEnabled = true;
   private int myTagTreeHighlightingLevelCount = 6;
@@ -153,6 +158,14 @@ public class WebEditorOptions implements PersistentStateComponent<WebEditorOptio
 
   public void setInsertQuotesForAttributeValue(boolean insertQuotesForAttributeValue) {
     myInsertQuotesForAttributeValue = insertQuotesForAttributeValue;
+  }
+
+  public boolean isInsertQuotesForAttributeValueCompletion() {
+    return myInsertQuotesForAttributeValueCompletion;
+  }
+
+  public void setInsertQuotesForAttributeValueCompletion(boolean insertQuotesForAttributeValueCompletion) {
+    myInsertQuotesForAttributeValueCompletion = insertQuotesForAttributeValueCompletion;
   }
 
   public boolean isAutoCloseTag() {

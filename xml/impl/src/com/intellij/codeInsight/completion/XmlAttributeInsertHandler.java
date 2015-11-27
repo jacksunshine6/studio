@@ -66,7 +66,11 @@ public class XmlAttributeInsertHandler implements InsertHandler<LookupElement> {
     final PsiFile file = context.getFile();
 
     final CharSequence chars = document.getCharsSequence();
-    final boolean insertQuotes = WebEditorOptions.getInstance().isInsertQuotesForAttributeValue();
+
+    // Android Studio: To work around IDEA-113332 and an IJ 15 change which affected
+    // our workaround(b.android.com/195113) we've created a separate option here.
+    //final boolean insertQuotes = WebEditorOptions.getInstance().isInsertQuotesForAttributeValue();
+    final boolean insertQuotes = WebEditorOptions.getInstance().isInsertQuotesForAttributeValueCompletion();
     final boolean hasQuotes = CharArrayUtil.regionMatches(chars, caretOffset, "=\"");
     if (!hasQuotes && !CharArrayUtil.regionMatches(chars, caretOffset, "='")) {
       PsiElement fileContext = file.getContext();
