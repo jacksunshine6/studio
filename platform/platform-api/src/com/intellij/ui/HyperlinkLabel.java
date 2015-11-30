@@ -27,6 +27,9 @@ import com.intellij.util.ui.UIUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.accessibility.AccessibleAction;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
@@ -275,5 +278,54 @@ public class HyperlinkLabel extends HighlightableComponent {
   protected void paintComponent(Graphics g) {
     myIsSelected = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner() == this;
     super.paintComponent(g);
+  }
+
+  @Override
+  public AccessibleContext getAccessibleContext() {
+    if (accessibleContext == null) {
+      accessibleContext = new AccessibleHyperlinkLabel();
+    }
+    return accessibleContext;
+  }
+
+  /**
+   * Hyperlink accessibility: "HYPERLINK" role and expose a "click" action.
+   * @see javax.swing.AbstractButton.AccessibleAbstractButton
+   */
+  protected class AccessibleHyperlinkLabel extends AccessibleHighlightable implements AccessibleAction {
+    @Override
+    public AccessibleRole getAccessibleRole() {
+      return AccessibleRole.HYPERLINK;
+    }
+
+    @Override
+    public AccessibleAction getAccessibleAction() {
+      return this;
+    }
+
+    @Override
+    public int getAccessibleActionCount() {
+      return 1;
+    }
+
+    @Override
+    public String getAccessibleActionDescription(int i) {
+      if (i == 0) {
+        return UIManager.getString("AbstractButton.clickText");
+      }
+      else {
+        return null;
+      }
+    }
+
+    @Override
+    public boolean doAccessibleAction(int i) {
+      if (i == 0) {
+        doClick();
+        return true;
+      } else {
+        return false;
+      }
+    }
   }
 }
