@@ -76,7 +76,7 @@ public class BegTableUI extends BasicTableUI {
       int anchorRow = rsm.getAnchorSelectionIndex();
       ListSelectionModel csm = table.getColumnModel().getSelectionModel();
       int anchorColumn = csm.getAnchorSelectionIndex();
-      table.editCellAt(anchorRow, anchorColumn);
+      table.editCellAt(anchorRow, anchorColumn, e);
       Component editorComp = table.getEditorComponent();
       if (editorComp != null) {
         editorComp.addKeyListener(myAdapter);
