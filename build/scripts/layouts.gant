@@ -836,6 +836,8 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
         module("ddmlib")
         module("dvlib")
         module("draw9patch")
+        module("instant-run-client")
+        module("instant-run-common")
         module("lint-api")
         module("lint-checks")
         module("ninepatch")
