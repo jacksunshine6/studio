@@ -46,6 +46,7 @@ import com.intellij.util.Function;
 import com.intellij.util.SystemProperties;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
+import com.intellij.util.ui.accessibility.AccessibleContextUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -435,13 +436,13 @@ public class RecentProjectPanel extends JPanel {
         ReopenProjectAction item = (ReopenProjectAction)value;
         myName.setText(item.getTemplatePresentation().getText());
         myPath.setText(getTitle2Text(item, myPath, JBUI.scale(40)));
-        getAccessibleContext().setAccessibleName(myName.getText() + " - " + myPath.getText());
       } else if (value instanceof ProjectGroupActionGroup) {
         final ProjectGroupActionGroup group = (ProjectGroupActionGroup)value;
         myName.setText(group.getGroup().getName());
         myPath.setText("");
-        getAccessibleContext().setAccessibleName(group.getGroup().getName());
       }
+      AccessibleContextUtil.setCombinedName(this, myName, " - ", myPath);
+      AccessibleContextUtil.setCombinedDescription(this, myName, " - ", myPath);
       return this;
     }
 
