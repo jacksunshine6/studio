@@ -277,7 +277,7 @@ public class GeneralToSMTRunnerEventsConvertor extends GeneralTestEventsProcesso
         mySuitesStack.pushSuite(newSuite);
 
         //Progress started
-        newSuite.setStarted();
+        newSuite.setSuiteStarted();
 
         //fire event
         fireOnSuiteStarted(newSuite);
@@ -312,6 +312,7 @@ public class GeneralToSMTRunnerEventsConvertor extends GeneralTestEventsProcesso
         }
 
         testProxy.setDuration(duration);
+        testProxy.setFrameworkOutputFile(testFinishedEvent.getOutputFile());
         testProxy.setFinished();
         myRunningTestsFullNameToProxy.remove(fullTestName);
         myCurrentChildren.remove(testProxy);

@@ -16,6 +16,7 @@
 package com.jetbrains.python.packaging;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.RunCanceledByUserException;
 import com.intellij.execution.configurations.GeneralCommandLine;
@@ -32,14 +33,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
   public static final String PYTHON = "python";
 
-  PyCondaPackageManagerImpl(@NotNull Sdk sdk) {
+  PyCondaPackageManagerImpl(@NotNull final Sdk sdk) {
     super(sdk);
   }
 
@@ -50,7 +49,8 @@ public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
 
   @Override
   public boolean hasManagement(boolean cachedOnly) throws ExecutionException {
-    return isCondaVEnv(mySdk);
+    final Sdk sdk = getSdk();
+    return isCondaVEnv(sdk);
   }
 
   @Override
@@ -74,11 +74,13 @@ public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
   }
 
   private ProcessOutput getCondaOutput(@NotNull final String command, List<String> arguments) throws ExecutionException {
-    final String condaExecutable = PyCondaPackageService.getCondaExecutable();
+    final Sdk sdk = getSdk();
+
+    final String condaExecutable = PyCondaPackageService.getCondaExecutable(sdk.getHomeDirectory());
     if (condaExecutable == null) throw new PyExecutionException("Cannot find conda", "Conda", Collections.<String>emptyList(), new ProcessOutput());
 
     final String path = getCondaDirectory();
-    if (path == null) throw new PyExecutionException("Empty conda name for " + mySdk, command, arguments);
+    if (path == null) throw new PyExecutionException("Empty conda name for " + sdk.getHomePath(), command, arguments);
 
     final ArrayList<String> parameters = Lists.newArrayList(condaExecutable, command, "-p", path);
     parameters.addAll(arguments);
@@ -108,7 +110,7 @@ public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
 
   @Nullable
   private String getCondaDirectory() {
-    final VirtualFile homeDirectory = mySdk.getHomeDirectory();
+    final VirtualFile homeDirectory = getSdk().getHomeDirectory();
     if (homeDirectory == null) return null;
     if (SystemInfo.isWindows) return homeDirectory.getParent().getPath();
     return homeDirectory.getParent().getParent().getPath();
@@ -134,7 +136,9 @@ public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
   @Override
   protected List<PyPackage> getPackages() throws ExecutionException {
     final ProcessOutput output = getCondaOutput("list", Lists.newArrayList("-e"));
-    return parseCondaToolOutput(output.getStdout());
+    final Set<PyPackage> packages = Sets.newConcurrentHashSet(parseCondaToolOutput(output.getStdout()));
+    packages.addAll(super.getPackages());
+    return Lists.newArrayList(packages);
   }
 
   @NotNull
@@ -162,18 +166,18 @@ public class PyCondaPackageManagerImpl extends PyPackageManagerImpl {
     return packages;
   }
 
-  public static boolean isCondaVEnv(Sdk sdk) {
+  public static boolean isCondaVEnv(@NotNull final Sdk sdk) {
     final String condaName = "conda-meta";
     final VirtualFile homeDirectory = sdk.getHomeDirectory();
     if (homeDirectory == null) return false;
-    final VirtualFile condaExecutable = SystemInfo.isWindows ? homeDirectory.getParent().findChild(condaName) :
+    final VirtualFile condaMeta = SystemInfo.isWindows ? homeDirectory.getParent().findChild(condaName) :
                                         homeDirectory.getParent().getParent().findChild(condaName);
-    return condaExecutable != null;
+    return condaMeta != null;
   }
 
   @NotNull
   public static String createVirtualEnv(@NotNull String destinationDir, String version) throws ExecutionException {
-    final String condaExecutable = PyCondaPackageService.getCondaExecutable();
+    final String condaExecutable = PyCondaPackageService.getSystemCondaExecutable();
     if (condaExecutable == null) throw new PyExecutionException("Cannot find conda", "Conda", Collections.<String>emptyList(), new ProcessOutput());
 
     final ArrayList<String> parameters = Lists.newArrayList(condaExecutable, "create", "-p", destinationDir,

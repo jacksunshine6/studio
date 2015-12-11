@@ -20,6 +20,7 @@ import com.intellij.codeInsight.ExceptionUtil;
 import com.intellij.codeInsight.daemon.impl.analysis.JavaHighlightUtil;
 import com.intellij.codeInspection.dataFlow.ControlFlowAnalyzer;
 import com.intellij.lang.StdLanguages;
+import com.intellij.lang.java.JavaLanguage;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -41,6 +42,7 @@ import com.intellij.refactoring.util.*;
 import com.intellij.refactoring.util.usageInfo.DefaultConstructorImplicitUsageInfo;
 import com.intellij.refactoring.util.usageInfo.NoConstructorClassUsageInfo;
 import com.intellij.usageView.UsageInfo;
+import com.intellij.util.ArrayUtil;
 import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.VisibilityUtil;
 import com.intellij.util.containers.ContainerUtil;
@@ -565,6 +567,7 @@ public class JavaChangeSignatureUsageProcessor implements ChangeSignatureUsagePr
     if (!StdLanguages.JAVA.equals(changeInfo.getLanguage()) || !(changeInfo instanceof JavaChangeInfo)) return false;
     final PsiElement element = changeInfo.getMethod();
     LOG.assertTrue(element instanceof PsiMethod);
+    if (!JavaLanguage.INSTANCE.equals(element.getLanguage())) return false;
     if (changeInfo.isGenerateDelegate()) {
       generateDelegate((JavaChangeInfo)changeInfo);
     }
@@ -857,13 +860,13 @@ public class JavaChangeSignatureUsageProcessor implements ChangeSignatureUsagePr
       public boolean value(Pair<PsiParameter, String> pair) {
         final PsiParameter parameter = pair.first;
         final String oldParamName = pair.second;
-        final int idx = Arrays.binarySearch(oldParameterNames, oldParamName);
+        final int idx = ArrayUtil.find(oldParameterNames, oldParamName);
         return idx >= 0 && idx == method.getParameterList().getParameterIndex(parameter) && changeInfo.getNewParameters()[idx].getOldIndex() == idx;
       }
     }, new Condition<String>() {
       @Override
       public boolean value(String paramName) {
-        return Arrays.binarySearch(oldParameterNames, paramName) >= 0;
+        return ArrayUtil.find(oldParameterNames, paramName) >= 0;
       }
     });
   }

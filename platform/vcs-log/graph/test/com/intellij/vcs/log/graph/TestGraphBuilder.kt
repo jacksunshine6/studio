@@ -59,8 +59,8 @@ public class TestGraphBuilder : BaseTestGraphBuilder {
 
   public fun done(): LinearGraph = TestLinearGraph(nodes)
 
-  public fun Int.invoke(): Unit = newNode(asSimpleNode())
-  public fun Int.invoke(vararg edge: Int): Unit = newNode(asSimpleNode(), edge.asSimpleEdges())
+  public operator fun Int.invoke(): Unit = newNode(asSimpleNode())
+  public operator fun Int.invoke(vararg edge: Int): Unit = newNode(asSimpleNode(), edge.asSimpleEdges())
   public fun Int.invoke(vararg edge: SimpleEdge): Unit = newNode(asSimpleNode(), edge.toList())
   public fun SimpleNode.invoke(): Unit = newNode(this)
   public fun SimpleNode.invoke(vararg edge: Int): Unit = newNode(this, edge.asSimpleEdges())
@@ -110,7 +110,7 @@ public class TestGraphBuilder : BaseTestGraphBuilder {
 
           if (edgeType.isNormalEdge()) {
             val anotherNodeIndex = simpleEdge.toIndex
-            assert(anotherNodeIndex != null, "Graph is incorrect. Node ${node.nodeId} has ${edgeType} edge to not existed node: ${simpleEdge.toNode}")
+            assert(anotherNodeIndex != null) { "Graph is incorrect. Node ${node.nodeId} has ${edgeType} edge to not existed node: ${simpleEdge.toNode}" }
 
             val graphEdge = GraphEdge.createNormalEdge(anotherNodeIndex!!, nodeIndex, edgeType)
             edges.putValue(nodeIndex, graphEdge)
