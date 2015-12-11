@@ -15,6 +15,7 @@
  */
 package com.intellij.ui.messages;
 
+import com.google.common.html.HtmlEscapers;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.DialogWrapper;
@@ -25,6 +26,7 @@ import com.intellij.ui.Gray;
 import com.intellij.ui.JBColor;
 import com.intellij.util.ArrayUtil;
 import com.intellij.util.ui.UIUtil;
+import org.intellij.lang.annotations.Language;
 import org.jdesktop.swingx.graphics.GraphicsUtilities;
 import org.jdesktop.swingx.graphics.ShadowRenderer;
 import org.jetbrains.annotations.NotNull;
@@ -32,6 +34,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
+import javax.swing.plaf.basic.BasicHTML;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Rectangle2D;
@@ -224,6 +227,7 @@ public class SheetController {
     return .95f;
   }
 
+  // The message parameter may be either html or plain text.
   private JPanel createSheetPanel(String title, String message, JButton[] buttons) {
     JPanel sheetPanel = new JPanel() {
       @Override
@@ -320,8 +324,14 @@ public class SheetController {
       widestWordWidth = Math.max(fontMetrics.stringWidth(word), widestWordWidth);
     }
 
+    String text = message;
+    if (!BasicHTML.isHTMLString(text)) {
+      // if the message is not html, escape the text to retain special characters in html
+      text = HtmlEscapers.htmlEscaper().escape(text);
+    }
+
     messageTextPane.setSize(widestWordWidth, Short.MAX_VALUE);
-    messageTextPane.setText(handleBreaks(message));
+    messageTextPane.setText(handleBreaks(text));
     messageArea.setSize(widestWordWidth, messageTextPane.getPreferredSize().height);
 
     SHEET_WIDTH = Math.max(LEFT_SHEET_OFFSET + widestWordWidth + RIGHT_OFFSET, SHEET_WIDTH);
@@ -366,7 +376,8 @@ public class SheetController {
     return sheetPanel;
   }
 
-  private static String handleBreaks(final String message) {
+  @Language("HTML")
+  private static String handleBreaks(@Language("HTML") final String message) {
     return message.replaceAll("(\r\n|\n)", "<br/>");
   }
 
