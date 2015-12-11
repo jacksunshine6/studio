@@ -25,10 +25,12 @@ target('default': 'Ensures that build/kotlinc directory contains JARs from Kotli
 
   // Android Studio: always extract Kotlin zip from our prebuilts
   // If at any point in time, the prebuilt is considered stale, then:
+  //     0. Set currentVersion below to null instead
+  def currentVersion = "kotlin-plugin-1.0.0-beta-2430-IJ143-23.zip"
   //     1. comment out the following line to extract from prebuilt
   //     2. comment out the line further below that prevents downloading the plugin from the web (teamcity)
   // Then run the script, and copy over the file build/kotlin-plugin-...zip to prebuilts.
-  extract(communityHome, copyKotlinPrebuilt(communityHome))
+  extract(communityHome, copyKotlinPrebuilt(communityHome, currentVersion))
 
   def reasonToUpdate = getReasonToUpdate(communityHome, new File(communityHome, "build/kotlinc"))
   if (reasonToUpdate == null) {
@@ -58,26 +60,32 @@ target('default': 'Ensures that build/kotlinc directory contains JARs from Kotli
 }
 
 // Android Studio: copy the kotlin plugin zip checked into prebuilts to the build folder
-private File copyKotlinPrebuilt(String communityHome) {
+private File copyKotlinPrebuilt(String communityHome, String currentVersion) {
   File kotlinFolder = new File(communityHome, "../../prebuilts/tools/common/kotlin-plugin")
   if (!kotlinFolder.exists()) {
     projectBuilder.error("Kotlin prebuilt folder does not exist at " + kotlinFolder.getAbsolutePath())
   }
 
-  File[] files = kotlinFolder.listFiles(new FilenameFilter() {
-    @Override
-    boolean accept(File dir, String name) {
-      return name.endsWith(".zip");
+  File pluginZip = null
+  if (currentVersion == null) {
+    File[] files = kotlinFolder.listFiles(new FilenameFilter() {
+      @Override
+      boolean accept(File dir, String name) {
+        return name.endsWith(".zip");
+      }
+    })
+    if (files.length != 1) {
+      projectBuilder.error("More than 1 .zip file present in " + kotlinFolder.getAbsolutePath())
     }
-  })
-  if (files.length != 1) {
-    projectBuilder.error("More than 1 .zip file present in " + kotlinFolder.getAbsolutePath())
+    pluginZip = files[0]
+  } else {
+    pluginZip = new File(kotlinFolder, currentVersion)
   }
 
-  projectBuilder.info("Using Kotlin from: " + files[0].getAbsolutePath())
-  ant.copy(todir: "$communityHome/build/", file: files[0])
+  projectBuilder.info("Using Kotlin from: " + pluginZip.getAbsolutePath())
+  ant.copy(todir: "$communityHome/build/", file: pluginZip)
 
-  return new File(communityHome, "build/" + files[0].getName())
+  return new File(communityHome, "build/" + pluginZip.getName())
 }
 
 private boolean updatePluginFromWorkIdeaInstallation(String communityHome, String workIdeaHome) {
