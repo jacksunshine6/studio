@@ -77,6 +77,10 @@ public class ActionLink extends LinkLabel implements DataProvider {
     super.doClick();
   }
 
+  public AnAction getAction() {
+    return myAction;
+  }
+
   @Override
   protected Color getVisited() {
     return myVisitedColor == null ? super.getVisited() : myVisitedColor;
