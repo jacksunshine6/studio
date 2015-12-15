@@ -35,10 +35,7 @@ import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.*;
 import com.intellij.openapi.util.registry.Registry;
-import com.intellij.openapi.wm.IdeFrame;
-import com.intellij.openapi.wm.IdeRootPaneNorthExtension;
-import com.intellij.openapi.wm.StatusBar;
-import com.intellij.openapi.wm.WelcomeScreen;
+import com.intellij.openapi.wm.*;
 import com.intellij.openapi.wm.impl.IdeGlassPaneImpl;
 import com.intellij.ui.*;
 import com.intellij.ui.border.CustomLineBorder;
@@ -71,11 +68,11 @@ import java.net.URL;
  */
 public class FlatWelcomeFrame extends JFrame implements IdeFrame {
   private final BalloonLayout myBalloonLayout;
-  private final FlatWelcomeScreen myScreen;
+  private final WelcomeScreen myScreen;
 
   public FlatWelcomeFrame() {
     final JRootPane rootPane = getRootPane();
-    myScreen = new FlatWelcomeScreen();
+    myScreen = createScreen(rootPane);
 
     final IdeGlassPaneImpl glassPane = new IdeGlassPaneImpl(rootPane) {
       @Override
@@ -121,6 +118,7 @@ public class FlatWelcomeFrame extends JFrame implements IdeFrame {
 
     WelcomeFrame.setupCloseAction(this);
     MnemonicHelper.init(this);
+    myScreen.setupFrame(this);
     Disposer.register(ApplicationManager.getApplication(), new Disposable() {
       @Override
       public void dispose() {
@@ -140,6 +138,23 @@ public class FlatWelcomeFrame extends JFrame implements IdeFrame {
   private static void saveLocation(Rectangle location) {
     Point middle = new Point(location.x + location.width / 2, location.y = location.height / 2);
     DimensionService.getInstance().setLocation(WelcomeFrame.DIMENSION_KEY, middle, null);
+  }
+
+  private WelcomeScreen createScreen(JRootPane rootPane) {
+    WelcomeScreen screen = null;
+    for (WelcomeScreenProvider provider : WelcomeScreenProvider.EP_NAME.getExtensions()) {
+      if (!provider.isAvailable()) continue;
+      screen = provider.createWelcomeScreen(rootPane);
+      if (screen != null) break;
+    }
+    if (screen == null) {
+      screen = new FlatWelcomeScreen();
+    }
+    return screen;
+  }
+
+  public FlatWelcomeScreen createWelcomeScreen() {
+    return new FlatWelcomeScreen();
   }
 
   @Override
