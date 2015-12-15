@@ -1852,7 +1852,7 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     return result.toString();
   }
 
-  private void testFoldingRegions(@NotNull String verificationFileName, boolean doCheckCollapseStatus) {
+  private void testFoldingRegions(@NotNull String verificationFileName, @Nullable String destinationFileName, boolean doCheckCollapseStatus) {
     String expectedContent;
     try {
       expectedContent = FileUtil.loadFile(new File(verificationFileName));
@@ -1865,7 +1865,19 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
     expectedContent = StringUtil.replace(expectedContent, "\r", "");
     final String cleanContent = expectedContent.replaceAll(START_FOLD, "").replaceAll(END_FOLD, "");
 
-    configureByText(FileTypeManager.getInstance().getFileTypeByFileName(verificationFileName), cleanContent);
+    if (destinationFileName == null) {
+      configureByText(FileTypeManager.getInstance().getFileTypeByFileName(verificationFileName), cleanContent);
+    }
+    else {
+      try {
+        FileUtil.writeToFile(new File(destinationFileName), cleanContent);
+        configureFromExistingVirtualFile(LocalFileSystem.getInstance().refreshAndFindFileByPath(verificationFileName));
+      }
+      catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     final String actual = getFoldingDescription(doCheckCollapseStatus);
 
     Assert.assertEquals(expectedContent, actual);
@@ -1873,12 +1885,17 @@ public class CodeInsightTestFixtureImpl extends BaseFixture implements CodeInsig
 
   @Override
   public void testFoldingWithCollapseStatus(@NotNull final String verificationFileName) {
-    testFoldingRegions(verificationFileName, true);
+    testFoldingRegions(verificationFileName, null, true);
+  }
+
+  @Override
+  public void testFoldingWithCollapseStatus(@NotNull final String verificationFileName, @Nullable String destinationFileName) {
+    testFoldingRegions(verificationFileName, destinationFileName, true);
   }
 
   @Override
   public void testFolding(@NotNull final String verificationFileName) {
-    testFoldingRegions(verificationFileName, false);
+    testFoldingRegions(verificationFileName, null, false);
   }
 
   @Override
