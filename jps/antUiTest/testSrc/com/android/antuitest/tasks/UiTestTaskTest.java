@@ -15,15 +15,22 @@
  */
 package com.android.antuitest.tasks;
 
+import com.android.tools.idea.tests.gui.framework.BelongsToTestGroups;
+import com.android.tools.idea.tests.gui.framework.GuiTestCase;
+import com.android.tools.idea.tests.gui.framework.GuiTests;
+import com.android.tools.idea.tests.gui.framework.TestGroup;
 import com.intellij.openapi.util.io.FileUtil;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
+import static junit.framework.Assert.assertTrue;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.fail;
 
@@ -33,37 +40,41 @@ import static junit.framework.TestCase.fail;
 public class UiTestTaskTest {
 
   private UiTestTask task;
+  private File classpathFile;
 
   @Before
   public void setUp() throws Exception {
     task = new UiTestTask();
+    classpathFile = FileUtil.createTempFile("classpath", null);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    classpathFile.delete();
   }
 
   @Test
   public void testBatchComputation() throws Exception {
-    File testRoot = FileUtil.createTempDirectory("test", "Root");
-    createDirectoryStructure(testRoot);
     task.setProject(new Project());
-    task.setTestRoot(testRoot.getAbsolutePath());
-    task.setPackagePrefix("com");
+    task.setTestSuite("com.android.antuitest.tasks.UiTestTaskTest");
+    task.setClasspathFile(classpathFile.getAbsolutePath());
 
-    List<FileSet> batches = task.getTestBatches();
+    Map<String, List<Class<?>>> batches = task.getTestGroups();
     assertEquals(2, batches.size());
-    String spec1 = task.getTestSpec(batches.get(0));
-    String spec2 = task.getTestSpec(batches.get(1));
-    if (! ("com.bb.B1Test,com.bb.subdir.B2Test,".equals(spec1) && "com.aa.ATest,".equals(spec2)) ||
-        ("com.bb.B1Test,bb.subdir.B2Test,".equals(spec2) && "com.aa.ATest,".equals(spec1))) {
-      fail("Expected \"com.aa.ATest,\" and \"com.bb.B1Test,com.bb.subdir.B2Test,\", not \"" + spec1 + "\" and \"" + spec2 +"\"");
-    }
-  }
 
-  private void createDirectoryStructure(File testRoot) throws Exception {
-    // TODO: Can this be an in-memory filesystem?
-    FileUtil.writeToFile(new File(testRoot, "com/aa/ATest.java"),
-                         "package com.aa; public class ATest { }\n");
-    FileUtil.writeToFile(new File(testRoot, "com/bb/B1Test.java"),
-                         "package com.bb; public class B1Test { }\n");
-    FileUtil.writeToFile(new File(testRoot, "com/bb/subdir/B2Test.java"),
-                         "package com.bb.subdir; public class B2Test { }\n");
+    assertTrue(batches.containsKey("A"));
+    assertEquals("com.android.antuitest.tasks.ATest,", task.getTestSpec(batches.get("A")));
+
+    assertTrue(batches.containsKey("B"));
+    assertEquals("com.android.antuitest.tasks.BTest,com.android.antuitest.tasks.CTest,", task.getTestSpec(batches.get("B")));
   }
 }
+
+@BelongsToTestGroups(TestGroup.A)
+class ATest extends GuiTestCase { }
+
+@BelongsToTestGroups(TestGroup.B)
+class BTest extends GuiTestCase { }
+
+@BelongsToTestGroups(TestGroup.B)
+class CTest extends GuiTestCase { }

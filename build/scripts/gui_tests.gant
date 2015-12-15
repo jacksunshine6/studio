@@ -1,8 +1,5 @@
 // Based on tests.gant but with the includeTargets of common_tests inlined
 // below (and with some changes to invoke our GUI test suite instead
-import com.intellij.util.containers.hash.LinkedHashMap
-import org.apache.tools.ant.AntClassLoader
-
 import static org.jetbrains.jps.idea.IdeaProjectLoader.guessHome
 
 includeTargets << new File("${guessHome(this)}/build/scripts/utils.gant")
@@ -87,7 +84,7 @@ target('sharded_ui_tests' : "(Experimental) Runs UI tests, sharding across multi
   List<String> testRuntimeClasspath = projectBuilder.moduleRuntimeClasspath(findModule("community-main"), true)
   new File(classpathFile).text = testRuntimeClasspath.findAll({ new File((String)it).exists() }).join('\n')
 
-  ant.uitest(testRoot: "$home/../adt/idea/android/guiTestSrc/", packagePrefix: "com/android/tools/idea/tests/gui", classpathFile: classpathFile) {
+  ant.uitest(testSuite: "com.android.tools.idea.tests.gui.GuiTestSuite", classpathFile: classpathFile) {
     pass("idea.test.group")
     pass("idea.test.patterns")
     pass("idea.fast.only")
