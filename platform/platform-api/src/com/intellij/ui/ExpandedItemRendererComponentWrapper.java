@@ -63,7 +63,24 @@ public class ExpandedItemRendererComponentWrapper extends JComponent {
     }
     @Override
     public AccessibleContext getAccessibleContext() {
-      return myAccessible.getAccessibleContext();
+      AccessibleContext result = myAccessible.getAccessibleContext();
+      // Since we implement a special case, i.e. returning our child (myAccessible)'s AccessibleContext as
+      // our own AccessibleContext, we need to fix up the parent chain so that the getAccessibleParent returns
+      // our parent. This is so that the Access Bridge does not run into an infinite loop when calling
+      // "getAccessibleParent" to find the root window of an accessible context.
+      //
+      // Note that if we had available a full facade implementation of AccessibleContext, another option (maybe cleaner)
+      // would be to return our own AccessibleContext implementation that would delegate most calls to
+      // myAccessible's AccessibleContext.
+      if (result != null) {
+        Container parent = getParent();
+        if (parent instanceof Accessible) {
+          result.setAccessibleParent((Accessible)parent);
+        } else {
+          result.setAccessibleParent(null);
+        }
+      }
+      return result;
     }
   }
 
