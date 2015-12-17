@@ -23,7 +23,10 @@ import javax.swing.*;
 
 public class AccessibleContextUtil {
   public static void setName(@NotNull JComponent component, @NotNull JComponent source) {
-    String name = source.getAccessibleContext().getAccessibleName();
+    setName(component, source.getAccessibleContext().getAccessibleName());
+  }
+
+  public static void setName(@NotNull JComponent component, @Nullable String name) {
     if (name != null) {
       component.getAccessibleContext().setAccessibleName(name);
     }
@@ -31,7 +34,7 @@ public class AccessibleContextUtil {
 
   public static void setCombinedName(@NotNull JComponent component,
                                      @NotNull JComponent j1, @NotNull String separator, @NotNull JComponent j2) {
-    component.getAccessibleContext().setAccessibleName(
+    setName(component,
       combineAccessibleStrings(
         j1.getAccessibleContext().getAccessibleName(),
         separator,
@@ -41,7 +44,7 @@ public class AccessibleContextUtil {
   public static void setCombinedName(@NotNull JComponent component,
                                      @NotNull JComponent j1, @NotNull String separator1,
                                      @NotNull JComponent j2, @NotNull String separator2, @NotNull JComponent j3) {
-    component.getAccessibleContext().setAccessibleName(
+    setName(component,
       combineAccessibleStrings(
         j1.getAccessibleContext().getAccessibleName(),
         separator1,
@@ -51,7 +54,10 @@ public class AccessibleContextUtil {
   }
 
   public static void setDescription(@NotNull JComponent component, @NotNull JComponent source) {
-    String description = source.getAccessibleContext().getAccessibleDescription();
+    setDescription(component, source.getAccessibleContext().getAccessibleDescription());
+  }
+
+  public static void setDescription(@NotNull JComponent component, @Nullable String description) {
     if (description != null) {
       component.getAccessibleContext().setAccessibleDescription(description);
     }
@@ -59,7 +65,7 @@ public class AccessibleContextUtil {
 
   public static void setCombinedDescription(@NotNull JComponent component, @NotNull JComponent j1,
                                             @NotNull String separator, @NotNull JComponent j2) {
-    component.getAccessibleContext().setAccessibleDescription(
+    setDescription(component,
       combineAccessibleStrings(
         j1.getAccessibleContext().getAccessibleDescription(),
         separator,
@@ -68,7 +74,7 @@ public class AccessibleContextUtil {
 
   public static void setCombinedDescription(@NotNull JComponent component, @NotNull JComponent j1, @NotNull String separator1,
                                             @NotNull JComponent j2, @NotNull String separator2, @NotNull JComponent j3) {
-    component.getAccessibleContext().setAccessibleDescription(
+    setDescription(component,
       combineAccessibleStrings(
         j1.getAccessibleContext().getAccessibleDescription(),
         separator1,
