@@ -58,7 +58,7 @@ def getProperties(String home, String buildNumber) {
       maySkipAndroidPlugin = false
       relativeAndroidHome = "$androidRoot"
       relativeAndroidToolsBaseHome = "$toolsBaseRoot"
-      excludedPlugins = ["ant", "ByteCodeViewer", "devkit", "eclipse", "javaFX", "Kotlin", "uiDesigner", "xpath", "xslt-debugger"]
+      excludedPlugins = ["ant", "ByteCodeViewer", "devkit", "eclipse", "javaFX", "Kotlin", "uiDesigner", "xpath", "xslt-debugger", "maven"]
       ideJvmArgs = "-Didea.platform.prefix=$platformPrefix"
 
       configNotice  = "#\n" +
