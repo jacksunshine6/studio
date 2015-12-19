@@ -98,3 +98,50 @@ betas.)
      public @interface NotNull {
        /**
     ```
+
+ 9. Use data-binding prebuilt jar instead of depending on modules.
+
+    Build Android Studio and copy the data-binding jar from
+    tools/idea/out/dist.all.ce/plugins/android/lib/data-binding.jar to tools/adt/idea/android/lib.
+    Edit the tools/idea/build/scripts/layouts.gant file to stop building
+    the data-binding modules.
+
+    ```
+    --- a/build/scripts/layouts.gant
+    +++ b/build/scripts/layouts.gant
+    @@ -815,11 +815,6 @@ def layoutAndroid(String androidHome, String androidToolsBaseHome) {
+           jar("android-rt.jar") {
+             module("android-rt")
+           }
+    -      jar("data-binding.jar") {
+    -        module("db-baseLibrary")
+    -        module("db-compilerCommon")
+    -        module("db-compiler")
+    -      }
+
+           jar("common.jar") {
+             module("common")
+    ```
+
+    Also edit the tools/adt/idea/android/android.iml file to depend on the prebuilt instead of the module.
+    ```
+    --- a/android/android.iml
+    +++ b/android/android.iml
+    @@ -102,6 +102,14 @@
+         <orderEntry type="module" module-name="instant-run-client" />
+         <orderEntry type="module" module-name="instant-run-common" />
+         <orderEntry type="library" name="jna" level="project" />
+    -    <orderEntry type="module" module-name="db-compiler" />
+    +    <orderEntry type="module-library">
+    +      <library>
+    +        <CLASSES>
+    +          <root url="jar://$MODULE_DIR$/lib/data-binding.jar!/" />
+    +        </CLASSES>
+    +        <JAVADOC />
+    +        <SOURCES />
+    +      </library>
+    +    </orderEntry>
+       </component>
+     </module>
+    \ No newline at end of file
+    ```
