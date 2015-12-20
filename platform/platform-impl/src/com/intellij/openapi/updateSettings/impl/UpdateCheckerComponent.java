@@ -40,18 +40,24 @@ import javax.swing.event.HyperlinkEvent;
  * @author yole
  */
 public class UpdateCheckerComponent implements ApplicationComponent {
-  private static final long CHECK_INTERVAL = DateFormatUtil.DAY;
+  private static final long CHECK_INTERVAL = DateFormatUtil.HOUR * 8; // Android Studio: check every 8 hours
 
   private final Alarm myCheckForUpdatesAlarm = new Alarm(Alarm.ThreadToUse.SHARED_THREAD);
   private final Runnable myCheckRunnable = new Runnable() {
     @Override
     public void run() {
-      UpdateChecker.updateAndShowResult().doWhenDone(new Runnable() {
-        @Override
-        public void run() {
-          queueNextCheck(CHECK_INTERVAL);
-        }
-      });
+      //UpdateChecker.updateAndShowResult().doWhenDone(new Runnable() {
+      //  @Override
+      //  public void run() {
+      //    queueNextCheck(CHECK_INTERVAL);
+      //  }
+      //});
+
+      // Android Studio: The above implementation results in the next update check being queued only after the update check
+      // succeeds. If it fails for any reason, then further checks will never be queued. To avoid that, we schedule the update check
+      // right away instead of in a doWhenDone() block.
+      UpdateChecker.updateAndShowResult();
+      queueNextCheck(CHECK_INTERVAL);
     }
   };
   private final UpdateSettings mySettings;
@@ -95,15 +101,18 @@ public class UpdateCheckerComponent implements ApplicationComponent {
     app.getMessageBus().connect(app).subscribe(AppLifecycleListener.TOPIC, new AppLifecycleListener.Adapter() {
       @Override
       public void appFrameCreated(String[] commandLineArgs, @NotNull Ref<Boolean> willOpenProject) {
-        String currentBuild = ApplicationInfo.getInstance().getBuild().asString();
-        long timeToNextCheck = mySettings.getLastTimeChecked() + CHECK_INTERVAL - System.currentTimeMillis();
+        // Android Studio: always check for update at startup
+        myCheckRunnable.run();
 
-        if (StringUtil.compareVersionNumbers(mySettings.getLasBuildChecked(), currentBuild) < 0 || timeToNextCheck <= 0) {
-          myCheckRunnable.run();
-        }
-        else {
-          queueNextCheck(timeToNextCheck);
-        }
+        //String currentBuild = ApplicationInfo.getInstance().getBuild().asString();
+        //long timeToNextCheck = mySettings.getLastTimeChecked() + CHECK_INTERVAL - System.currentTimeMillis();
+        //
+        //if (StringUtil.compareVersionNumbers(mySettings.getLasBuildChecked(), currentBuild) < 0 || timeToNextCheck <= 0) {
+        //  myCheckRunnable.run();
+        //}
+        //else {
+        //  queueNextCheck(timeToNextCheck);
+        //}
       }
     });
   }
