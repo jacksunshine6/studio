@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="builder-model">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/../../prebuilts/tools/common/builder-model/builder-model-1.6.0-alpha3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../prebuilts/tools/common/builder-model/builder-model-2.0.0-alpha4.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="jar://$PROJECT_DIR$/../../prebuilts/tools/common/builder-model/builder-model-1.6.0-alpha3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../prebuilts/tools/common/builder-model/builder-model-2.0.0-alpha4-sources.jar!/" />
     </SOURCES>
   </library>
 </component>
