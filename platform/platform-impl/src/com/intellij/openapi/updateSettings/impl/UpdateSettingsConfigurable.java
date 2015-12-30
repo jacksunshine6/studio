@@ -16,7 +16,6 @@
 package com.intellij.openapi.updateSettings.impl;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.intellij.ide.DataManager;
 import com.intellij.ide.IdeBundle;
 import com.intellij.ide.externalComponents.ExternalComponentManager;
@@ -41,13 +40,10 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.List;
-import java.util.Map;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author pti
@@ -104,14 +100,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
       throw new ConfigurationException(message);
     }
 
-    List<String> enabledExternalUpdateSources = mySettings.getEnabledExternalUpdateSources();
-    Map<String, String> externalUpdateChannels = mySettings.getExternalUpdateChannels();
-
-    enabledExternalUpdateSources.clear();
-    enabledExternalUpdateSources.addAll(myPanel.getEnabledExternalUpdateSources());
-    externalUpdateChannels.clear();
-    externalUpdateChannels.putAll(myPanel.getExternalUpdateChannels());
-
     boolean wasEnabled = mySettings.isCheckNeeded();
     mySettings.setCheckNeeded(myPanel.myCheckForUpdates.isSelected());
     if (wasEnabled != mySettings.isCheckNeeded()) {
@@ -136,9 +124,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     myPanel.myUseSecureConnection.setSelected(mySettings.isSecureConnection());
     myPanel.updateLastCheckedLabel();
     myPanel.setSelectedChannelType(ChannelStatus.fromCode(mySettings.getUpdateChannelType()));
-    myPanel.setEnabledExternalUpdateSources(mySettings.getEnabledExternalUpdateSources());
-    myPanel.setExternalUpdateChannels(mySettings.getExternalUpdateChannels());
-
   }
 
   @Override
@@ -151,20 +136,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
         mySettings.isSecureConnection() != myPanel.myUseSecureConnection.isSelected()) {
       return true;
     }
-
-    List<String> enabledExternal = mySettings.getEnabledExternalUpdateSources();
-    List<String> newEnabledExternal = myPanel.getEnabledExternalUpdateSources();
-    if (!enabledExternal.equals(newEnabledExternal)) {
-      return true;
-    }
-
-    Map<String, String> externalChannels = mySettings.getExternalUpdateChannels();
-    Map<String, String> newExternalChannels = myPanel.getExternalUpdateChannels();
-    if (!externalChannels.equals(newExternalChannels)) {
-      return true;
-    }
-
-
 
     Object channel = myPanel.myUpdateChannels.getSelectedItem();
     return channel != null && !channel.equals(ChannelStatus.fromCode(mySettings.getUpdateChannelType()));
@@ -187,8 +158,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     private JCheckBox myUseSecureConnection;
     private JPanel mySettingsPanel;
     private JPanel myStatusPanel;
-    private Map<JCheckBox, ExternalComponentSource> myExternalSourceSettings;
-    private Map<ExternalComponentSource, JComboBox> myExternalSourceChannels;
 
     public UpdatesSettingsPanel(boolean checkNowEnabled) {
       mySettings = UpdateSettings.getInstance();
@@ -247,30 +216,14 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
     }
 
     private void createUIComponents() {
-      myExternalSourceSettings = Maps.newHashMap();
-      myExternalSourceChannels = Maps.newHashMap();
       List<Pair<String, String>> extraStatuses = Lists.newArrayList();
 
       for (ExternalComponentSource source : ExternalComponentManager.getInstance().getComponentSources()) {
-        myExternalSourceSettings.put(new JCheckBox(IdeBundle.message("updates.settings.checkbox") + " " + source.getName()), source);
-        List<String> channels = source.getAllChannels();
-        if (channels != null) {
-          CollectionComboBoxModel model = new CollectionComboBoxModel(channels);
-          myExternalSourceChannels.put(source, new JComboBox(model));
-        }
         extraStatuses.addAll(source.getStatuses());
       }
-      mySettingsPanel = new JPanel(new GridLayoutManager(1 + myExternalSourceSettings.size(), 3));
+      mySettingsPanel = new JPanel(new GridLayoutManager(1, 3));
       mySettingsPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
       myCheckForUpdates = new JCheckBox(IdeBundle.message("updates.settings.checkbox"));
-      myCheckForUpdates.addChangeListener(new ChangeListener() {
-        @Override
-        public void stateChanged(ChangeEvent changeEvent) {
-          for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
-            enabled.setEnabled(myCheckForUpdates.isSelected());
-          }
-        }
-      });
 
       myUpdateChannels = new JComboBox();
       int row = 0;
@@ -283,17 +236,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
 
       mySettingsPanel.add(myCheckForUpdates, enabledConstraints);
       mySettingsPanel.add(myUpdateChannels, controlConstraints);
-      for (JCheckBox enabledCheckbox : myExternalSourceSettings.keySet()) {
-        row++;
-        enabledConstraints.setColumn(0);
-        enabledConstraints.setRow(row);
-        mySettingsPanel.add(enabledCheckbox, enabledConstraints);
-        JComboBox channelChooser = myExternalSourceChannels.get(myExternalSourceSettings.get(enabledCheckbox));
-        if (channelChooser != null) {
-          enabledConstraints.setColumn(1);
-          mySettingsPanel.add(channelChooser, enabledConstraints);
-        }
-      }
 
       myStatusPanel = new JPanel(new GridLayoutManager(extraStatuses.size() + 3, 2));
       row = 0;
@@ -325,46 +267,6 @@ public class UpdateSettingsConfigurable extends BaseConfigurable implements Sear
         myStatusPanel.add(new JLabel(extra.first), statusLabelConstraints);
         myStatusPanel.add(new JLabel(extra.second), statusValueConstraints);
       }
-    }
-
-    public void setEnabledExternalUpdateSources(List<String> enabledExternalUpdateSources) {
-      for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
-        enabled.setSelected(enabledExternalUpdateSources.contains(myExternalSourceSettings.get(enabled).getName()));
-      }
-    }
-
-    public List<String> getEnabledExternalUpdateSources() {
-      List<String> result = Lists.newArrayList();
-      for (JCheckBox enabled : myExternalSourceSettings.keySet()) {
-        if (enabled.isSelected()) {
-          result.add(myExternalSourceSettings.get(enabled).getName());
-        }
-      }
-      return result;
-    }
-
-    public void setExternalUpdateChannels(@NotNull Map<String, String> enabledExternalUpdateSources) {
-      for (ExternalComponentSource source : ExternalComponentManager.getInstance().getComponentSources()) {
-        String sourceName = source.getName();
-        String channelName = enabledExternalUpdateSources.get(sourceName);
-        JComboBox channelSelector = myExternalSourceChannels.get(source);
-        if (channelName != null && channelSelector != null) {
-          channelSelector.setSelectedItem(channelName);
-        }
-      }
-    }
-
-    @NotNull
-    public Map<String, String> getExternalUpdateChannels() {
-      Map<String, String> result = Maps.newHashMap();
-      for (ExternalComponentSource source : ExternalComponentManager.getInstance().getComponentSources()) {
-        String channel = ChannelStatus.RELEASE.getDisplayName();
-        if (myExternalSourceChannels.containsKey(source)) {
-          channel = (String)myExternalSourceChannels.get(source).getSelectedItem();
-        }
-        result.put(source.getName(), channel);
-      }
-      return result;
     }
   }
 }
