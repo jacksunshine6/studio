@@ -564,6 +564,59 @@ object UpdateChecker {
 
   @JvmStatic
   fun getInstallationUID(propertiesComponent: PropertiesComponent): String {
+    // Android Studio: we'd like a single user id across various versions of Studio.
+    // The existing IntelliJ implementation (see getIntelliJInstallationUID below) used a single location on Windows, but on Mac and Linux,
+    // it stores the setting in a properties component, which varies with the system selector.
+
+    // The following implementation attempts to always retrieve the file from $HOME/.android/uid.txt
+    val home = findAndroidHome()
+
+    if (home == null) {
+      // fall back to old implementation
+      return getIntelliJInstallationUID(propertiesComponent)
+    }
+
+    if (!home.exists()) {
+      if (!home.mkdirs()) {
+        // $HOME/.android didn't exist and we couldn't create it
+        return getIntelliJInstallationUID(propertiesComponent)
+      }
+    }
+
+    val uidFile = File(home, "uid.txt")
+    if (uidFile.exists()) {
+      try {
+        return FileUtil.loadFile(uidFile).trim { it <= ' ' }
+      }
+      catch (e: IOException) {
+        return getIntelliJInstallationUID(propertiesComponent)
+      }
+    }
+
+    val uuid = getIntelliJInstallationUID(propertiesComponent)
+    try {
+      FileUtil.writeToFile(uidFile, uuid)
+    }
+    catch (e: IOException) {
+      // fall through
+    }
+    return uuid
+  }
+
+  private fun findAndroidHome(): File? {
+    var envVars = arrayOf("%UserProfile%", "HOME", "user.home");
+    envVars.forEach { envVar ->
+      val v = System.getenv(envVar)
+      if (v != null && File(v).exists()) {
+        return File(v, ".android");
+      }
+    }
+
+    return null
+  }
+
+  @JvmStatic
+  fun getIntelliJInstallationUID(propertiesComponent: PropertiesComponent): String {
     if (SystemInfo.isWindows) {
       val uid = getInstallationUIDOnWindows(propertiesComponent)
       if (uid != null) {
