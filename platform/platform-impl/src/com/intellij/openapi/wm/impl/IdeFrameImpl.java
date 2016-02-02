@@ -140,7 +140,7 @@ public class IdeFrameImpl extends JFrame implements IdeFrameEx, DataProvider {
         final Runnable runnable = new Runnable() {
           @Override
           public void run() {
-            if (isDisplayable() && !getSize().equals(myDimensionRef.get())) {
+            if (isDisplayable() && getExtendedState() != Frame.MAXIMIZED_BOTH && !getSize().equals(myDimensionRef.get())) {
               Rectangle bounds = getBounds();
               bounds.width--;
               setBounds(bounds);
