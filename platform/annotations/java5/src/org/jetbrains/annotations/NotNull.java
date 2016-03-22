@@ -27,6 +27,8 @@ import java.lang.annotation.*;
  * @author max
  */
 @Documented
+// Can't switch to SOURCE retention because of Kotlin; fails compilation
+// ... Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type X
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE})
 public @interface NotNull {

@@ -85,6 +85,11 @@ betas.)
  8. Turn off CLASS retention in
     platform/annotations/src/org/jetbrains/annotations
 
+    (Note: You may not be able to do this for the NotNull annotation; this
+     currently affects Kotlin compilation in a few files which apparently
+     requires class retention for the Kotlin compiler to discover that various
+     code references without the ?. operator is safe.)
+
     ```
     --- a/platform/annotations/src/org/jetbrains/annotations/NotNull.java
     +++ b/platform/annotations/src/org/jetbrains/annotations/NotNull.java
